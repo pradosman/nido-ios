@@ -7,7 +7,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = headerStore.get("host") ?? "localhost:3000";
   const protocol = headerStore.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const image = `${protocol}://${host}/og.png`;
-  const title = "Nido — El día de Leo";
+  const title = "Nido — El día de tu bebé";
   const description = "El cuidado de tu bebé, claro y compartido.";
 
   return {

@@ -14,36 +14,39 @@ async function render() {
   );
 }
 
-test("server-renders the Nido daily care experience", async () => {
+test("server-renders the private Nido loading state without demo data", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /Nido/);
-  assert.match(html, /Buenos días, Marcos/);
-  assert.match(html, /Siesta en 42 min/);
-  assert.match(html, /¿Qué acaba de pasar\?/);
-  assert.match(html, /Historial/);
-  assert.match(html, /Tendencias/);
-  assert.doesNotMatch(html, /Your site is taking shape|codex-preview|Building your site/);
+  assert.match(html, /Preparando vuestro espacio/);
+  assert.doesNotMatch(html, /Buenos días, Marcos|Siesta en 42 min|Leo · 4 meses/);
+  assert.doesNotMatch(html, /Your site is taking shape|codex-preview|Building your site|sampleEntries/);
 });
 
-test("ships product metadata, local persistence, and a bespoke social card", async () => {
-  const [page, app, layout, packageJson, image] = await Promise.all([
+test("ships private persistence, onboarding, and a bespoke social card", async () => {
+  const [page, app, layout, packageJson, hosting, schema, image] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/NidoApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     stat(new URL("../public/og.png", import.meta.url)),
   ]);
 
   assert.match(page, /generateMetadata/);
   assert.match(page, /\/og\.png/);
   assert.match(layout, /lang="es"/);
-  assert.match(app, /localStorage\.setItem\("nido-entries"/);
+  assert.match(app, /Un espacio para vuestro día a día/);
+  assert.match(app, /fetch\("\/api\/nido"/);
   assert.match(app, /nido-active-sleep/);
-  assert.match(app, /no una recomendación médica/);
+  assert.match(app, /nunca recomendaciones médicas/);
+  assert.doesNotMatch(app, /sampleEntries|weekSleep = \[12/);
+  assert.match(hosting, /"d1": "DB"/);
+  assert.match(schema, /idx_entries_occurred_at/);
   assert.match(packageJson, /"lucide-react"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.ok(image.size > 100_000, "social card should be a real raster asset");
