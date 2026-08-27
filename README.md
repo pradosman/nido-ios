@@ -1,100 +1,93 @@
-# vinext-starter
+# Nido: local y VPS
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Nido puede ejecutarse en local y en `nido.momentumia.com` con la misma aplicación. En Cloudflare Sites usa D1; en el VPS usa una base SQLite persistente dentro de un volumen Docker.
 
-## Prerequisites
+## Arranque local
 
-- Node.js `>=22.13.0`
-
-## Quick Start
+Necesitas Node.js 22.13 o posterior.
 
 ```bash
 npm install
-npm run dev
-npm run build
+npm run local
 ```
 
-This starter does not use `wrangler.jsonc`.
+Abre `http://localhost:3000`. Cada arranque verifica el esquema de forma segura y, si hace falta, crea la base local dentro de `.wrangler/state`.
 
-## Included Shape
+Para comprobar una compilación de producción:
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+npm test
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+## Despliegue en el VPS
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+Requisitos: Docker con Compose, Caddy instalado en el host y un registro DNS `A` o `AAAA` de `nido.momentumia.com` apuntando al VPS.
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+1. Copia o clona el proyecto en el servidor.
+2. Construye y arranca Nido:
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+   ```bash
+   docker compose -f compose.vps.yml up -d --build
+   docker compose -f compose.vps.yml ps
+   ```
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+3. Genera una contraseña cifrada para Caddy:
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+   ```bash
+   caddy hash-password
+   ```
 
-## Useful Commands
+4. Copia el bloque de `deploy/Caddyfile.example` al Caddyfile del servidor. Define las credenciales sin escribirlas en el repositorio:
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+   ```bash
+   sudo systemctl edit caddy
+   ```
 
-## Learn More
+   Añade este bloque, sustituyendo los valores:
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+   ```ini
+   [Service]
+   Environment="NIDO_AUTH_USER=tu_usuario"
+   Environment="NIDO_AUTH_HASH=el_hash_generado"
+   ```
+
+   Valida y recarga Caddy:
+
+   ```bash
+   sudo caddy validate --config /etc/caddy/Caddyfile
+   sudo systemctl reload caddy
+   ```
+
+5. Abre `https://nido.momentumia.com` e inicia sesión con esas credenciales.
+
+El contenedor solo publica la aplicación en `127.0.0.1:43129`; Caddy es el único punto expuesto a Internet y obtiene/renueva HTTPS automáticamente.
+
+## Operaciones habituales
+
+| Acción | Comando |
+|---|---|
+| Ver estado | `docker compose -f compose.vps.yml ps` |
+| Ver registros | `docker compose -f compose.vps.yml logs -f nido` |
+| Actualizar | `git pull && docker compose -f compose.vps.yml up -d --build` |
+| Detener | `docker compose -f compose.vps.yml down` |
+| Verificar desde el VPS | `curl -I http://127.0.0.1:43129` |
+
+## Datos y copias de seguridad
+
+Los datos viven en el volumen `nido-data` y sobreviven a reconstrucciones y reinicios. `docker compose down` no los elimina; evita `docker compose down -v` salvo que quieras borrar todo.
+
+Copia de seguridad:
+
+```bash
+docker compose -f compose.vps.yml exec -T nido \
+  sh -c 'tar -czf - -C /data .' > "nido-backup-$(date +%F).tar.gz"
+```
+
+Guarda la copia fuera del VPS. Antes de restaurar, detén Nido y conserva una copia del volumen actual.
+
+## Comprobación final
+
+- `https://nido.momentumia.com` muestra el diálogo de acceso.
+- La aplicación abre y permite crear un registro.
+- El contenedor figura como `healthy`.
+- El registro sigue presente después de `docker compose restart nido`.

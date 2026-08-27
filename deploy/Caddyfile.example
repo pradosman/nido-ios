@@ -1,0 +1,16 @@
+nido.momentumia.com {
+  encode zstd gzip
+
+  basic_auth {
+    {$NIDO_AUTH_USER} {$NIDO_AUTH_HASH}
+  }
+
+  reverse_proxy 127.0.0.1:43129
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+    -Server
+  }
+}
