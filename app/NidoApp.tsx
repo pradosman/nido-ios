@@ -2,10 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  Activity, Baby, BarChart3, Bath, Bell, Check, ChevronRight, Clock3,
-  Droplets, HeartPulse, Home, Milk, Moon, MoreHorizontal, NotebookPen,
-  Plus, Settings, Sparkles, Stethoscope, Thermometer, X,
-} from "lucide-react";
+  Activity, Bath, Bell, Bottle as Milk, ChartBar as BarChart3, Check,
+  ChevronRight, Clock3, Drops as Droplets, HeartHand as Baby, HeartPulse,
+  Home, MoonSleep as Moon, MoreH as MoreHorizontal, Notebook as NotebookPen,
+  Plus, Settings, Sparkles, Stethoscope, Thermometer, Xmark as X,
+} from "reicon-react";
 import {
   ageInMonths, calculateDayMetrics, calculateWeekSleep, entriesForDay,
   formatMinutes, wakeWindowMinutes,
@@ -60,7 +61,7 @@ function initials(name: string) {
 function IconBubble({ kind }: { kind: EntryKind }) {
   const config = labels[kind];
   const Icon = config.icon;
-  return <span className={`event-icon ${config.className}`}><Icon size={19} strokeWidth={2} /></span>;
+  return <span className={`event-icon ${config.className}`}><Icon size={20} weight="Filled" aria-hidden="true" /></span>;
 }
 
 export default function NidoApp() {
@@ -226,7 +227,7 @@ function ProfileForm({ onSave, profile, submitLabel, initialError = "" }: { onSa
 }
 
 function NavButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Home; label: string }) {
-  return <button type="button" className={`nav-button ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={onClick}><Icon size={20} strokeWidth={active ? 2.4 : 1.8} /><span>{label}</span></button>;
+  return <button type="button" className={`nav-button ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={onClick}><Icon size={21} weight={active ? "Filled" : "Outline"} strokeWidth={active ? 1.8 : 1.55} aria-hidden="true" /><span>{label}</span></button>;
 }
 
 function TodayView({ profile, entries, now, activeSleep, sleepSeconds, onSleep, onOpen, onViewHistory }: { profile: Profile; entries: Entry[]; now: number; activeSleep: number | null; sleepSeconds: number; onSleep: () => void; onOpen: (kind: EntryKind) => void; onViewHistory: () => void }) {
@@ -249,10 +250,10 @@ function TodayView({ profile, entries, now, activeSleep, sleepSeconds, onSleep, 
   </>;
 }
 
-function QuickAction({ className, icon: Icon, title, detail, onClick }: { className: string; icon: typeof Moon; title: string; detail: string; onClick: () => void }) { return <button className={`quick-action ${className}`} onClick={onClick}><span><Icon size={21} /></span><strong>{title}</strong><small>{detail}</small></button>; }
-function TimelineRow({ entry }: { entry: Entry }) { return <div className="timeline-row"><div className="timeline-time">{formatClock(entry.occurredAt)}</div><IconBubble kind={entry.kind} /><div className="timeline-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></div><ChevronRight size={17} className="row-chevron" /></div>; }
-function Summary({ icon: Icon, label, value, note }: { icon: typeof Moon; label: string; value: string; note: string }) { return <div className="summary-row"><span><Icon size={18} /></span><strong>{label}</strong><div><b>{value}</b><small>{note}</small></div></div>; }
-function EmptyState({ icon: Icon, title, body }: { icon: typeof NotebookPen; title: string; body: string }) { return <div className="empty-state"><span><Icon size={22} /></span><strong>{title}</strong><p>{body}</p></div>; }
+function QuickAction({ className, icon: Icon, title, detail, onClick }: { className: string; icon: typeof Moon; title: string; detail: string; onClick: () => void }) { return <button className={`quick-action ${className}`} onClick={onClick}><span><Icon size={27} weight="Filled" aria-hidden="true" /></span><strong>{title}</strong><small>{detail}</small></button>; }
+function TimelineRow({ entry }: { entry: Entry }) { return <div className="timeline-row"><div className="timeline-time">{formatClock(entry.occurredAt)}</div><IconBubble kind={entry.kind} /><div className="timeline-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></div><ChevronRight size={17} strokeWidth={1.5} className="row-chevron" aria-hidden="true" /></div>; }
+function Summary({ icon: Icon, label, value, note }: { icon: typeof Moon; label: string; value: string; note: string }) { return <div className="summary-row"><span><Icon size={19} strokeWidth={1.55} aria-hidden="true" /></span><strong>{label}</strong><div><b>{value}</b><small>{note}</small></div></div>; }
+function EmptyState({ icon: Icon, title, body }: { icon: typeof NotebookPen; title: string; body: string }) { return <div className="empty-state"><span><Icon size={24} weight="Filled" aria-hidden="true" /></span><strong>{title}</strong><p>{body}</p></div>; }
 
 function HistoryView({ entries, filter, setFilter }: { entries: Entry[]; filter: "all" | EntryKind; setFilter: (value: "all" | EntryKind) => void }) {
   return <section className="page-view"><header className="page-header"><div><p className="eyebrow">Registro completo</p><h1>Historial</h1></div></header><div className="filter-pills">{(["all", "sleep", "feed", "diaper", "health"] as const).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item === "all" ? "Todo" : labels[item].label}</button>)}</div><div className="history-layout"><div className="panel history-list"><div className="day-divider"><span>Todos los registros</span><small>{entries.length}</small></div>{entries.length ? entries.map((entry) => <TimelineRow key={entry.id} entry={entry} />) : <EmptyState icon={NotebookPen} title="El historial está vacío" body="Los registros que guardes aparecerán aquí, ordenados del más reciente al más antiguo." />}</div><aside className="panel share-card"><span className="share-icon"><Stethoscope size={23} /></span><h2>Listo para la consulta</h2><p>Cuando haya datos podrás imprimir un resumen claro para comentarlo con el pediatra.</p><button onClick={() => window.print()} disabled={!entries.length}>Imprimir resumen</button></aside></div></section>;
@@ -276,7 +277,7 @@ function SettingsView({ profile, onEdit }: { profile: Profile; onEdit: () => voi
   return <section className="page-view settings-view"><header className="page-header"><div><p className="eyebrow">Tu familia</p><h1>Ajustes</h1></div></header><section className="profile-card panel"><div className="large-avatar">{initials(profile.babyName)}</div><div><h2>{profile.babyName}</h2><p>{formatBirthDate(profile.birthDate)} · {ageLabel(profile)}</p></div><button onClick={onEdit}>Editar</button></section><section className="settings-group panel"><h2>Cuidado diario</h2><SettingRow icon={Bell} title="Avisos tranquilos" detail="Solo cuando realmente ayudan" /><SettingRow icon={Activity} title="Actividades visibles" detail="Sueño, tomas, pañales y salud" /><SettingRow icon={Baby} title="Cuidador principal" detail={`${profile.caregiverName} · Uso personal`} /></section><section className="settings-group panel"><h2>Salud y privacidad</h2><SettingRow icon={Stethoscope} title="Datos del pediatra" detail="Sin configurar" /><SettingRow icon={HeartPulse} title="Salud y crecimiento" detail="Disponible en próximos pasos" /><SettingRow icon={Settings} title="Tus datos" detail="Guardados en el espacio privado de Nido" /></section></section>;
 }
 
-function SettingRow({ icon: Icon, title, detail }: { icon: typeof Bell; title: string; detail: string }) { return <div className="setting-row"><span><Icon size={19} /></span><div><strong>{title}</strong><small>{detail}</small></div></div>; }
+function SettingRow({ icon: Icon, title, detail }: { icon: typeof Bell; title: string; detail: string }) { return <div className="setting-row"><span><Icon size={20} weight="Filled" aria-hidden="true" /></span><div><strong>{title}</strong><small>{detail}</small></div></div>; }
 
 function ProfileSheet({ profile, onClose, onSave }: { profile: Profile; onClose: () => void; onSave: (profile: Profile) => Promise<Profile> }) {
   return <div className="sheet-backdrop"><button type="button" className="sheet-dismiss-layer" onClick={onClose} aria-label="Cerrar edición de perfil" /><section className="log-sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title"><div className="sheet-handle" /><header><span className="event-icon sleep"><Baby size={20} /></span><div><p className="eyebrow">Tu familia</p><h2 id="profile-title">Editar perfil</h2></div><button className="circle-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button></header><ProfileForm profile={profile} onSave={onSave} submitLabel="Guardar cambios" /></section></div>;
