@@ -27,10 +27,11 @@ test("server-renders the private Nido loading state without demo data", async ()
 });
 
 test("ships private persistence, onboarding, and a bespoke social card", async () => {
-  const [page, app, layout, packageJson, hosting, schema, image] = await Promise.all([
+  const [page, app, layout, styles, packageJson, hosting, schema, image] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/NidoApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
@@ -44,7 +45,14 @@ test("ships private persistence, onboarding, and a bespoke social card", async (
   assert.match(app, /fetch\("\/api\/nido"/);
   assert.match(app, /nido-active-sleep/);
   assert.match(app, /nunca recomendaciones médicas/);
+  assert.match(app, /aria-current=\{active \? "page"/);
   assert.doesNotMatch(app, /sampleEntries|weekSleep = \[12/);
+  assert.match(styles, /-apple-system/);
+  assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(styles, /prefers-reduced-transparency/);
+  assert.match(styles, /prefers-contrast: more/);
+  assert.match(styles, /transform: scale\(\.97\)/);
+  assert.doesNotMatch(styles, /transition:\s*all\b/);
   assert.match(hosting, /"d1": "DB"/);
   assert.match(schema, /idx_entries_occurred_at/);
   assert.match(packageJson, /"lucide-react"/);
