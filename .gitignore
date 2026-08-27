@@ -41,3 +41,9 @@ yarn-error.log*
 /outputs/
 /work/
 /.vps-data/
+
+# Xcode / SwiftPM
+**/.build/
+**/DerivedData/
+**/xcuserdata/
+*.xcuserstate
