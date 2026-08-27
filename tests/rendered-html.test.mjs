@@ -88,7 +88,10 @@ test("ships a persistent and private VPS deployment path", async () => {
   assert.match(entrypoint, /--persist-to "\$data_dir"/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS `entries`/);
   assert.match(schema, /CREATE INDEX IF NOT EXISTS `idx_entries_occurred_at`/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS `caregiver_tokens`/);
   assert.match(caddy, /nido\.momentumia\.com/);
-  assert.match(caddy, /basic_auth/);
+  assert.doesNotMatch(caddy, /basic_auth/);
+  assert.match(compose, /\/api\/nido\/status/);
+  assert.match(readme, /app nativa para iPhone/);
   assert.match(readme, /docker compose -f compose\.vps\.yml up -d --build/);
 });

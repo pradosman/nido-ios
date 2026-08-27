@@ -1,6 +1,6 @@
-# Nido: local y VPS
+# Nido para iPhone: local y VPS
 
-Nido puede ejecutarse en local y en `nido.momentumia.com` con la misma aplicación. En Cloudflare Sites usa D1; en el VPS usa una base SQLite persistente dentro de un volumen Docker.
+Nido es una app nativa para iPhone. El servicio del repositorio conserva y sincroniza los datos entre cuidadores; no es una versión web para uso diario. En el VPS utiliza una base SQLite persistente dentro de un volumen Docker.
 
 ## Arranque local
 
@@ -11,7 +11,13 @@ npm install
 npm run local
 ```
 
-Abre `http://localhost:3000`. Cada arranque verifica el esquema de forma segura y, si hace falta, crea la base local dentro de `.wrangler/state`.
+Cada arranque verifica el esquema de forma segura y, si hace falta, crea la base local dentro de `.wrangler/state`. Comprueba el servicio con:
+
+```bash
+curl http://localhost:3000/api/nido/status
+```
+
+Para usarlo desde el Simulator, configura `NIDO_API_BASE_URL` en el target `Nido` con la dirección local del servicio. En un iPhone físico usa la IP local del Mac, no `127.0.0.1`.
 
 Para comprobar una compilación de producción:
 
@@ -31,36 +37,20 @@ Requisitos: Docker con Compose, Caddy instalado en el host y un registro DNS `A`
    docker compose -f compose.vps.yml ps
    ```
 
-3. Genera una contraseña cifrada para Caddy:
-
-   ```bash
-   caddy hash-password
-   ```
-
-4. Copia el bloque de `deploy/Caddyfile.example` al Caddyfile del servidor. Define las credenciales sin escribirlas en el repositorio:
-
-   ```bash
-   sudo systemctl edit caddy
-   ```
-
-   Añade este bloque, sustituyendo los valores:
-
-   ```ini
-   [Service]
-   Environment="NIDO_AUTH_USER=tu_usuario"
-   Environment="NIDO_AUTH_HASH=el_hash_generado"
-   ```
-
-   Valida y recarga Caddy:
+3. Copia el bloque de `deploy/Caddyfile.example` al Caddyfile del servidor. Valida y recarga Caddy:
 
    ```bash
    sudo caddy validate --config /etc/caddy/Caddyfile
    sudo systemctl reload caddy
    ```
 
-5. Abre `https://nido.momentumia.com` e inicia sesión con esas credenciales.
+4. Comprueba la API:
 
-El contenedor solo publica la aplicación en `127.0.0.1:43129`; Caddy es el único punto expuesto a Internet y obtiene/renueva HTTPS automáticamente.
+   ```bash
+   curl https://nido.momentumia.com/api/nido/status
+   ```
+
+El contenedor solo publica el servicio en `127.0.0.1:43129`; Caddy es el único punto expuesto a Internet y obtiene/renueva HTTPS automáticamente. Los datos privados requieren la credencial de cuidador guardada en el Keychain del iPhone. No añadas `basic_auth` delante de toda la API: impediría que la app nativa sincronizase.
 
 ## Operaciones habituales
 
@@ -70,7 +60,7 @@ El contenedor solo publica la aplicación en `127.0.0.1:43129`; Caddy es el úni
 | Ver registros | `docker compose -f compose.vps.yml logs -f nido` |
 | Actualizar | `git pull && docker compose -f compose.vps.yml up -d --build` |
 | Detener | `docker compose -f compose.vps.yml down` |
-| Verificar desde el VPS | `curl -I http://127.0.0.1:43129` |
+| Verificar desde el VPS | `curl http://127.0.0.1:43129/api/nido/status` |
 
 ## Datos y copias de seguridad
 
@@ -87,7 +77,8 @@ Guarda la copia fuera del VPS. Antes de restaurar, detén Nido y conserva una co
 
 ## Comprobación final
 
-- `https://nido.momentumia.com` muestra el diálogo de acceso.
-- La aplicación abre y permite crear un registro.
+- `/api/nido/status` responde con `configured`.
+- La aplicación de iPhone abre y permite crear un registro.
+- Un segundo iPhone puede unirse con una invitación y ve la misma información.
 - El contenedor figura como `healthy`.
 - El registro sigue presente después de `docker compose restart nido`.

@@ -1,8 +1,11 @@
 import { getDb } from "../../../../db";
 import { profiles } from "../../../../db/schema";
+import { requireCaregiver } from "../auth";
 
 export async function PUT(request: Request) {
   try {
+    const authorization = await requireCaregiver(request, true);
+    if (authorization.response) return authorization.response;
     const body = await request.json() as { caregiverName?: string; babyName?: string; birthDate?: string };
     const caregiverName = body.caregiverName?.trim() ?? "";
     const babyName = body.babyName?.trim() ?? "";
