@@ -61,3 +61,27 @@ test("ships private persistence, onboarding, and a bespoke social card", async (
 
   await assert.rejects(access(new URL("../app/_sites-preview/SkeletonPreview.tsx", import.meta.url)));
 });
+
+test("ships a persistent and private VPS deployment path", async () => {
+  const [dockerfile, compose, wrangler, entrypoint, schema, caddy, readme] = await Promise.all([
+    readFile(new URL("../Dockerfile", import.meta.url), "utf8"),
+    readFile(new URL("../compose.vps.yml", import.meta.url), "utf8"),
+    readFile(new URL("../wrangler.vps.jsonc", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/entrypoint.sh", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/schema.sql", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/Caddyfile.example", import.meta.url), "utf8"),
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(dockerfile, /VOLUME \["\/data"\]/);
+  assert.match(compose, /127\.0\.0\.1:43129:3000/);
+  assert.match(compose, /nido-data:\/data/);
+  assert.match(wrangler, /"migrations_dir": "drizzle"/);
+  assert.match(entrypoint, /d1 execute DB/);
+  assert.match(entrypoint, /--persist-to "\$data_dir"/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS `entries`/);
+  assert.match(schema, /CREATE INDEX IF NOT EXISTS `idx_entries_occurred_at`/);
+  assert.match(caddy, /nido\.momentumia\.com/);
+  assert.match(caddy, /basic_auth/);
+  assert.match(readme, /docker compose -f compose\.vps\.yml up -d --build/);
+});
