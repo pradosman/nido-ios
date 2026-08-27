@@ -46,11 +46,15 @@ test("ships private persistence, onboarding, and a bespoke social card", async (
   assert.match(app, /nido-active-sleep/);
   assert.match(app, /nunca recomendaciones médicas/);
   assert.match(app, /aria-current=\{active \? "page"/);
+  assert.match(app, /className="mobile-chrome"/);
+  assert.match(app, /className="mobile-greeting"/);
   assert.doesNotMatch(app, /sampleEntries|weekSleep = \[12/);
   assert.match(styles, /-apple-system/);
   assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)/);
   assert.match(styles, /prefers-reduced-transparency/);
   assert.match(styles, /prefers-contrast: more/);
+  assert.match(styles, /\.bottom-nav \{ position: fixed;[^}]*width: 100%/);
+  assert.match(styles, /\.summary-list \{ grid-template-columns: repeat\(3, 1fr\)/);
   assert.match(styles, /transform: scale\(\.97\)/);
   assert.doesNotMatch(styles, /transition:\s*all\b/);
   assert.match(hosting, /"d1": "DB"/);
