@@ -48,6 +48,9 @@ test("ships private persistence, onboarding, and a bespoke social card", async (
   assert.match(app, /aria-current=\{active \? "page"/);
   assert.match(app, /className="mobile-chrome"/);
   assert.match(app, /className="mobile-greeting"/);
+  assert.match(app, /from "reicon-react"/);
+  assert.match(app, /weight=\{active \? "Filled" : "Outline"\}/);
+  assert.doesNotMatch(app, /from "lucide-react"/);
   assert.doesNotMatch(app, /sampleEntries|weekSleep = \[12/);
   assert.match(styles, /-apple-system/);
   assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)/);
