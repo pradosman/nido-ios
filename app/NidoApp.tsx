@@ -29,7 +29,7 @@ function formatClock(timestamp: number) {
   return new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(timestamp));
 }
 
-function formatDate(timestamp = Date.now()) {
+function formatDate(timestamp: number) {
   const value = new Intl.DateTimeFormat("es-ES", { weekday: "long", day: "numeric", month: "long" }).format(new Date(timestamp));
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -38,8 +38,8 @@ function formatBirthDate(value: string) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 }
 
-function relativeTime(timestamp: number) {
-  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+function relativeTime(timestamp: number, now: number) {
+  const minutes = Math.max(0, Math.floor((now - timestamp) / 60_000));
   if (minutes < 1) return "Ahora mismo";
   if (minutes < 60) return `Hace ${minutes} min`;
   const hours = Math.floor(minutes / 60);
@@ -70,21 +70,35 @@ export default function NidoApp() {
   const [modal, setModal] = useState<EntryKind | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const [activeSleep, setActiveSleep] = useState<number | null>(null);
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [toast, setToast] = useState("");
   const [filter, setFilter] = useState<"all" | EntryKind>("all");
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const sleep = localStorage.getItem("nido-active-sleep");
-    if (sleep) setActiveSleep(Number(sleep));
+    const restoreSleep = window.setTimeout(() => {
+      if (sleep) setActiveSleep(Number(sleep));
+    }, 0);
     localStorage.removeItem("nido-entries");
-    loadData();
+    void (async () => {
+      try {
+        const response = await fetch("/api/nido", { cache: "no-store" });
+        if (!response.ok) throw new Error("No hemos podido abrir vuestro espacio.");
+        const data = await response.json() as { profile: Profile | null; entries: Entry[] };
+        setProfile(data.profile);
+        setEntries(data.entries ?? []);
+      } catch (cause) {
+        setProfile(null);
+        setLoadError(cause instanceof Error ? cause.message : "No hemos podido abrir vuestro espacio.");
+      }
+    })();
+    return () => window.clearTimeout(restoreSleep);
   }, []);
 
   useEffect(() => {
     if (!activeSleep) return;
-    const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [activeSleep]);
 
@@ -93,19 +107,6 @@ export default function NidoApp() {
     const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
-
-  async function loadData() {
-    try {
-      const response = await fetch("/api/nido", { cache: "no-store" });
-      if (!response.ok) throw new Error("No hemos podido abrir vuestro espacio.");
-      const data = await response.json() as { profile: Profile | null; entries: Entry[] };
-      setProfile(data.profile);
-      setEntries(data.entries ?? []);
-    } catch (cause) {
-      setProfile(null);
-      setLoadError(cause instanceof Error ? cause.message : "No hemos podido abrir vuestro espacio.");
-    }
-  }
 
   async function saveProfile(nextProfile: Profile) {
     const response = await fetch("/api/nido/profile", {
@@ -154,7 +155,7 @@ export default function NidoApp() {
   }
 
   const filteredEntries = useMemo(() => filter === "all" ? entries : entries.filter((entry) => entry.kind === filter), [entries, filter]);
-  const sleepSeconds = activeSleep ? Math.max(0, Math.floor((Date.now() - activeSleep) / 1000)) : 0;
+  const sleepSeconds = activeSleep ? Math.max(0, Math.floor((now - activeSleep) / 1000)) : 0;
 
   if (profile === undefined) return <LoadingState />;
   if (!profile) return <Onboarding onSave={saveProfile} loadError={loadError} />;
@@ -173,9 +174,9 @@ export default function NidoApp() {
       </aside>
 
       <main className="app-shell">
-        {view === "hoy" && <TodayView profile={profile} entries={entries} activeSleep={activeSleep} sleepSeconds={sleepSeconds} onSleep={toggleSleep} onOpen={setModal} onViewHistory={() => setView("historial")} />}
+        {view === "hoy" && <TodayView profile={profile} entries={entries} now={now} activeSleep={activeSleep} sleepSeconds={sleepSeconds} onSleep={toggleSleep} onOpen={setModal} onViewHistory={() => setView("historial")} />}
         {view === "historial" && <HistoryView entries={filteredEntries} filter={filter} setFilter={setFilter} />}
-        {view === "tendencias" && <TrendsView profile={profile} entries={entries} />}
+        {view === "tendencias" && <TrendsView profile={profile} entries={entries} now={now} />}
         {view === "ajustes" && <SettingsView profile={profile} onEdit={() => setEditingProfile(true)} />}
       </main>
 
@@ -220,25 +221,25 @@ function ProfileForm({ onSave, profile, submitLabel, initialError = "" }: { onSa
 }
 
 function NavButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Home; label: string }) {
-  return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}><Icon size={20} strokeWidth={active ? 2.4 : 1.8} /><span>{label}</span></button>;
+  return <button type="button" className={`nav-button ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={onClick}><Icon size={20} strokeWidth={active ? 2.4 : 1.8} /><span>{label}</span></button>;
 }
 
-function TodayView({ profile, entries, activeSleep, sleepSeconds, onSleep, onOpen, onViewHistory }: { profile: Profile; entries: Entry[]; activeSleep: number | null; sleepSeconds: number; onSleep: () => void; onOpen: (kind: EntryKind) => void; onViewHistory: () => void }) {
-  const todayEntries = entriesForDay(entries, Date.now());
+function TodayView({ profile, entries, now, activeSleep, sleepSeconds, onSleep, onOpen, onViewHistory }: { profile: Profile; entries: Entry[]; now: number; activeSleep: number | null; sleepSeconds: number; onSleep: () => void; onOpen: (kind: EntryKind) => void; onViewHistory: () => void }) {
+  const todayEntries = entriesForDay(entries, now);
   const metrics = calculateDayMetrics(entries);
   const lastSleep = entries.find((entry) => entry.kind === "sleep");
   const lastFeed = entries.find((entry) => entry.kind === "feed");
   const lastDiaper = entries.find((entry) => entry.kind === "diaper");
   const age = ageInMonths(profile.birthDate);
   const nextSleep = lastSleep ? lastSleep.occurredAt + wakeWindowMinutes(age) * 60_000 : null;
-  const sleepDiff = nextSleep ? Math.ceil((nextSleep - Date.now()) / 60_000) : null;
+  const sleepDiff = nextSleep ? Math.ceil((nextSleep - now) / 60_000) : null;
   const sleepTitle = activeSleep ? durationLabel(sleepSeconds) : !lastSleep ? "Registra el primer sueño" : sleepDiff && sleepDiff > 0 ? `Siesta en ${sleepDiff} min` : "Puede necesitar descansar";
   const sleepDetail = activeSleep ? "El temporizador sigue activo" : nextSleep ? `Ventana orientativa: ${formatClock(nextSleep - 10 * 60_000)}–${formatClock(nextSleep + 10 * 60_000)}` : "Aprenderemos su ritmo con cada registro";
 
   return <>
-    <header className="topbar"><div><p className="eyebrow">{formatDate()}</p><h1>Buenos días, {profile.caregiverName}</h1></div><button className="header-action" aria-label="Notificaciones"><Bell size={20} /></button></header>
+    <header className="topbar"><div><p className="eyebrow">{formatDate(now)}</p><h1>Buenos días, {profile.caregiverName}</h1></div><button className="header-action" aria-label="Notificaciones"><Bell size={20} /></button></header>
     <section className={`sleep-card ${activeSleep ? "is-active" : ""}`} aria-labelledby="next-sleep"><div className="sleep-orb" aria-hidden="true">{activeSleep ? <Clock3 /> : <Moon />}</div><div className="sleep-copy"><p className="card-kicker">{activeSleep ? `${profile.babyName} está durmiendo` : lastSleep ? "Próximo descanso" : "Empezamos a conoceros"}</p><h2 id="next-sleep">{sleepTitle}</h2><p>{sleepDetail}</p></div><button className="primary-button" onClick={onSleep}>{activeSleep ? "Terminar sueño" : "Empezar sueño"}</button>{lastSleep && !activeSleep && <div className="confidence"><Sparkles size={13} /><span>Estimación orientativa según edad y último sueño</span></div>}</section>
-    <section className="quick-section" aria-labelledby="quick-title"><div className="section-heading"><div><p className="eyebrow">{profile.babyName} · {ageLabel(profile)}</p><h2 id="quick-title">¿Qué acaba de pasar?</h2></div><button className="text-button" onClick={onViewHistory}>Ver todo</button></div><div className="quick-grid"><QuickAction className="sleep" icon={Moon} title="Sueño" detail={activeSleep ? "En curso" : lastSleep ? relativeTime(lastSleep.occurredAt) : "Sin registros"} onClick={() => onOpen("sleep")} /><QuickAction className="feed" icon={Milk} title="Toma" detail={lastFeed ? `${lastFeed.amountMl ? `${lastFeed.amountMl} ml · ` : ""}${relativeTime(lastFeed.occurredAt)}` : "Sin registros"} onClick={() => onOpen("feed")} /><QuickAction className="diaper" icon={Droplets} title="Pañal" detail={lastDiaper ? relativeTime(lastDiaper.occurredAt) : "Sin registros"} onClick={() => onOpen("diaper")} /><QuickAction className="more" icon={Plus} title="Más" detail="Salud, baño y más" onClick={() => onOpen("health")} /></div></section>
+    <section className="quick-section" aria-labelledby="quick-title"><div className="section-heading"><div><p className="eyebrow">{profile.babyName} · {ageLabel(profile)}</p><h2 id="quick-title">¿Qué acaba de pasar?</h2></div><button className="text-button" onClick={onViewHistory}>Ver todo</button></div><div className="quick-grid"><QuickAction className="sleep" icon={Moon} title="Sueño" detail={activeSleep ? "En curso" : lastSleep ? relativeTime(lastSleep.occurredAt, now) : "Sin registros"} onClick={() => onOpen("sleep")} /><QuickAction className="feed" icon={Milk} title="Toma" detail={lastFeed ? `${lastFeed.amountMl ? `${lastFeed.amountMl} ml · ` : ""}${relativeTime(lastFeed.occurredAt, now)}` : "Sin registros"} onClick={() => onOpen("feed")} /><QuickAction className="diaper" icon={Droplets} title="Pañal" detail={lastDiaper ? relativeTime(lastDiaper.occurredAt, now) : "Sin registros"} onClick={() => onOpen("diaper")} /><QuickAction className="more" icon={Plus} title="Más" detail="Salud, baño y más" onClick={() => onOpen("health")} /></div></section>
     <div className="dashboard-grid"><section className="panel timeline-panel"><div className="panel-heading"><div><p className="eyebrow">Hoy</p><h2>El día de {profile.babyName}</h2></div><button className="circle-button" aria-label="Añadir registro" onClick={() => onOpen("health")}><Plus size={19} /></button></div>{todayEntries.length ? <div className="timeline">{todayEntries.slice(0, 5).map((entry) => <TimelineRow key={entry.id} entry={entry} />)}</div> : <EmptyState icon={NotebookPen} title="Hoy empieza aquí" body="El primer registro aparecerá en este espacio." />}</section><section className="panel summary-panel"><div className="panel-heading"><div><p className="eyebrow">Resumen diario</p><h2>{todayEntries.length ? "Hoy, de un vistazo" : "Aún sin datos"}</h2></div>{todayEntries.length ? <span className="status-dot"><Check size={16} /></span> : null}</div><div className="summary-list"><Summary icon={Moon} label="Sueño" value={formatMinutes(metrics.sleepMinutes)} note={`${todayEntries.filter((entry) => entry.kind === "sleep").length} registros`} /><Summary icon={Milk} label="Tomas" value={String(metrics.feeds)} note={metrics.feedMl ? `${metrics.feedMl} ml` : "sin cantidad"} /><Summary icon={Droplets} label="Pañales" value={String(metrics.diapers)} note="registrados hoy" /></div><p className="gentle-note"><Sparkles size={15} /> {todayEntries.length ? "Este resumen usa únicamente los registros de hoy." : "Registra una actividad para crear vuestro primer resumen."}</p></section></div>
   </>;
 }
@@ -252,9 +253,9 @@ function HistoryView({ entries, filter, setFilter }: { entries: Entry[]; filter:
   return <section className="page-view"><header className="page-header"><div><p className="eyebrow">Registro completo</p><h1>Historial</h1></div></header><div className="filter-pills">{(["all", "sleep", "feed", "diaper", "health"] as const).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item === "all" ? "Todo" : labels[item].label}</button>)}</div><div className="history-layout"><div className="panel history-list"><div className="day-divider"><span>Todos los registros</span><small>{entries.length}</small></div>{entries.length ? entries.map((entry) => <TimelineRow key={entry.id} entry={entry} />) : <EmptyState icon={NotebookPen} title="El historial está vacío" body="Los registros que guardes aparecerán aquí, ordenados del más reciente al más antiguo." />}</div><aside className="panel share-card"><span className="share-icon"><Stethoscope size={23} /></span><h2>Listo para la consulta</h2><p>Cuando haya datos podrás imprimir un resumen claro para comentarlo con el pediatra.</p><button onClick={() => window.print()} disabled={!entries.length}>Imprimir resumen</button></aside></div></section>;
 }
 
-function TrendsView({ profile, entries }: { profile: Profile; entries: Entry[] }) {
+function TrendsView({ profile, entries, now }: { profile: Profile; entries: Entry[]; now: number }) {
   const weekSleep = calculateWeekSleep(entries);
-  const weekLabels = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat("es-ES", { weekday: "narrow" }).format(new Date(Date.now() - (6 - index) * 86_400_000)).toUpperCase());
+  const weekLabels = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat("es-ES", { weekday: "narrow" }).format(new Date(now - (6 - index) * 86_400_000)).toUpperCase());
   const sleepEntries = entries.filter((entry) => entry.kind === "sleep" && entry.durationMinutes);
   const feeds = entries.filter((entry) => entry.kind === "feed");
   const diapers = entries.filter((entry) => entry.kind === "diaper");
@@ -273,7 +274,7 @@ function SettingsView({ profile, onEdit }: { profile: Profile; onEdit: () => voi
 function SettingRow({ icon: Icon, title, detail }: { icon: typeof Bell; title: string; detail: string }) { return <div className="setting-row"><span><Icon size={19} /></span><div><strong>{title}</strong><small>{detail}</small></div></div>; }
 
 function ProfileSheet({ profile, onClose, onSave }: { profile: Profile; onClose: () => void; onSave: (profile: Profile) => Promise<Profile> }) {
-  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="log-sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title"><div className="sheet-handle" /><header><span className="event-icon sleep"><Baby size={20} /></span><div><p className="eyebrow">Tu familia</p><h2 id="profile-title">Editar perfil</h2></div><button className="circle-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button></header><ProfileForm profile={profile} onSave={onSave} submitLabel="Guardar cambios" /></section></div>;
+  return <div className="sheet-backdrop"><button type="button" className="sheet-dismiss-layer" onClick={onClose} aria-label="Cerrar edición de perfil" /><section className="log-sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title"><div className="sheet-handle" /><header><span className="event-icon sleep"><Baby size={20} /></span><div><p className="eyebrow">Tu familia</p><h2 id="profile-title">Editar perfil</h2></div><button className="circle-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button></header><ProfileForm profile={profile} onSave={onSave} submitLabel="Guardar cambios" /></section></div>;
 }
 
 function LogSheet({ kind, onClose, onAdd, onSleep, activeSleep }: { kind: EntryKind; onClose: () => void; onAdd: (entry: Omit<Entry, "id" | "occurredAt">) => Promise<void>; onSleep: () => void; activeSleep: number | null }) {
@@ -288,5 +289,5 @@ function LogSheet({ kind, onClose, onAdd, onSleep, activeSleep }: { kind: EntryK
     if (kind === "health") void onAdd({ kind, title: String(data.get("careType")), detail: String(data.get("note") || "Sin notas"), durationMinutes: null, amountMl: null });
   }
   const config = labels[kind]; const Icon = config.icon;
-  return <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="log-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div className="sheet-handle" /><header><span className={`event-icon ${config.className}`}><Icon size={20} /></span><div><p className="eyebrow">Registrar ahora</p><h2 id="sheet-title">{config.label}</h2></div><button className="circle-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button></header>{kind === "sleep" ? <div className="sleep-sheet"><div className="sleep-sheet-orb"><Moon size={30} /></div><h3>{activeSleep ? "El sueño sigue en curso" : "¿Empezamos a contar?"}</h3><p>{activeSleep ? "Al terminar guardaremos la duración automáticamente." : "Puedes cerrar la app. El temporizador seguirá en este dispositivo."}</p><button className="sheet-submit" onClick={() => { onSleep(); onClose(); }}>{activeSleep ? "Terminar y guardar" : "Empezar sueño"}</button><button className="secondary-sheet-button" onClick={() => void onAdd({ kind: "sleep", title: "Sueño", detail: "45 min · Añadido manualmente", durationMinutes: 45, amountMl: null })}>Añadir sueño de 45 min</button></div> : <form onSubmit={submit}>{kind === "feed" && <><label>Tipo<select name="feedType"><option>Biberón</option><option>Pecho</option><option>Sólidos</option></select></label><div className="form-row"><label>Cantidad<div className="input-suffix"><input name="amount" type="number" inputMode="numeric" min="0" placeholder="120" /><span>ml</span></div></label><label>Contenido<select name="milkType"><option>Leche materna</option><option>Fórmula</option><option>Mixto</option><option>No indicado</option></select></label></div></>}{kind === "diaper" && <fieldset><legend>¿Cómo estaba?</legend><div className="choice-grid">{["Mojado", "Sucio", "Ambos", "Seco"].map((value) => <label key={value}><input type="radio" name="diaperType" value={value} defaultChecked={value === "Mojado"} /><span>{value}</span></label>)}</div></fieldset>}{kind === "health" && <><label>Actividad<select name="careType"><option>Baño</option><option>Temperatura</option><option>Medicación</option><option>Crecimiento</option><option>Hito</option></select></label><label>Nota<input name="note" placeholder="Añade un detalle, si quieres" /></label><div className="care-shortcuts"><Bath /><Thermometer /><Stethoscope /></div></>}<button className="sheet-submit" type="submit">Guardar</button></form>}</section></div>;
+  return <div className="sheet-backdrop"><button type="button" className="sheet-dismiss-layer" onClick={onClose} aria-label={`Cerrar registro de ${config.label.toLowerCase()}`} /><section className="log-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div className="sheet-handle" /><header><span className={`event-icon ${config.className}`}><Icon size={20} /></span><div><p className="eyebrow">Registrar ahora</p><h2 id="sheet-title">{config.label}</h2></div><button className="circle-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button></header>{kind === "sleep" ? <div className="sleep-sheet"><div className="sleep-sheet-orb"><Moon size={30} /></div><h3>{activeSleep ? "El sueño sigue en curso" : "¿Empezamos a contar?"}</h3><p>{activeSleep ? "Al terminar guardaremos la duración automáticamente." : "Puedes cerrar la app. El temporizador seguirá en este dispositivo."}</p><button className="sheet-submit" onClick={() => { onSleep(); onClose(); }}>{activeSleep ? "Terminar y guardar" : "Empezar sueño"}</button><button className="secondary-sheet-button" onClick={() => void onAdd({ kind: "sleep", title: "Sueño", detail: "45 min · Añadido manualmente", durationMinutes: 45, amountMl: null })}>Añadir sueño de 45 min</button></div> : <form onSubmit={submit}>{kind === "feed" && <><label>Tipo<select name="feedType"><option>Biberón</option><option>Pecho</option><option>Sólidos</option></select></label><div className="form-row"><label>Cantidad<div className="input-suffix"><input name="amount" type="number" inputMode="numeric" min="0" placeholder="120" /><span>ml</span></div></label><label>Contenido<select name="milkType"><option>Leche materna</option><option>Fórmula</option><option>Mixto</option><option>No indicado</option></select></label></div></>}{kind === "diaper" && <fieldset><legend>¿Cómo estaba?</legend><div className="choice-grid">{["Mojado", "Sucio", "Ambos", "Seco"].map((value) => <label key={value}><input type="radio" name="diaperType" value={value} defaultChecked={value === "Mojado"} /><span>{value}</span></label>)}</div></fieldset>}{kind === "health" && <><label>Actividad<select name="careType"><option>Baño</option><option>Temperatura</option><option>Medicación</option><option>Crecimiento</option><option>Hito</option></select></label><label>Nota<input name="note" placeholder="Añade un detalle, si quieres" /></label><div className="care-shortcuts"><Bath /><Thermometer /><Stethoscope /></div></>}<button className="sheet-submit" type="submit">Guardar</button></form>}</section></div>;
 }
