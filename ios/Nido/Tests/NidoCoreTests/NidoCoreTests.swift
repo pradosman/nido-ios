@@ -7,11 +7,10 @@ struct NidoCoreTests {
     func sleepIntervalCalculatesACompletedSameDaySleep() throws {
         let calendar = utcCalendar
         let reference = try date(hour: 16, calendar: calendar)
-        let interval = try #require(SleepInterval.resolve(
-            startTime: try date(hour: 9, calendar: calendar),
-            endTime: try date(hour: 15, calendar: calendar),
-            relativeTo: reference,
-            calendar: calendar
+        let interval = try #require(SleepInterval.validated(
+            start: try date(hour: 9, calendar: calendar),
+            end: try date(hour: 15, calendar: calendar),
+            notAfter: reference
         ))
 
         #expect(interval.durationMinutes == 360)
@@ -23,11 +22,10 @@ struct NidoCoreTests {
     func sleepIntervalUnderstandsMidnight() throws {
         let calendar = utcCalendar
         let reference = try date(hour: 3, calendar: calendar)
-        let interval = try #require(SleepInterval.resolve(
-            startTime: try date(hour: 22, calendar: calendar),
-            endTime: try date(hour: 2, calendar: calendar),
-            relativeTo: reference,
-            calendar: calendar
+        let interval = try #require(SleepInterval.validated(
+            start: try date(day: 27, hour: 22, calendar: calendar),
+            end: try date(hour: 2, calendar: calendar),
+            notAfter: reference
         ))
 
         #expect(interval.durationMinutes == 240)
@@ -41,30 +39,25 @@ struct NidoCoreTests {
         let reference = try date(hour: 14, calendar: calendar)
         let start = try date(hour: 9, calendar: calendar)
 
-        #expect(SleepInterval.resolve(
-            startTime: start,
-            endTime: try date(hour: 15, calendar: calendar),
-            relativeTo: reference,
-            calendar: calendar
+        #expect(SleepInterval.validated(
+            start: start,
+            end: try date(hour: 15, calendar: calendar),
+            notAfter: reference
         ) == nil)
-        #expect(SleepInterval.resolve(
-            startTime: start,
-            endTime: start,
-            relativeTo: reference,
-            calendar: calendar
+        #expect(SleepInterval.validated(
+            start: start,
+            end: start,
+            notAfter: reference
         ) == nil)
     }
 
     @Test
     func editedSleepKeepsItsOriginalDay() throws {
         let calendar = utcCalendar
-        let originalDay = try date(day: 20, hour: 15, calendar: calendar)
-        let interval = try #require(SleepInterval.resolve(
-            startTime: try date(hour: 10, calendar: calendar),
-            endTime: try date(hour: 16, calendar: calendar),
-            relativeTo: originalDay,
-            notAfter: try date(hour: 18, calendar: calendar),
-            calendar: calendar
+        let interval = try #require(SleepInterval.validated(
+            start: try date(day: 20, hour: 10, calendar: calendar),
+            end: try date(day: 20, hour: 16, calendar: calendar),
+            notAfter: try date(hour: 18, calendar: calendar)
         ))
 
         #expect(calendar.component(.day, from: interval.end) == 20)
