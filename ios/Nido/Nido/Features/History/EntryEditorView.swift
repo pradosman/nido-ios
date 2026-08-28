@@ -8,14 +8,18 @@ struct EntryEditorView: View {
     @State private var date: Date
     @State private var detail: String
     @State private var durationMinutes: Int
+    @State private var sleepStart: Date
+    @State private var sleepEnd: Date
     @State private var amountMl: Int
     @State private var isSaving = false
 
     init(entry: Entry) {
         self.entry = entry
         _date = State(initialValue: entry.date)
-        _detail = State(initialValue: entry.detail)
+        _detail = State(initialValue: entry.kind == .sleep ? SleepInterval.note(from: entry.detail) : entry.detail)
         _durationMinutes = State(initialValue: entry.durationMinutes ?? 15)
+        _sleepEnd = State(initialValue: entry.date)
+        _sleepStart = State(initialValue: entry.date.addingTimeInterval(TimeInterval(-(entry.durationMinutes ?? 15) * 60)))
         _amountMl = State(initialValue: entry.amountMl ?? 90)
     }
 
@@ -33,17 +37,22 @@ struct EntryEditorView: View {
                         }
                     }
                 }
-                Section("Momento") {
-                    DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
+                if entry.kind != .sleep {
+                    Section("Momento") {
+                        DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
+                    }
                 }
                 if entry.kind == .sleep {
                     Section {
-                        SleepDurationPicker(totalMinutes: $durationMinutes)
+                        DatePicker("Desde", selection: $sleepStart, displayedComponents: .hourAndMinute)
+                        DatePicker("Hasta", selection: $sleepEnd, displayedComponents: .hourAndMinute)
                     } header: {
-                        Text("Duración")
+                        Text("Horario")
                     } footer: {
-                        if durationMinutes == 0 {
-                            Text("Elige una duración mayor que cero.")
+                        if let sleepInterval {
+                            Text("Duración: \(sleepInterval.durationLabel)")
+                        } else {
+                            Text("La hora de finalización debe ser anterior a la hora actual.")
                         }
                     }
                 } else if entry.durationMinutes != nil {
@@ -70,13 +79,18 @@ struct EntryEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Guardar") {
                         isSaving = true
+                        let savedDate = sleepInterval?.end ?? date
+                        let savedDuration = entry.kind == .sleep ? sleepInterval?.durationMinutes : (entry.durationMinutes == nil ? nil : durationMinutes)
+                        let savedDetail = entry.kind == .sleep
+                            ? sleepInterval?.detail(note: detail) ?? detail
+                            : detail.trimmingCharacters(in: .whitespacesAndNewlines)
                         let updated = Entry(
                             id: entry.id,
                             kind: entry.kind,
                             title: entry.title,
-                            detail: detail.trimmingCharacters(in: .whitespacesAndNewlines),
-                            occurredAt: Int64(date.timeIntervalSince1970 * 1_000),
-                            durationMinutes: entry.durationMinutes == nil ? nil : durationMinutes,
+                            detail: savedDetail,
+                            occurredAt: Int64(savedDate.timeIntervalSince1970 * 1_000),
+                            durationMinutes: savedDuration,
                             amountMl: entry.amountMl == nil ? nil : amountMl,
                             caregiverID: entry.caregiverID,
                             caregiverName: entry.caregiverName
@@ -88,9 +102,18 @@ struct EntryEditorView: View {
                         }
                     }
                     .fontWeight(.semibold)
-                    .disabled(isSaving || (entry.kind == .sleep && durationMinutes == 0))
+                    .disabled(isSaving || (entry.kind == .sleep && sleepInterval == nil))
                 }
             }
         }
+    }
+
+    private var sleepInterval: SleepInterval? {
+        SleepInterval.resolve(
+            startTime: sleepStart,
+            endTime: sleepEnd,
+            relativeTo: entry.date,
+            notAfter: .now
+        )
     }
 }

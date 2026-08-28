@@ -127,6 +127,72 @@ nonisolated struct Entry: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+nonisolated struct SleepInterval: Equatable, Sendable {
+    let start: Date
+    let end: Date
+
+    var durationMinutes: Int {
+        max(1, Int(end.timeIntervalSince(start) / 60))
+    }
+
+    var durationLabel: String {
+        let hours = durationMinutes / 60
+        let minutes = durationMinutes % 60
+        if hours == 0 { return "\(minutes) min" }
+        if minutes == 0 { return "\(hours) h" }
+        return "\(hours) h \(minutes) min"
+    }
+
+    var label: String {
+        let startLabel = start.formatted(date: .omitted, time: .shortened)
+        let endLabel = end.formatted(date: .omitted, time: .shortened)
+        return "\(startLabel)–\(endLabel)"
+    }
+
+    func detail(note: String) -> String {
+        let cleanNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleanNote.isEmpty ? label : "\(label) · \(cleanNote)"
+    }
+
+    static func note(from detail: String) -> String {
+        let parts = detail.components(separatedBy: " · ")
+        guard let first = parts.first, first.contains(":"), first.contains("–") else {
+            return detail == "Temporizador" ? "" : detail
+        }
+        return parts.dropFirst().joined(separator: " · ")
+    }
+
+    static func resolve(
+        startTime: Date,
+        endTime: Date,
+        relativeTo reference: Date = .now,
+        notAfter latestEnd: Date? = nil,
+        calendar: Calendar = .current
+    ) -> SleepInterval? {
+        let startComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+        let endComponents = calendar.dateComponents([.hour, .minute], from: endTime)
+        guard
+            startComponents != endComponents,
+            let startHour = startComponents.hour,
+            let startMinute = startComponents.minute,
+            let endHour = endComponents.hour,
+            let endMinute = endComponents.minute,
+            var start = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: reference),
+            let end = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: reference)
+        else {
+            return nil
+        }
+
+        if end <= start {
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: start) else { return nil }
+            start = previousDay
+        }
+
+        guard end <= (latestEnd ?? reference), end > start else { return nil }
+        return SleepInterval(start: start, end: end)
+    }
+}
+
 nonisolated struct NidoSnapshot: Codable, Equatable, Sendable {
     var profile: Profile?
     var entries: [Entry]

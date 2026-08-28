@@ -8,7 +8,8 @@ struct EntrySheet: View {
     @State private var date = Date.now
     @State private var detail = ""
     @State private var amountMl = 90
-    @State private var durationMinutes = 45
+    @State private var sleepStart = Date.now.addingTimeInterval(-45 * 60)
+    @State private var sleepEnd = Date.now
     @State private var feedDurationMinutes = 15
     @State private var feedType = FeedType.bottle
     @State private var breastSide = BreastSide.left
@@ -25,7 +26,7 @@ struct EntrySheet: View {
 
     private var canSave: Bool {
         guard !isSaving else { return false }
-        if kind == .sleep { return durationMinutes > 0 }
+        if kind == .sleep { return sleepInterval != nil }
         if kind == .feed, feedType == .solids {
             return !detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
@@ -43,6 +44,9 @@ struct EntrySheet: View {
     }
 
     private var savedDetail: String {
+        if kind == .sleep, let sleepInterval {
+            return sleepInterval.detail(note: detail)
+        }
         if kind == .diaper {
             return diaperContents.detail(note: detail)
         }
@@ -69,13 +73,19 @@ struct EntrySheet: View {
         return detail
     }
 
+    private var sleepInterval: SleepInterval? {
+        SleepInterval.resolve(startTime: sleepStart, endTime: sleepEnd)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 PaperBackground()
                 Form {
-                    Section("Momento") {
-                        DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
+                    if kind != .sleep {
+                        Section("Momento") {
+                            DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
+                        }
                     }
 
                     if kind == .feed {
@@ -84,11 +94,16 @@ struct EntrySheet: View {
 
                     if kind == .sleep {
                         Section {
-                            SleepDurationPicker(totalMinutes: $durationMinutes)
+                            DatePicker("Desde", selection: $sleepStart, displayedComponents: .hourAndMinute)
+                            DatePicker("Hasta", selection: $sleepEnd, displayedComponents: .hourAndMinute)
                         } header: {
-                            Text("Duración")
+                            Text("Horario")
                         } footer: {
-                            Text(sleepDurationFooter)
+                            if let sleepInterval {
+                                Text("Duración: \(sleepInterval.durationLabel)")
+                            } else {
+                                Text("La hora de finalización debe ser anterior a la hora actual.")
+                            }
                         }
                     }
 
@@ -171,8 +186,8 @@ struct EntrySheet: View {
                             await store.addEntry(
                                 kind: kind,
                                 detail: savedDetail,
-                                date: date,
-                                durationMinutes: kind == .sleep ? durationMinutes : (kind == .feed && feedType != .bottle && feedType != .solids ? feedDurationMinutes : nil),
+                                date: sleepInterval?.end ?? date,
+                                durationMinutes: kind == .sleep ? sleepInterval?.durationMinutes : (kind == .feed && feedType != .bottle && feedType != .solids ? feedDurationMinutes : nil),
                                 amountMl: kind == .feed && (feedType == .bottle || feedType == .pumping) && amountMl > 0 ? amountMl : nil
                             )
                             isSaving = false
@@ -194,7 +209,8 @@ struct EntrySheet: View {
         let defaults = EntryFormDefaults(entries: store.entries)
         switch kind {
         case .sleep:
-            durationMinutes = defaults.sleepDurationMinutes
+            sleepEnd = .now
+            sleepStart = sleepEnd.addingTimeInterval(TimeInterval(-defaults.sleepDurationMinutes * 60))
         case .feed:
             feedType = defaults.feed.type
             amountMl = defaults.feed.amountMl
@@ -204,18 +220,6 @@ struct EntrySheet: View {
         case .diaper, .health:
             break
         }
-    }
-
-    private var sleepDurationFooter: String {
-        guard durationMinutes > 0 else {
-            return "Elige una duración mayor que cero."
-        }
-
-        let hours = durationMinutes / 60
-        let minutes = durationMinutes % 60
-        if hours == 0 { return "Duración total: \(minutes) min" }
-        if minutes == 0 { return "Duración total: \(hours) h" }
-        return "Duración total: \(hours) h \(minutes) min"
     }
 
     @ViewBuilder
