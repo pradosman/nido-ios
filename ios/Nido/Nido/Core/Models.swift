@@ -146,6 +146,28 @@ nonisolated struct Entry: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+extension Entry {
+    var timelineSummary: String {
+        let pieces: [String?] = [
+            durationMinutes.map(DurationLabel.minutes),
+            amountMl.map { "\($0) ml" },
+            detail.isEmpty ? nil : detail,
+        ]
+        return pieces.compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+nonisolated enum DurationLabel {
+    static func minutes(_ totalMinutes: Int) -> String {
+        let totalMinutes = max(0, totalMinutes)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours == 0 { return "\(minutes) min" }
+        if minutes == 0 { return "\(hours) h" }
+        return "\(hours) h \(minutes) min"
+    }
+}
+
 nonisolated enum EntryEditMoment {
     static func resolve(kind: EntryKind, selectedDate: Date, sleepInterval: SleepInterval?) -> Date {
         guard kind == .sleep else { return selectedDate }
@@ -175,11 +197,7 @@ nonisolated struct SleepInterval: Equatable, Sendable {
     }
 
     var durationLabel: String {
-        let hours = durationMinutes / 60
-        let minutes = durationMinutes % 60
-        if hours == 0 { return "\(minutes) min" }
-        if minutes == 0 { return "\(hours) h" }
-        return "\(hours) h \(minutes) min"
+        DurationLabel.minutes(durationMinutes)
     }
 
     var label: String {

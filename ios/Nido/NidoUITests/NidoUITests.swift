@@ -58,6 +58,14 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Guardar"].exists)
     }
 
+    func testTodayTimelineFormatsDurationAsHoursAndMinutes() {
+        launch(scenario: "timeline-duration")
+
+        XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["1 h 15 min"].exists)
+        XCTAssertFalse(app.staticTexts["75 min"].exists)
+    }
+
     func testEditingADiaperUpdatesItsTimelineTime() {
         launch(scenario: "diaper-edit")
 

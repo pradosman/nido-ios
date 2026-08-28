@@ -357,7 +357,7 @@ private struct TimelineEntryRow: View {
                 Text(entry.title)
                     .font(.system(.headline, design: .serif))
                     .foregroundStyle(NidoTheme.ink)
-                Text(entry.summary)
+                Text(entry.timelineSummary)
                     .font(.subheadline)
                     .foregroundStyle(NidoTheme.secondaryInk)
                     .lineLimit(2)
@@ -386,8 +386,8 @@ private struct TimelineEntryRow: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(NidoTheme.secondaryInk)
             }
-            if !entry.summary.isEmpty {
-                Text(entry.summary)
+            if !entry.timelineSummary.isEmpty {
+                Text(entry.timelineSummary)
                     .font(.body)
                     .foregroundStyle(NidoTheme.secondaryInk)
             }
