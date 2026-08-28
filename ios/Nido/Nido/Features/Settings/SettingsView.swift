@@ -108,7 +108,7 @@ struct SettingsView: View {
                             }
                         }
                     if let reminderMessage {
-                        Text(reminderMessage).font(.footnote).foregroundStyle(NidoTheme.care)
+                        Text(reminderMessage).font(.footnote).foregroundStyle(NidoTheme.error)
                     }
                 }
 
@@ -132,9 +132,9 @@ struct SettingsView: View {
                         Label("Restaurar desde un archivo", systemImage: "arrow.clockwise.icloud")
                     }
                     if let backupError {
-                        Text(backupError).font(.footnote).foregroundStyle(NidoTheme.care)
+                        Text(backupError).font(.footnote).foregroundStyle(NidoTheme.error)
                     }
-                    if let reportError { Text(reportError).foregroundStyle(NidoTheme.care) }
+                    if let reportError { Text(reportError).foregroundStyle(NidoTheme.error) }
                 } header: {
                     Text("Pediatra")
                 } footer: {
@@ -328,7 +328,7 @@ private struct InviteCaregiverView: View {
                         if let errorMessage {
                             Section {
                                 Label(errorMessage, systemImage: "exclamationmark.circle.fill")
-                                    .foregroundStyle(NidoTheme.care)
+                                    .foregroundStyle(NidoTheme.error)
                             }
                         }
                     }

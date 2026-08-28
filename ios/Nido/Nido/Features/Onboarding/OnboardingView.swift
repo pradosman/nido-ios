@@ -22,18 +22,17 @@ struct OnboardingView: View {
                         NidoMark().frame(width: 42, height: 42)
                         Text("Nido").font(.headline)
                     }
-                    .padding(.bottom, 46)
+                    .padding(.bottom, 32)
 
-                    Text("Todo sobre vuestro bebé,\nen un solo lugar.")
-                        .editorialTitle(48)
-                        .lineSpacing(-4)
+                    Text("El día a día de vuestro bebé, siempre al día.")
+                        .nidoTitle(.hero)
 
-                    Text("Registra sueño, tomas, pañales y cuidados. Comparte la información con quienes cuidáis del bebé.")
+                    Text("Registra sueño, tomas, pañales y cuidados. Compartid la misma información entre cuidadores.")
                         .font(.body)
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
-                        .padding(.top, 18)
-                        .padding(.bottom, 36)
+                        .padding(.top, 14)
+                        .padding(.bottom, 28)
 
                     VStack(spacing: 14) {
                         field(title: "Tu nombre", text: $caregiverName, field: .caregiver, contentType: .name)
@@ -55,7 +54,7 @@ struct OnboardingView: View {
                     if let notice = store.notice {
                         Label(notice, systemImage: "exclamationmark.circle.fill")
                             .font(.footnote)
-                            .foregroundStyle(NidoTheme.care)
+                            .foregroundStyle(NidoTheme.error)
                             .padding(.top, 14)
                     }
 

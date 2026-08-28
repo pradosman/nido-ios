@@ -18,7 +18,7 @@ struct RootView: View {
             }
         }
         .animation(reduceMotion ? nil : .smooth(duration: 0.4), value: store.phase)
-        .sensoryFeedback(.success, trigger: store.feedbackToken)
+        .sensoryFeedback(.selection, trigger: store.feedbackToken)
     }
 }
 
@@ -49,22 +49,21 @@ private struct MainTabView: View {
         TabView(selection: $store.selectedTab) {
             NavigationStack { TodayView() }
                 .tag(AppTab.today)
-                .tabItem { Label("Hoy", systemImage: "house.fill") }
+                .tabItem { Label("Hoy", systemImage: "house") }
 
             NavigationStack { HistoryView() }
                 .tag(AppTab.history)
-                .tabItem { Label("Historia", systemImage: "book.pages.fill") }
+                .tabItem { Label("Historia", systemImage: "clock.arrow.circlepath") }
 
             NavigationStack { TrendsView() }
                 .tag(AppTab.trends)
-                .tabItem { Label("Ritmos", systemImage: "chart.xyaxis.line") }
+                .tabItem { Label("Ritmos", systemImage: "chart.bar.xaxis") }
 
             NavigationStack { SettingsView() }
                 .tag(AppTab.settings)
-                .tabItem { Label("Ajustes", systemImage: "gearshape.fill") }
+                .tabItem { Label("Ajustes", systemImage: "gearshape") }
         }
         .tint(NidoTheme.moss)
-        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(45))
@@ -91,23 +90,20 @@ private struct MainTabView: View {
         }
         .sheet(item: $store.presentedEntryKind) { kind in
             EntrySheet(kind: kind)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(32)
         }
         .sheet(isPresented: $store.isEditingProfile) {
             ProfileEditorView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(32)
         }
         .sheet(item: $store.editingEntry) { entry in
             EntryEditorView(entry: entry)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(32)
         }
-        .overlay(alignment: .top) {
+        .safeAreaInset(edge: .bottom, spacing: 8) {
             if let notice = store.notice {
                 NoticeView(
                     message: notice,
@@ -115,7 +111,7 @@ private struct MainTabView: View {
                     canUndo: store.recentlyDeletedEntry != nil,
                     undo: { Task { await store.undoDelete() } }
                 )
-                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                     .onTapGesture {
                         if store.recentlyDeletedEntry == nil {
                             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
@@ -153,7 +149,6 @@ private struct NoticeView: View {
             .background(.regularMaterial, in: Capsule())
             .overlay(Capsule().stroke(.white.opacity(0.65), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
-            .padding(.top, 8)
             .padding(.horizontal)
     }
 }

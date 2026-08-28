@@ -19,31 +19,36 @@ struct TodayView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     pageHeader
                     SleepCard()
-                        .padding(.top, 34)
+                        .padding(.top, 24)
                     if store.activeFeedStartedAt != nil {
                         ActiveFeedCard()
                             .padding(.top, 12)
                     }
                     storyHeader
                     timeline
-                        .padding(.bottom, 126)
+                        .padding(.bottom, 36)
                 }
                 .padding(.horizontal, 24)
             }
             .refreshable { await store.refresh() }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                QuickCaptureBar()
-                    .padding(.bottom, 8)
-            }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    ForEach(EntryKind.allCases) { kind in
+                        Button {
+                            store.presentedEntryKind = kind
+                        } label: {
+                            Label("Registrar \(kind.title.lowercased())", systemImage: kind.symbolName)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Registrar una actividad")
+
                 Button { store.selectedTab = .settings } label: {
-                    Text(profile.initials)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(NidoTheme.moss, in: Circle())
+                    Image(systemName: "person.crop.circle")
                 }
                 .accessibilityLabel("Abrir ajustes de \(profile.babyName)")
             }
@@ -60,9 +65,8 @@ struct TodayView: View {
                 .foregroundStyle(NidoTheme.secondaryInk)
                 .textCase(.lowercase)
             Text("Hoy con \(profile.babyName)")
-                .editorialTitle(44)
-                .minimumScaleFactor(0.72)
-                .lineLimit(1)
+                .nidoTitle(.hero)
+                .lineLimit(2)
         }
         .padding(.top, 18)
     }
@@ -147,7 +151,7 @@ private struct SleepCard: View {
                     isEditingStart = true
                 } label: {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("El sueño está en curso")
+                    Text("\(store.profile?.babyName ?? "El bebé") está durmiendo")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.72))
                         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -204,7 +208,7 @@ private struct SleepCard: View {
                 HStack(spacing: 14) {
                     EntryGlyph(kind: .sleep, size: 28)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Primer descanso")
+                        Text("Sueño")
                             .font(.caption)
                             .foregroundStyle(NidoTheme.secondaryInk)
                         Text("Empezar sueño")
@@ -294,7 +298,7 @@ private struct EmptyStoryView: View {
                     .fill(NidoTheme.secondaryInk.opacity(0.2))
                     .frame(width: 1, height: 92)
             }
-            Text("Los registros de hoy aparecerán aquí.")
+            Text("Todavía no hay registros de hoy.")
                 .font(.system(.body, design: .serif))
                 .foregroundStyle(NidoTheme.secondaryInk)
                 .lineSpacing(5)
@@ -344,39 +348,6 @@ private struct TimelineEntryRow: View {
             Spacer()
         }
         .frame(minHeight: 82, alignment: .top)
-    }
-}
-
-private struct QuickCaptureBar: View {
-    @Environment(NidoStore.self) private var store
-
-    var body: some View {
-        HStack(spacing: 2) {
-            captureButton(.feed)
-            captureButton(.diaper)
-            captureButton(.health)
-            captureButton(.sleep)
-        }
-        .padding(8)
-        .frame(width: 320, height: 68)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.72), lineWidth: 0.7))
-        .shadow(color: NidoTheme.ink.opacity(0.14), radius: 24, y: 12)
-        .accessibilityElement(children: .contain)
-    }
-
-    private func captureButton(_ kind: EntryKind) -> some View {
-        Button { store.presentedEntryKind = kind } label: {
-            VStack(spacing: 1) {
-                EntryGlyph(kind: kind, size: 20)
-                    .frame(height: 30)
-                Text(kind.title).font(.caption2)
-            }
-            .foregroundStyle(NidoTheme.secondaryInk)
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(PressScaleButtonStyle())
-        .accessibilityLabel("Registrar \(kind.title.lowercased())")
     }
 }
 
