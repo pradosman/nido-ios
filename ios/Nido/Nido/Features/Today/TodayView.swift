@@ -166,6 +166,7 @@ private struct SleepCard: View {
                             Text(context.date.timeIntervalSince(start).durationLabel)
                                 .font(.headline.monospacedDigit())
                         }
+                        .id(start)
                         Label(
                             "Desde \(start.formatted(date: .abbreviated, time: .shortened))",
                             systemImage: "pencil"
