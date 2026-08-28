@@ -94,6 +94,23 @@ struct NidoDomainCharacterizationTests {
         #expect(SleepInterval.note(from: "Nota antigua") == "Nota antigua")
     }
 
+    @Test(arguments: [
+        (0, "0 min"),
+        (45, "45 min"),
+        (60, "1 h"),
+        (75, "1 h 15 min"),
+    ])
+    func timelineSummaryFormatsDurationsAsHoursAndMinutes(value: (minutes: Int, expected: String)) {
+        let entryValue = entry(
+            id: "duration",
+            kind: .sleep,
+            timestamp: 1_000,
+            durationMinutes: value.minutes
+        )
+
+        #expect(entryValue.timelineSummary == value.expected)
+    }
+
     @Test
     func growthMeasurementsAcceptPartialValuesAndRejectOtherCareEntries() throws {
         let weightOnly = entry(id: "weight", kind: .health, timestamp: 1_000, detail: "Medidas · 4,8 kg")
@@ -129,6 +146,7 @@ struct NidoDomainCharacterizationTests {
         kind: EntryKind,
         timestamp: Int64,
         detail: String = "",
+        durationMinutes: Int? = nil,
         caregiverName: String? = nil
     ) -> Entry {
         Entry(
@@ -137,7 +155,7 @@ struct NidoDomainCharacterizationTests {
             title: kind.title,
             detail: detail,
             occurredAt: timestamp,
-            durationMinutes: nil,
+            durationMinutes: durationMinutes,
             amountMl: nil,
             caregiverID: caregiverName == nil ? nil : "caregiver",
             caregiverName: caregiverName

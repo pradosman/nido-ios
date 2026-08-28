@@ -112,6 +112,18 @@ final class NidoStore {
         currentCaregiver = caregiver
         if scenario == "active-sleep" {
             activeSleepStartedAt = Date.now.addingTimeInterval(-47 * 60)
+        } else if scenario == "timeline-duration" {
+            entries = [Entry(
+                id: "ui-test-sleep",
+                kind: .sleep,
+                title: EntryKind.sleep.title,
+                detail: "",
+                occurredAt: Int64(Date.now.timeIntervalSince1970 * 1_000),
+                durationMinutes: 75,
+                amountMl: nil,
+                caregiverID: caregiver.id,
+                caregiverName: caregiver.name
+            )]
         } else if scenario == "diaper-edit" {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
