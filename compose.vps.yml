@@ -2,14 +2,15 @@ services:
   nido:
     build:
       context: .
-    image: nido:local
+      dockerfile: Dockerfile
     restart: unless-stopped
     init: true
     environment:
       NODE_ENV: production
       NIDO_DATA_DIR: /data
-    ports:
-      - "127.0.0.1:43129:3000"
+      NIDO_PORT: "3000"
+    expose:
+      - "3000"
     volumes:
       - nido-data:/data
     healthcheck:
@@ -20,10 +21,16 @@ services:
         - "fetch('http://127.0.0.1:3000/api/nido/status').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
       interval: 30s
       timeout: 5s
-      start_period: 20s
+      start_period: 60s
       retries: 3
+    stop_grace_period: 20s
     security_opt:
       - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   nido-data:

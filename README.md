@@ -25,42 +25,49 @@ Para comprobar una compilación de producción:
 npm test
 ```
 
-## Despliegue en el VPS
+## Despliegue en Dokploy
 
-Requisitos: Docker con Compose, Caddy instalado en el host y un registro DNS `A` o `AAAA` de `nido.momentumia.com` apuntando al VPS.
+Requisitos: un registro DNS `A` de `nido.momentumia.com` apuntando al VPS y una clave SSH de sólo lectura con acceso al repositorio privado.
 
-1. Copia o clona el proyecto en el servidor.
-2. Construye y arranca Nido:
+1. Crea un servicio de tipo **Docker Compose** en Dokploy.
+2. Selecciona el proveedor **Git** y configura:
 
-   ```bash
-   docker compose -f compose.vps.yml up -d --build
-   docker compose -f compose.vps.yml ps
-   ```
+   | Campo | Valor |
+   |---|---|
+   | Repository URL | `git@github.com:pradosman/nido-ios.git` |
+   | Branch | `main` |
+   | Compose Path | `./compose.vps.yml` |
 
-3. Copia el bloque de `deploy/Caddyfile.example` al Caddyfile del servidor. Valida y recarga Caddy:
+3. En **Domains**, añade el dominio limitándolo a la API:
 
-   ```bash
-   sudo caddy validate --config /etc/caddy/Caddyfile
-   sudo systemctl reload caddy
-   ```
+   | Campo | Valor |
+   |---|---|
+   | Host | `nido.momentumia.com` |
+   | Path | `/api` |
+   | Service | `nido` |
+   | Container Port | `3000` |
+   | HTTPS | Activado |
+   | Certificate | Let's Encrypt |
+   | Strip Path | Desactivado |
 
-4. Comprueba la API:
+4. Guarda y pulsa **Deploy**. Dokploy conecta Traefik al puerto interno `3000`; el Compose no publica ningún puerto directamente en el host.
+5. Comprueba la API:
 
    ```bash
    curl https://nido.momentumia.com/api/nido/status
    ```
 
-El contenedor solo publica el servicio en `127.0.0.1:43129`; Caddy es el único punto expuesto a Internet y obtiene/renueva HTTPS automáticamente. Los datos privados requieren la credencial de cuidador guardada en el Keychain del iPhone. No añadas `basic_auth` delante de toda la API: impediría que la app nativa sincronizase.
+Al usar `/api` como ruta pública, Traefik no expone la antigua interfaz web del contenedor. Los datos privados requieren la credencial de cuidador guardada en el Keychain del iPhone. No añadas `basic_auth` delante de la API: impediría que la app nativa sincronizase.
 
 ## Operaciones habituales
 
 | Acción | Comando |
 |---|---|
-| Ver estado | `docker compose -f compose.vps.yml ps` |
-| Ver registros | `docker compose -f compose.vps.yml logs -f nido` |
-| Actualizar | `git pull && docker compose -f compose.vps.yml up -d --build` |
-| Detener | `docker compose -f compose.vps.yml down` |
-| Verificar desde el VPS | `curl http://127.0.0.1:43129/api/nido/status` |
+| Ver estado | Dokploy → Deployments |
+| Ver registros | Dokploy → Logs |
+| Actualizar | Dokploy → Redeploy |
+| Detener | Dokploy → Stop |
+| Verificar | `curl https://nido.momentumia.com/api/nido/status` |
 
 ## Datos y copias de seguridad
 
@@ -69,11 +76,11 @@ Los datos viven en el volumen `nido-data` y sobreviven a reconstrucciones y rein
 Copia de seguridad:
 
 ```bash
-docker compose -f compose.vps.yml exec -T nido \
+docker compose -p nido-nido-wuwhrr -f compose.vps.yml exec -T nido \
   sh -c 'tar -czf - -C /data .' > "nido-backup-$(date +%F).tar.gz"
 ```
 
-Guarda la copia fuera del VPS. Antes de restaurar, detén Nido y conserva una copia del volumen actual.
+El nombre de proyecto puede variar; Dokploy lo muestra al principio de cada despliegue. También puedes programar la copia del volumen `nido-data` desde **Volume Backups**. Guarda las copias fuera del VPS. Antes de restaurar, detén Nido y conserva una copia del volumen actual.
 
 ## Comprobación final
 
