@@ -52,9 +52,17 @@ struct OnboardingView: View {
                         .paperCard(cornerRadius: 18)
                     }
 
+                    if let notice = store.notice {
+                        Label(notice, systemImage: "exclamationmark.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(NidoTheme.care)
+                            .padding(.top, 14)
+                    }
+
                     Button {
                         focusedField = nil
                         isSaving = true
+                        store.dismissNotice()
                         Task {
                             await store.saveProfile(Profile(
                                 caregiverName: caregiverName,
@@ -90,6 +98,12 @@ struct OnboardingView: View {
                 .padding(.bottom, 40)
             }
             .scrollDismissesKeyboard(.interactively)
+        }
+        .onAppear {
+            guard let profile = store.profile else { return }
+            caregiverName = profile.caregiverName
+            babyName = profile.babyName
+            birthDate = ISO8601DateFormatter.nidoDay.date(from: profile.birthDate) ?? .now
         }
     }
 

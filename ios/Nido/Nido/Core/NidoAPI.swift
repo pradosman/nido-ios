@@ -131,6 +131,33 @@ nonisolated enum APIError: LocalizedError, Equatable {
     }
 }
 
+nonisolated enum NidoAPIEndpoint {
+    static let productionURL = URL(string: "https://nido.momentumia.com")!
+
+    static func resolve(configuredValue: String?, isSimulator: Bool) -> URL {
+        guard
+            let configuredValue,
+            let configuredURL = URL(string: configuredValue),
+            configuredURL.scheme != nil,
+            configuredURL.host != nil
+        else {
+            return productionURL
+        }
+
+        if !isSimulator, configuredURL.isLoopback {
+            return productionURL
+        }
+        return configuredURL
+    }
+}
+
+private extension URL {
+    nonisolated var isLoopback: Bool {
+        guard let host = host?.lowercased() else { return false }
+        return host == "localhost" || host == "127.0.0.1" || host == "::1"
+    }
+}
+
 nonisolated private struct LoadResponse: Decodable {
     let profile: Profile?
     let entries: [Entry]

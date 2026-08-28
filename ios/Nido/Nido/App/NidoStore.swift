@@ -70,7 +70,14 @@ final class NidoStore {
                     let credential = try await api.bootstrapCaregiver(name: profile.caregiverName, legacyProfile: profile)
                     try storeCredential(credential)
                 } catch {
-                    phase = .caregiverAccess
+                    if case APIError.server(status: 409, message: _) = error {
+                        phase = .caregiverAccess
+                        notice = "Este espacio ya existe. Necesitas una invitación de otro cuidador."
+                    } else {
+                        phase = .onboarding
+                        isOffline = true
+                        notice = error.localizedDescription
+                    }
                     return
                 }
             } else {
@@ -134,12 +141,9 @@ final class NidoStore {
     }
 
     func saveProfile(_ value: Profile) async {
-        profile = value
-        profileNeedsSync = true
-        persist()
         do {
             if accessToken == nil {
-                let credential = try await api.bootstrapCaregiver(name: value.caregiverName)
+                let credential = try await api.bootstrapCaregiver(name: value.caregiverName, legacyProfile: value)
                 try storeCredential(credential)
             }
             guard let accessToken else { throw APIError.invalidResponse }
@@ -152,8 +156,15 @@ final class NidoStore {
             persist()
         } catch {
             isOffline = true
-            phase = .onboarding
             notice = error.localizedDescription
+            if accessToken == nil {
+                phase = .onboarding
+            } else {
+                profile = value
+                profileNeedsSync = true
+                phase = currentCaregiver == nil ? .caregiverAccess : .ready
+                persist()
+            }
         }
     }
 
@@ -502,7 +513,11 @@ enum AppTab: Hashable {
 enum AppConfiguration {
     static var apiBaseURL: URL {
         let configured = Bundle.main.object(forInfoDictionaryKey: "NIDO_API_BASE_URL") as? String
-        return URL(string: configured ?? "https://nido.momentumia.com")
-            ?? URL(string: "https://nido.momentumia.com")!
+#if targetEnvironment(simulator)
+        let isSimulator = true
+#else
+        let isSimulator = false
+#endif
+        return NidoAPIEndpoint.resolve(configuredValue: configured, isSimulator: isSimulator)
     }
 }
