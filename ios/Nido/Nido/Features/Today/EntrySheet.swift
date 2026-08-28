@@ -21,6 +21,7 @@ struct EntrySheet: View {
     @State private var weightKilograms = 4.0
     @State private var heightCentimeters = 52.0
     @State private var isSaving = false
+    @State private var didLoadSharedDefaults = false
 
     private var canSave: Bool {
         guard !isSaving else { return false }
@@ -197,6 +198,26 @@ struct EntrySheet: View {
             }
         }
         .tint(NidoTheme.moss)
+        .onAppear(perform: loadSharedDefaults)
+    }
+
+    private func loadSharedDefaults() {
+        guard !didLoadSharedDefaults else { return }
+        didLoadSharedDefaults = true
+
+        let defaults = EntryFormDefaults(entries: store.entries)
+        switch kind {
+        case .sleep:
+            durationMinutes = defaults.sleepDurationMinutes
+        case .feed:
+            feedType = defaults.feed.type
+            amountMl = defaults.feed.amountMl
+            feedDurationMinutes = defaults.feed.durationMinutes
+            breastSide = defaults.feed.breastSide
+            milkType = defaults.feed.milkType
+        case .diaper, .health:
+            break
+        }
     }
 
     private var sleepDurationFooter: String {

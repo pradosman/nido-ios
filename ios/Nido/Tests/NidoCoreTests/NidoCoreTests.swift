@@ -136,15 +136,95 @@ struct NidoCoreTests {
         #expect(credential.accessToken == "private-token")
     }
 
-    private func entry(kind: EntryKind, date: Date, duration: Int? = nil, amount: Int? = nil) -> Entry {
+    @Test
+    func entryDefaultsFollowTheLatestBabyRecordsAcrossCaregivers() {
+        let older = Date(timeIntervalSince1970: 1_000)
+        let newer = Date(timeIntervalSince1970: 2_000)
+        let entries = [
+            entry(
+                kind: .feed,
+                date: older,
+                detail: "Lactancia · Pecho derecho",
+                duration: 22,
+                caregiverID: "david"
+            ),
+            entry(
+                kind: .feed,
+                date: newer,
+                detail: "Biberón · Fórmula",
+                amount: 60,
+                caregiverID: "ana"
+            ),
+            entry(kind: .sleep, date: older, duration: 45, caregiverID: "david"),
+            entry(kind: .sleep, date: newer, duration: 95, caregiverID: "ana"),
+        ]
+
+        let defaults = EntryFormDefaults(entries: entries)
+
+        #expect(defaults.feed.type == .bottle)
+        #expect(defaults.feed.amountMl == 60)
+        #expect(defaults.feed.milkType == "Fórmula")
+        #expect(defaults.feed.breastSide == .right)
+        #expect(defaults.sleepDurationMinutes == 95)
+    }
+
+    @Test
+    func entryDefaultsUseTheLatestValuesForEachFeedType() {
+        let entries = [
+            entry(
+                kind: .feed,
+                date: Date(timeIntervalSince1970: 3_000),
+                detail: "Lactancia · Pecho ambos",
+                duration: 18
+            ),
+            entry(
+                kind: .feed,
+                date: Date(timeIntervalSince1970: 2_000),
+                detail: "Biberón · Fórmula",
+                amount: 120
+            ),
+        ]
+
+        let defaults = EntryFormDefaults(entries: entries)
+
+        #expect(defaults.feed.type == .nursing)
+        #expect(defaults.feed.durationMinutes == 18)
+        #expect(defaults.feed.breastSide == .both)
+        #expect(defaults.feed.milkType == "Fórmula")
+    }
+
+    @Test
+    func entryDefaultsUnderstandLegacyBottleRecords() {
+        let defaults = EntryFormDefaults(entries: [
+            entry(
+                kind: .feed,
+                date: Date(timeIntervalSince1970: 1_000),
+                detail: "Le ha dado hipo",
+                amount: 60
+            ),
+        ])
+
+        #expect(defaults.feed.type == .bottle)
+        #expect(defaults.feed.amountMl == 60)
+    }
+
+    private func entry(
+        kind: EntryKind,
+        date: Date,
+        detail: String = "",
+        duration: Int? = nil,
+        amount: Int? = nil,
+        caregiverID: String? = nil
+    ) -> Entry {
         Entry(
-            id: "entry",
+            id: UUID().uuidString,
             kind: kind,
             title: kind.title,
-            detail: "",
+            detail: detail,
             occurredAt: Int64(date.timeIntervalSince1970 * 1_000),
             durationMinutes: duration,
-            amountMl: amount
+            amountMl: amount,
+            caregiverID: caregiverID
         )
     }
 }
