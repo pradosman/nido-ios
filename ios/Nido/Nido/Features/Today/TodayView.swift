@@ -322,15 +322,27 @@ private struct EmptyStoryView: View {
 }
 
 private struct TimelineEntryRow: View {
+    @Environment(NidoStore.self) private var store
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: Entry
     let isLast: Bool
 
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            accessibilityLayout
-        } else {
-            standardLayout
+        ZStack(alignment: .topLeading) {
+            if dynamicTypeSize.isAccessibilitySize {
+                accessibilityLayout
+            } else {
+                standardLayout
+            }
+        }
+        .contentShape(Rectangle())
+        .onLongPressGesture {
+            store.editingEntry = entry
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("today-entry-\(entry.id)")
+        .accessibilityAction(named: Text("Editar")) {
+            store.editingEntry = entry
         }
     }
 
