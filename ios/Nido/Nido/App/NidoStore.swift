@@ -129,6 +129,56 @@ final class NidoStore {
                 caregiverID: caregiver.id,
                 caregiverName: caregiver.name
             )]
+        } else if scenario == "circular-timeline" {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+            let today = calendar.date(from: DateComponents(year: 2026, month: 8, day: 28))!
+            entries = [
+                Entry(
+                    id: "ui-test-feed",
+                    kind: .feed,
+                    title: EntryKind.feed.title,
+                    detail: "Leche de fórmula",
+                    occurredAt: Int64(today.addingTimeInterval(16 * 3_600).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: 60,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+                Entry(
+                    id: "ui-test-sleep",
+                    kind: .sleep,
+                    title: EntryKind.sleep.title,
+                    detail: "",
+                    occurredAt: Int64(today.addingTimeInterval(8 * 3_600 + 15 * 60).timeIntervalSince1970 * 1_000),
+                    durationMinutes: 75,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+                Entry(
+                    id: "ui-test-overnight",
+                    kind: .sleep,
+                    title: EntryKind.sleep.title,
+                    detail: "",
+                    occurredAt: Int64(today.addingTimeInterval(60 * 60).timeIntervalSince1970 * 1_000),
+                    durationMinutes: 120,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+                Entry(
+                    id: "ui-test-previous-care",
+                    kind: .health,
+                    title: EntryKind.health.title,
+                    detail: "Baño",
+                    occurredAt: Int64(today.addingTimeInterval(-12 * 3_600).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+            ]
         } else if scenario == "diaper-edit" {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
