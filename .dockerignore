@@ -4,6 +4,7 @@
 .vinext
 .wrangler
 dist
+ios
 node_modules
 outputs
 work

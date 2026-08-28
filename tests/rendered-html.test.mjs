@@ -70,9 +70,10 @@ test("ships private persistence, onboarding, and a bespoke social card", async (
 });
 
 test("ships a persistent and private VPS deployment path", async () => {
-  const [dockerfile, compose, wrangler, entrypoint, schema, caddy, readme] = await Promise.all([
+  const [dockerfile, compose, dockerignore, wrangler, entrypoint, schema, caddy, readme] = await Promise.all([
     readFile(new URL("../Dockerfile", import.meta.url), "utf8"),
     readFile(new URL("../compose.vps.yml", import.meta.url), "utf8"),
+    readFile(new URL("../.dockerignore", import.meta.url), "utf8"),
     readFile(new URL("../wrangler.vps.jsonc", import.meta.url), "utf8"),
     readFile(new URL("../deploy/entrypoint.sh", import.meta.url), "utf8"),
     readFile(new URL("../deploy/schema.sql", import.meta.url), "utf8"),
@@ -81,8 +82,10 @@ test("ships a persistent and private VPS deployment path", async () => {
   ]);
 
   assert.match(dockerfile, /VOLUME \["\/data"\]/);
-  assert.match(compose, /127\.0\.0\.1:43129:3000/);
+  assert.match(compose, /expose:\s+- "3000"/);
+  assert.doesNotMatch(compose, /ports:/);
   assert.match(compose, /nido-data:\/data/);
+  assert.match(dockerignore, /^ios$/m);
   assert.match(wrangler, /"migrations_dir": "drizzle"/);
   assert.match(entrypoint, /d1 execute DB/);
   assert.match(entrypoint, /--persist-to "\$data_dir"/);
@@ -93,5 +96,6 @@ test("ships a persistent and private VPS deployment path", async () => {
   assert.doesNotMatch(caddy, /basic_auth/);
   assert.match(compose, /\/api\/nido\/status/);
   assert.match(readme, /app nativa para iPhone/);
-  assert.match(readme, /docker compose -f compose\.vps\.yml up -d --build/);
+  assert.match(readme, /Dokploy conecta Traefik al puerto interno `3000`/);
+  assert.match(readme, /\| Path \| `\/api` \|/);
 });
