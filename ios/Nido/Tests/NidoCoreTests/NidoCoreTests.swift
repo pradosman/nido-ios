@@ -79,7 +79,7 @@ struct NidoCoreTests {
 
         let edited = original.edited(
             detail: interval.detail(note: "Ventana abierta"),
-            occurredAt: EntryEditMoment.resolve(
+            occurredAt: EntryMoment.resolve(
                 kind: .sleep,
                 selectedDate: originalEnd,
                 sleepInterval: interval
@@ -104,13 +104,50 @@ struct NidoCoreTests {
             notAfter: try date(hour: 18, calendar: calendar)
         ))
 
-        let resolved = EntryEditMoment.resolve(
+        let resolved = EntryMoment.resolve(
             kind: kind,
             selectedDate: selectedDate,
             sleepInterval: staleSleepInterval
         )
 
         #expect(resolved == selectedDate)
+    }
+
+    @Test(arguments: [EntryKind.feed, .diaper, .health])
+    func creatingANonSleepEntryUsesTheSelectedMoment(kind: EntryKind) throws {
+        let calendar = utcCalendar
+        let selectedDate = try date(hour: 16, calendar: calendar)
+        let formSleepInterval = try #require(SleepInterval.validated(
+            start: try date(hour: 17, minute: 5, calendar: calendar),
+            end: try date(hour: 17, minute: 50, calendar: calendar),
+            notAfter: try date(hour: 18, calendar: calendar)
+        ))
+
+        let resolved = EntryMoment.resolve(
+            kind: kind,
+            selectedDate: selectedDate,
+            sleepInterval: formSleepInterval
+        )
+
+        #expect(resolved == selectedDate)
+    }
+
+    @Test
+    func creatingSleepUsesTheIntervalEnd() throws {
+        let calendar = utcCalendar
+        let interval = try #require(SleepInterval.validated(
+            start: try date(hour: 17, minute: 5, calendar: calendar),
+            end: try date(hour: 17, minute: 50, calendar: calendar),
+            notAfter: try date(hour: 18, calendar: calendar)
+        ))
+
+        let resolved = EntryMoment.resolve(
+            kind: .sleep,
+            selectedDate: try date(hour: 16, calendar: calendar),
+            sleepInterval: interval
+        )
+
+        #expect(resolved == interval.end)
     }
 
     @Test

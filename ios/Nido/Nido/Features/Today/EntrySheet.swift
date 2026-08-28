@@ -86,7 +86,7 @@ struct EntrySheet: View {
                 Form {
                     if kind != .sleep {
                         Section("Momento") {
-                            DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
+                            DatePicker("Fecha y hora", selection: $date, in: ...store.now)
                         }
                     }
 
@@ -190,7 +190,11 @@ struct EntrySheet: View {
                             await store.addEntry(
                                 kind: kind,
                                 detail: savedDetail,
-                                date: sleepInterval?.end ?? date,
+                                date: EntryMoment.resolve(
+                                    kind: kind,
+                                    selectedDate: date,
+                                    sleepInterval: sleepInterval
+                                ),
                                 durationMinutes: kind == .sleep ? sleepInterval?.durationMinutes : (kind == .feed && feedType != .bottle && feedType != .solids ? feedDurationMinutes : nil),
                                 amountMl: kind == .feed && (feedType == .bottle || feedType == .pumping) && amountMl > 0 ? amountMl : nil
                             )
@@ -209,11 +213,12 @@ struct EntrySheet: View {
     private func loadSharedDefaults() {
         guard !didLoadSharedDefaults else { return }
         didLoadSharedDefaults = true
+        date = store.now
 
         let defaults = EntryFormDefaults(entries: store.entries)
         switch kind {
         case .sleep:
-            sleepEnd = .now
+            sleepEnd = store.now
             sleepStart = sleepEnd.addingTimeInterval(TimeInterval(-defaults.sleepDurationMinutes * 60))
         case .feed:
             feedType = defaults.feed.type

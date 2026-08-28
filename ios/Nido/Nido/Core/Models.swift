@@ -168,7 +168,7 @@ nonisolated enum DurationLabel {
     }
 }
 
-nonisolated enum EntryEditMoment {
+nonisolated enum EntryMoment {
     static func resolve(kind: EntryKind, selectedDate: Date, sleepInterval: SleepInterval?) -> Date {
         guard kind == .sleep else { return selectedDate }
         return sleepInterval?.end ?? selectedDate
