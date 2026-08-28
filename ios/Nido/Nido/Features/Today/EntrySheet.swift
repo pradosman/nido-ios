@@ -24,6 +24,7 @@ struct EntrySheet: View {
 
     private var canSave: Bool {
         guard !isSaving else { return false }
+        if kind == .sleep { return durationMinutes > 0 }
         if kind == .feed, feedType == .solids {
             return !detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
@@ -95,14 +96,12 @@ struct EntrySheet: View {
                     }
 
                     if kind == .sleep {
-                        Section("Duración") {
-                            Stepper(value: $durationMinutes, in: 5...720, step: 5) {
-                                HStack {
-                                    Text("Tiempo dormido")
-                                    Spacer()
-                                    Text("\(durationMinutes) min").foregroundStyle(NidoTheme.sleep)
-                                }
-                            }
+                        Section {
+                            SleepDurationPicker(totalMinutes: $durationMinutes)
+                        } header: {
+                            Text("Duración")
+                        } footer: {
+                            Text(sleepDurationFooter)
                         }
                     }
 
@@ -198,6 +197,18 @@ struct EntrySheet: View {
             }
         }
         .tint(NidoTheme.moss)
+    }
+
+    private var sleepDurationFooter: String {
+        guard durationMinutes > 0 else {
+            return "Elige una duración mayor que cero."
+        }
+
+        let hours = durationMinutes / 60
+        let minutes = durationMinutes % 60
+        if hours == 0 { return "Duración total: \(minutes) min" }
+        if minutes == 0 { return "Duración total: \(hours) h" }
+        return "Duración total: \(hours) h \(minutes) min"
     }
 
     @ViewBuilder
