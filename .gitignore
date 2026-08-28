@@ -47,3 +47,11 @@ yarn-error.log*
 **/DerivedData/
 **/xcuserdata/
 *.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.xcarchive
+*.xcresult
+*.dSYM
+*.dSYM.zip
+*.ipa
