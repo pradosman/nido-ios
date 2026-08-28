@@ -136,50 +136,149 @@ private struct ActiveFeedCard: View {
 
 private struct SleepCard: View {
     @Environment(NidoStore.self) private var store
+    @State private var isEditingStart = false
 
     var body: some View {
-        Button {
-            Task { await store.toggleSleep() }
-        } label: {
+        if let start = store.activeSleepStartedAt {
             HStack(spacing: 14) {
                 EntryGlyph(kind: .sleep, size: 28)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(store.activeSleepStartedAt == nil ? "Primer descanso" : "El sueño está en curso")
-                        .font(.caption)
-                        .foregroundStyle(store.activeSleepStartedAt == nil ? NidoTheme.secondaryInk : .white.opacity(0.72))
-                    if let start = store.activeSleepStartedAt {
+                Button {
+                    isEditingStart = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("El sueño está en curso")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.72))
                         TimelineView(.periodic(from: .now, by: 1)) { context in
                             Text(context.date.timeIntervalSince(start).durationLabel)
                                 .font(.headline.monospacedDigit())
                         }
-                    } else {
-                        Text("Empezar sueño")
-                            .font(.headline)
+                        Label(
+                            "Desde \(start.formatted(date: .abbreviated, time: .shortened))",
+                            systemImage: "pencil"
+                        )
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.82))
                     }
+                    .frame(minHeight: 44, alignment: .leading)
                 }
-                .foregroundStyle(store.activeSleepStartedAt == nil ? NidoTheme.ink : .white)
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .accessibilityLabel("Editar hora de inicio, \(start.formatted(date: .abbreviated, time: .shortened))")
+                .accessibilityHint("Abre el selector de fecha y hora")
 
                 Spacer(minLength: 8)
 
-                Text(store.activeSleepStartedAt == nil ? "Iniciar" : "Terminar")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(store.activeSleepStartedAt == nil ? .white : .black)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(store.activeSleepStartedAt == nil ? NidoTheme.moss : .white, in: Capsule())
+                Button {
+                    Task { await store.toggleSleep() }
+                } label: {
+                    Text("Terminar")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(.white, in: Capsule())
+                }
+                .buttonStyle(PressScaleButtonStyle())
+                .accessibilityHint("Finaliza y guarda el sueño")
             }
             .padding(14)
             .frame(maxWidth: .infinity)
-            .background(store.activeSleepStartedAt == nil ? .white.opacity(0.48) : NidoTheme.sleep, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+            .background(NidoTheme.sleep, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
                     .stroke(.white.opacity(0.72), lineWidth: 0.7)
             }
             .shadow(color: NidoTheme.ink.opacity(0.05), radius: 16, y: 7)
+            .sheet(isPresented: $isEditingStart) {
+                ActiveSleepStartEditor(startedAt: start)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(32)
+            }
+        } else {
+            Button {
+                Task { await store.toggleSleep() }
+            } label: {
+                HStack(spacing: 14) {
+                    EntryGlyph(kind: .sleep, size: 28)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Primer descanso")
+                            .font(.caption)
+                            .foregroundStyle(NidoTheme.secondaryInk)
+                        Text("Empezar sueño")
+                            .font(.headline)
+                            .foregroundStyle(NidoTheme.ink)
+                    }
+                    Spacer(minLength: 8)
+                    Text("Iniciar")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(NidoTheme.moss, in: Capsule())
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity)
+                .background(.white.opacity(0.48), in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 21, style: .continuous)
+                        .stroke(.white.opacity(0.72), lineWidth: 0.7)
+                }
+                .shadow(color: NidoTheme.ink.opacity(0.05), radius: 16, y: 7)
+            }
+            .buttonStyle(PressScaleButtonStyle())
+            .accessibilityHint("Inicia el temporizador de sueño")
         }
-        .buttonStyle(PressScaleButtonStyle())
-        .accessibilityHint(store.activeSleepStartedAt == nil ? "Inicia el temporizador de sueño" : "Finaliza y guarda el sueño")
+    }
+}
+
+private struct ActiveSleepStartEditor: View {
+    @Environment(NidoStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var startedAt: Date
+
+    init(startedAt: Date) {
+        _startedAt = State(initialValue: startedAt)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 8) {
+                DatePicker(
+                    "Inicio del sueño",
+                    selection: $startedAt,
+                    in: ...Date.now,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text("Lleva durmiendo \(context.date.timeIntervalSince(startedAt).durationLabel)")
+                        .font(.subheadline)
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                }
+            }
+            .padding(.horizontal, 20)
+            .navigationTitle("Hora de inicio")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Guardar") {
+                        Task {
+                            await store.updateActiveSleepStart(startedAt)
+                            dismiss()
+                        }
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }
 
