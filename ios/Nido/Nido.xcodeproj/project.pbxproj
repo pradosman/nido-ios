@@ -11,6 +11,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		E33333333333333333333334 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 111111111111111111111111 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 666666666666666666666666;
+			remoteInfo = Nido;
+		};
 		E33333333333333333333333 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 111111111111111111111111 /* Project object */;
@@ -37,11 +44,13 @@
 /* Begin PBXFileReference section */
 		555555555555555555555555 /* Nido.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nido.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		555555555555555555555556 /* NidoLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NidoLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		555555555555555555555557 /* NidoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NidoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		444444444444444444444444 /* Nido */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Nido; sourceTree = "<group>"; };
 		444444444444444444444445 /* NidoLiveActivity */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoLiveActivity; sourceTree = "<group>"; };
+		444444444444444444444446 /* NidoUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoUITests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +68,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		888888888888888888888890 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -67,6 +83,7 @@
 			children = (
 				444444444444444444444444 /* Nido */,
 				444444444444444444444445 /* NidoLiveActivity */,
+				444444444444444444444446 /* NidoUITests */,
 				333333333333333333333333 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -76,6 +93,7 @@
 			children = (
 				555555555555555555555555 /* Nido.app */,
 				555555555555555555555556 /* NidoLiveActivity.appex */,
+				555555555555555555555557 /* NidoUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -129,6 +147,29 @@
 			productReference = 555555555555555555555556 /* NidoLiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		666666666666666666666668 /* NidoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BDBDBDBDBDBDBDBDBDBDBDBD /* Build configuration list for PBXNativeTarget "NidoUITests" */;
+			buildPhases = (
+				777777777777777777777779 /* Sources */,
+				888888888888888888888890 /* Frameworks */,
+				999999999999999999999991 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E44444444444444444444445 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				444444444444444444444446 /* NidoUITests */,
+			);
+			name = NidoUITests;
+			packageProductDependencies = (
+			);
+			productName = NidoUITests;
+			productReference = 555555555555555555555557 /* NidoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -144,6 +185,10 @@
 					};
 					666666666666666666666667 = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					666666666666666666666668 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 666666666666666666666666;
 					};
 				};
 			};
@@ -163,6 +208,7 @@
 			targets = (
 				666666666666666666666666 /* Nido */,
 				666666666666666666666667 /* NidoLiveActivity */,
+				666666666666666666666668 /* NidoUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -176,6 +222,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		999999999999999999999999 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		999999999999999999999991 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -199,6 +252,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		777777777777777777777779 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -206,6 +266,11 @@
 			isa = PBXTargetDependency;
 			target = 666666666666666666666667 /* NidoLiveActivity */;
 			targetProxy = E33333333333333333333333 /* PBXContainerItemProxy */;
+		};
+		E44444444444444444444445 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 666666666666666666666666 /* Nido */;
+			targetProxy = E33333333333333333333334 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -405,6 +470,44 @@
 			};
 			name = Release;
 		};
+		D5D5D5D5D5D5D5D5D5D5D5D5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6VVEKN47Y3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.momentumia.nido.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Nido;
+			};
+			name = Debug;
+		};
+		D6D6D6D6D6D6D6D6D6D6D6D6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6VVEKN47Y3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.momentumia.nido.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Nido;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -431,6 +534,15 @@
 			buildConfigurations = (
 				D3D3D3D3D3D3D3D3D3D3D3D3 /* Debug */,
 				D4D4D4D4D4D4D4D4D4D4D4D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BDBDBDBDBDBDBDBDBDBDBDBD /* Build configuration list for PBXNativeTarget "NidoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5D5D5D5D5D5D5D5D5D5D5D5 /* Debug */,
+				D6D6D6D6D6D6D6D6D6D6D6D6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

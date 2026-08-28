@@ -70,6 +70,48 @@ final class NidoStore {
         }
     }
 
+    #if DEBUG
+    func prepareForUITesting(scenario: String) {
+        phase = .loading
+        profile = nil
+        entries = []
+        caregivers = []
+        currentCaregiver = nil
+        activeSleepStartedAt = nil
+        activeFeedStartedAt = nil
+        activeFeedSide = nil
+        notice = nil
+        isOffline = false
+        selectedTab = .today
+        presentedEntryKind = nil
+        editingEntry = nil
+        recentlyDeletedEntry = nil
+        isEditingProfile = false
+
+        guard scenario != "onboarding" else {
+            phase = .onboarding
+            return
+        }
+
+        let caregiver = Caregiver(
+            id: "ui-test-caregiver",
+            name: "David",
+            role: .owner,
+            status: .active,
+            inviteCode: nil,
+            createdAt: nil,
+            joinedAt: nil
+        )
+        profile = Profile(caregiverName: caregiver.name, babyName: "Marco", birthDate: "2026-08-01")
+        caregivers = [caregiver]
+        currentCaregiver = caregiver
+        if scenario == "active-sleep" {
+            activeSleepStartedAt = Date.now.addingTimeInterval(-47 * 60)
+        }
+        phase = .ready
+    }
+    #endif
+
     func load() async {
         restoreCache()
         if accessToken == nil {
