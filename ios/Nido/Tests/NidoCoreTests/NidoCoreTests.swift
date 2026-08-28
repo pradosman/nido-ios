@@ -3,6 +3,74 @@ import Testing
 @testable import NidoCore
 
 struct NidoCoreTests {
+    @Test
+    func sleepIntervalCalculatesACompletedSameDaySleep() throws {
+        let calendar = utcCalendar
+        let reference = try date(hour: 16, calendar: calendar)
+        let interval = try #require(SleepInterval.resolve(
+            startTime: try date(hour: 9, calendar: calendar),
+            endTime: try date(hour: 15, calendar: calendar),
+            relativeTo: reference,
+            calendar: calendar
+        ))
+
+        #expect(interval.durationMinutes == 360)
+        #expect(calendar.component(.hour, from: interval.start) == 9)
+        #expect(calendar.component(.hour, from: interval.end) == 15)
+    }
+
+    @Test
+    func sleepIntervalUnderstandsMidnight() throws {
+        let calendar = utcCalendar
+        let reference = try date(hour: 3, calendar: calendar)
+        let interval = try #require(SleepInterval.resolve(
+            startTime: try date(hour: 22, calendar: calendar),
+            endTime: try date(hour: 2, calendar: calendar),
+            relativeTo: reference,
+            calendar: calendar
+        ))
+
+        #expect(interval.durationMinutes == 240)
+        #expect(calendar.isDate(interval.start, inSameDayAs: try date(day: 27, hour: 22, calendar: calendar)))
+        #expect(calendar.isDate(interval.end, inSameDayAs: reference))
+    }
+
+    @Test
+    func sleepIntervalRejectsAnUnfinishedOrEmptyRange() throws {
+        let calendar = utcCalendar
+        let reference = try date(hour: 14, calendar: calendar)
+        let start = try date(hour: 9, calendar: calendar)
+
+        #expect(SleepInterval.resolve(
+            startTime: start,
+            endTime: try date(hour: 15, calendar: calendar),
+            relativeTo: reference,
+            calendar: calendar
+        ) == nil)
+        #expect(SleepInterval.resolve(
+            startTime: start,
+            endTime: start,
+            relativeTo: reference,
+            calendar: calendar
+        ) == nil)
+    }
+
+    @Test
+    func editedSleepKeepsItsOriginalDay() throws {
+        let calendar = utcCalendar
+        let originalDay = try date(day: 20, hour: 15, calendar: calendar)
+        let interval = try #require(SleepInterval.resolve(
+            startTime: try date(hour: 10, calendar: calendar),
+            endTime: try date(hour: 16, calendar: calendar),
+            relativeTo: originalDay,
+            notAfter: try date(hour: 18, calendar: calendar),
+            calendar: calendar
+        ))
+
+        #expect(calendar.component(.day, from: interval.end) == 20)
+        #expect(calendar.component(.hour, from: interval.end) == 16)
+    }
+
     @Test func dailyMetricsIgnoreOtherDays() throws {
         let calendar = Calendar(identifier: .gregorian)
         let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 27, hour: 12)))
@@ -226,5 +294,15 @@ struct NidoCoreTests {
             amountMl: amount,
             caregiverID: caregiverID
         )
+    }
+
+    private var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    private func date(day: Int = 28, hour: Int, minute: Int = 0, calendar: Calendar) throws -> Date {
+        try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: day, hour: hour, minute: minute)))
     }
 }

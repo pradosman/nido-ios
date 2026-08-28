@@ -303,14 +303,14 @@ final class NidoStore {
 
     func toggleSleep() async {
         if let start = activeSleepStartedAt {
-            let minutes = max(1, Int(Date.now.timeIntervalSince(start) / 60))
+            let interval = SleepInterval(start: start, end: .now)
             activeSleepStartedAt = nil
             defaults.removeObject(forKey: "activeSleepStartedAt")
             await addEntry(
                 kind: .sleep,
-                detail: "Temporizador",
-                date: .now,
-                durationMinutes: minutes,
+                detail: interval.detail(note: ""),
+                date: interval.end,
+                durationMinutes: interval.durationMinutes,
                 amountMl: nil
             )
             await NidoLiveActivity.end(kind: "sleep")
