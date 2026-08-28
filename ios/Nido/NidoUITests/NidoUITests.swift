@@ -70,11 +70,43 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "timeline-duration")
 
         XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
-        let sleepEntry = app.descendants(matching: .any)["today-entry-ui-test-sleep"]
+        let sleepEntry = app.buttons["timeline-event-ui-test-sleep"]
         XCTAssertTrue(sleepEntry.exists)
         sleepEntry.press(forDuration: 1)
 
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+    }
+
+    func testCircularTimelineSelectsAndEditsAnEvent() {
+        launch(scenario: "circular-timeline")
+
+        let dial = app.otherElements["timeline-circular-dial"]
+        XCTAssertTrue(dial.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.otherElements["today-vertical-timeline"].exists)
+
+        let sleep = app.buttons["timeline-event-ui-test-sleep"]
+        XCTAssertTrue(sleep.exists)
+        sleep.tap()
+        XCTAssertTrue(app.staticTexts["1 h 15 min"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.otherElements["timeline-dial-center-detail"].exists)
+
+        sleep.press(forDuration: 1)
+        XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+    }
+
+    func testCircularTimelinePagesToThePreviousDayAndBackToToday() {
+        launch(scenario: "circular-timeline")
+
+        XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 3))
+        let dial = app.otherElements["timeline-circular-dial"]
+        XCTAssertTrue(dial.exists)
+        dial.swipeRight()
+
+        XCTAssertTrue(app.staticTexts["jueves, 27 de agosto"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.otherElements["timeline-circular-dial"].exists)
+        app.buttons["Día siguiente"].tap()
+        XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["Día siguiente"].isEnabled)
     }
 
     func testHistoryFormatsDurationAsHoursAndMinutes() {

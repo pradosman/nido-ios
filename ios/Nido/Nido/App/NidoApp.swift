@@ -10,7 +10,7 @@ struct NidoApp: App {
         #if DEBUG
         if let scenario = ProcessInfo.processInfo.environment["NIDO_UI_TEST_SCENARIO"] {
             let referenceNow: Date
-            if scenario == "feed-create" {
+            if scenario == "feed-create" || scenario == "circular-timeline" {
                 var calendar = Calendar(identifier: .gregorian)
                 calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
                 referenceNow = calendar.date(from: DateComponents(
