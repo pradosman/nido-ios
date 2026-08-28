@@ -98,15 +98,58 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "circular-timeline")
 
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Volver a hoy"].exists)
         let dial = app.otherElements["timeline-circular-dial"]
         XCTAssertTrue(dial.exists)
         dial.swipeRight()
+        dial.swipeRight()
 
-        XCTAssertTrue(app.staticTexts["jueves, 27 de agosto"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Volver a hoy"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.otherElements["timeline-circular-dial"].exists)
-        app.buttons["Día siguiente"].tap()
+        app.buttons["Volver a hoy"].tap()
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["Volver a hoy"].exists)
         XCTAssertFalse(app.buttons["Día siguiente"].isEnabled)
+    }
+
+    func testDenseCircularTimelineClusterExpandsEveryAccessibleRecord() {
+        launch(scenario: "circular-timeline-dense")
+
+        let cluster = app.buttons["timeline-cluster-480"]
+        XCTAssertTrue(cluster.waitForExistence(timeout: 3))
+        XCTAssertTrue(cluster.label.contains("6 registros"))
+        cluster.tap()
+
+        XCTAssertTrue(app.otherElements["timeline-cluster-expanded"].waitForExistence(timeout: 2))
+        for index in 0..<6 {
+            XCTAssertTrue(app.buttons["timeline-expanded-dense-\(index)"].exists)
+        }
+
+        app.buttons["timeline-expanded-dense-0"].press(forDuration: 1)
+        XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+    }
+
+    func testCircularTimelineFitsAboveTheTabBarAtNormalTextSize() {
+        launch(scenario: "circular-timeline")
+
+        let dial = app.otherElements["timeline-circular-dial"]
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(dial.waitForExistence(timeout: 3))
+        XCTAssertTrue(tabBar.exists)
+        XCTAssertLessThanOrEqual(dial.frame.maxY, tabBar.frame.minY - 16)
+    }
+
+    func testCircularTimelineIsInTheFirstViewportAtAccessibilityXXXL() {
+        launch(
+            scenario: "circular-timeline",
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        )
+
+        let dial = app.otherElements["timeline-circular-dial"]
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(dial.waitForExistence(timeout: 3))
+        XCTAssertTrue(tabBar.exists)
+        XCTAssertLessThan(dial.frame.minY, tabBar.frame.minY)
     }
 
     func testHistoryFormatsDurationAsHoursAndMinutes() {
@@ -176,11 +219,14 @@ final class NidoUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["17:50"].exists)
     }
 
-    private func launch(scenario: String) {
+    private func launch(scenario: String, contentSizeCategory: String? = nil) {
         app = XCUIApplication()
         app.launchEnvironment["NIDO_UI_TEST_SCENARIO"] = scenario
         app.launchEnvironment["NIDO_UI_TEST_RUN_ID"] = UUID().uuidString
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        if let contentSizeCategory {
+            app.launchEnvironment["NIDO_UI_TEST_DYNAMIC_TYPE_SIZE"] = contentSizeCategory
+        }
         app.launch()
     }
 }

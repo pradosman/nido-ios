@@ -10,7 +10,7 @@ struct NidoApp: App {
         #if DEBUG
         if let scenario = ProcessInfo.processInfo.environment["NIDO_UI_TEST_SCENARIO"] {
             let referenceNow: Date
-            if scenario == "feed-create" || scenario == "circular-timeline" {
+            if scenario == "feed-create" || scenario == "circular-timeline" || scenario == "circular-timeline-dense" {
                 var calendar = Calendar(identifier: .gregorian)
                 calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
                 referenceNow = calendar.date(from: DateComponents(
@@ -51,6 +51,7 @@ struct NidoApp: App {
         WindowGroup {
             RootView()
                 .environment(store)
+                .modifier(UITestDynamicTypeOverride())
                 .task {
                     guard shouldLoadOnLaunch else { return }
                     await store.load()
@@ -60,5 +61,20 @@ struct NidoApp: App {
                     Task { await store.refresh() }
                 }
         }
+    }
+}
+
+private struct UITestDynamicTypeOverride: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["NIDO_UI_TEST_DYNAMIC_TYPE_SIZE"] == "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge" {
+            content.environment(\.dynamicTypeSize, .accessibility3)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }

@@ -6,6 +6,7 @@ struct TodayView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
     @State private var selectedEntryID: String?
+    @State private var expandedClusterID: String?
 
     private var profile: Profile {
         store.profile ?? Profile(caregiverName: "", babyName: "Bebé", birthDate: "")
@@ -30,18 +31,7 @@ struct TodayView: View {
             PaperBackground()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    pageHeader
-                    if isTodaySelected {
-                        SleepCard()
-                            .padding(.top, 24)
-                        if store.activeFeedStartedAt != nil {
-                            ActiveFeedCard()
-                                .padding(.top, 12)
-                        }
-                    }
-                    storyHeader
-                    dayPager
-                        .padding(.bottom, 36)
+                    prioritizedContent
                 }
                 .padding(.horizontal, 24)
             }
@@ -75,7 +65,37 @@ struct TodayView: View {
         }
         .onChange(of: selectedDay) { _, _ in
             selectedEntryID = nil
+            expandedClusterID = nil
         }
+    }
+
+    @ViewBuilder
+    private var prioritizedContent: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            dayPager
+                .padding(.top, 8)
+            pageHeader
+                .padding(.top, 18)
+            todayStatusCards
+        } else {
+            pageHeader
+            storyHeader
+            dayPager
+            todayStatusCards
+        }
+    }
+
+    @ViewBuilder
+    private var todayStatusCards: some View {
+        if isTodaySelected {
+            SleepCard()
+                .padding(.top, 24)
+            if store.activeFeedStartedAt != nil {
+                ActiveFeedCard()
+                    .padding(.top, 12)
+            }
+        }
+        Color.clear.frame(height: 36)
     }
 
     private var pageHeader: some View {
@@ -119,54 +139,87 @@ struct TodayView: View {
                             activeSleepStartedAt: store.activeSleepStartedAt,
                             now: store.now
                         ),
-                        selectedEntryID: $selectedEntryID
+                        selectedEntryID: $selectedEntryID,
+                        expandedClusterID: $expandedClusterID
                     )
                     .tag(date)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 390 : 350)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 540 : 350)
         }
     }
 
     private var dayControls: some View {
-        HStack {
-            Button {
-                moveDay(by: -1)
-            } label: {
-                Label("Día anterior", systemImage: "chevron.left")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 44, height: 44)
-            }
-            .disabled(dayDates.first == selectedDay)
-            .accessibilityLabel("Día anterior")
-            .opacity(dayDates.first == selectedDay ? 0.28 : 1)
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    moveDay(by: -1)
+                } label: {
+                    Label("Día anterior", systemImage: "chevron.left")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(dayDates.first == selectedDay)
+                .accessibilityLabel("Día anterior")
+                .opacity(dayDates.first == selectedDay ? 0.28 : 1)
 
-            Spacer()
-            Text(isTodaySelected ? "Hoy" : selectedDay.formatted(.dateTime.day().month(.wide)))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(NidoTheme.secondaryInk)
-            Spacer()
+                Spacer()
+                Text(isTodaySelected ? "Hoy" : selectedDay.formatted(.dateTime.day().month(.wide)))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.secondaryInk)
+                Spacer()
 
-            Button {
-                moveDay(by: 1)
-            } label: {
-                Label("Día siguiente", systemImage: "chevron.right")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 44, height: 44)
+                Button {
+                    moveDay(by: 1)
+                } label: {
+                    Label("Día siguiente", systemImage: "chevron.right")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(isTodaySelected)
+                .accessibilityLabel("Día siguiente")
+                .opacity(isTodaySelected ? 0.28 : 1)
             }
-            .disabled(isTodaySelected)
-            .accessibilityLabel("Día siguiente")
-            .opacity(isTodaySelected ? 0.28 : 1)
+
+            if !isTodaySelected {
+                Button {
+                    returnToToday()
+                } label: {
+                    Label("Volver a hoy", systemImage: "arrow.uturn.forward")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minHeight: 44)
+                }
+                .accessibilityIdentifier("timeline-return-today")
+            }
         }
         .foregroundStyle(NidoTheme.moss)
     }
 
     private func moveDay(by offset: Int) {
-        guard let index = dayDates.firstIndex(of: selectedDay) else { return }
-        let destination = min(max(index + offset, dayDates.startIndex), dayDates.index(before: dayDates.endIndex))
+        let navigation: CircularTimeline.Navigation = offset < 0 ? .previous : .next
+        let destination = CircularTimeline.destination(
+            for: navigation,
+            from: selectedDay,
+            availableDates: dayDates,
+            through: store.now
+        )
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0)) {
-            selectedDay = dayDates[destination]
+            selectedDay = destination
+        }
+    }
+
+    private func returnToToday() {
+        selectedEntryID = nil
+        expandedClusterID = nil
+        let destination = CircularTimeline.destination(
+            for: .today,
+            from: selectedDay,
+            availableDates: dayDates,
+            through: store.now
+        )
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0)) {
+            selectedDay = destination
         }
     }
 }
