@@ -21,7 +21,7 @@ struct TrendsView: View {
             PaperBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Los ritmos se calculan a partir de los registros y no representan objetivos.")
+                    Text("Estas tendencias se basan en vuestros registros y no son recomendaciones médicas.")
                         .font(.system(.body, design: .serif))
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
@@ -44,20 +44,38 @@ struct TrendsView: View {
                             .foregroundStyle(NidoTheme.sleep.gradient)
                             .cornerRadius(5)
                         }
-                        .chartYAxis(.hidden)
+                        .chartYAxis {
+                            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
+                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                    .foregroundStyle(NidoTheme.separator)
+                                AxisValueLabel {
+                                    if let minutes = value.as(Int.self) {
+                                        Text(minutes.minutesLabel)
+                                    }
+                                }
+                            }
+                        }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .day)) { _ in
                                 AxisValueLabel(format: .dateTime.weekday(.narrow))
                             }
                         }
                         .frame(height: 190)
+                        .accessibilityLabel("Sueño de los últimos siete días")
+                        .accessibilityValue(weekAccessibilityValue)
                     }
                     .padding(20)
                     .paperCard()
 
-                    HStack(spacing: 12) {
-                        metricCard(kind: .feed, value: "\(today.feeds)", note: today.feedMl > 0 ? "\(today.feedMl) ml hoy" : "tomas hoy")
-                        metricCard(kind: .diaper, value: "\(today.diapers)", note: "cambios hoy")
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            metricCard(kind: .feed, value: "\(today.feeds)", note: today.feedMl > 0 ? "\(today.feedMl) ml hoy" : "tomas hoy")
+                            metricCard(kind: .diaper, value: "\(today.diapers)", note: "cambios hoy")
+                        }
+                        VStack(spacing: 12) {
+                            metricCard(kind: .feed, value: "\(today.feeds)", note: today.feedMl > 0 ? "\(today.feedMl) ml hoy" : "tomas hoy")
+                            metricCard(kind: .diaper, value: "\(today.diapers)", note: "cambios hoy")
+                        }
                     }
 
 
@@ -120,7 +138,7 @@ struct TrendsView: View {
             Chart(growth) { item in
                 if let measurement = value(item) {
                     LineMark(x: .value("Fecha", item.date), y: .value(title, measurement))
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.linear)
                         .foregroundStyle(color)
                     PointMark(x: .value("Fecha", item.date), y: .value(title, measurement))
                         .foregroundStyle(color)
@@ -129,7 +147,28 @@ struct TrendsView: View {
             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel(format: .dateTime.day().month(.abbreviated)) } }
             .chartYAxis { AxisMarks(position: .leading) }
             .frame(height: 130)
+            .accessibilityLabel("Evolución de \(title.lowercased())")
+            .accessibilityValue(growthAccessibilityValue(unit: unit, value: value))
         }
+    }
+
+    private var weekAccessibilityValue: String {
+        week.map { item in
+            "\(item.date.formatted(.dateTime.weekday(.wide))): \(item.minutes.minutesLabel)"
+        }
+        .joined(separator: ", ")
+    }
+
+    private func growthAccessibilityValue(
+        unit: String,
+        value: (GrowthMeasurement) -> Double?
+    ) -> String {
+        growth.compactMap { measurement in
+            value(measurement).map {
+                "\(measurement.date.formatted(date: .abbreviated, time: .omitted)): \($0.formatted(.number.precision(.fractionLength(1)))) \(unit)"
+            }
+        }
+        .joined(separator: ", ")
     }
 
     private func metricCard(kind: EntryKind, value: String, note: String) -> some View {

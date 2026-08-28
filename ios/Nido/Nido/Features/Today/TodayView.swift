@@ -103,13 +103,14 @@ struct TodayView: View {
 
 private struct ActiveFeedCard: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         if let start = store.activeFeedStartedAt {
             Button {
                 Task { await store.finishFeed() }
             } label: {
-                HStack(spacing: 14) {
+                adaptiveLayout {
                     EntryGlyph(kind: .feed, size: 24)
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Lactancia en curso")
@@ -136,15 +137,22 @@ private struct ActiveFeedCard: View {
             .accessibilityHint("Finaliza y guarda la lactancia")
         }
     }
+
+    private var adaptiveLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 14))
+    }
 }
 
 private struct SleepCard: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isEditingStart = false
 
     var body: some View {
         if let start = store.activeSleepStartedAt {
-            HStack(spacing: 14) {
+            adaptiveLayout {
                 EntryGlyph(kind: .sleep, size: 28)
 
                 Button {
@@ -205,13 +213,13 @@ private struct SleepCard: View {
             Button {
                 Task { await store.toggleSleep() }
             } label: {
-                HStack(spacing: 14) {
+                adaptiveLayout {
                     EntryGlyph(kind: .sleep, size: 28)
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Sueño")
                             .font(.caption)
                             .foregroundStyle(NidoTheme.secondaryInk)
-                        Text("Empezar sueño")
+                        Text("Registrar sueño")
                             .font(.headline)
                             .foregroundStyle(NidoTheme.ink)
                     }
@@ -235,6 +243,12 @@ private struct SleepCard: View {
             .buttonStyle(PressScaleButtonStyle())
             .accessibilityHint("Inicia el temporizador de sueño")
         }
+    }
+
+    private var adaptiveLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 14))
     }
 }
 
@@ -308,10 +322,19 @@ private struct EmptyStoryView: View {
 }
 
 private struct TimelineEntryRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: Entry
     let isLast: Bool
 
     var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            accessibilityLayout
+        } else {
+            standardLayout
+        }
+    }
+
+    private var standardLayout: some View {
         HStack(alignment: .top, spacing: 14) {
             Text(entry.date.formatted(date: .omitted, time: .shortened))
                 .font(.caption2.monospacedDigit())
@@ -348,6 +371,37 @@ private struct TimelineEntryRow: View {
             Spacer()
         }
         .frame(minHeight: 82, alignment: .top)
+    }
+
+    private var accessibilityLayout: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                EntryGlyph(kind: entry.kind, size: 19)
+                    .frame(width: 34, height: 34)
+                Text(entry.title)
+                    .font(.headline)
+                    .foregroundStyle(NidoTheme.ink)
+                Spacer(minLength: 8)
+                Text(entry.date.formatted(date: .omitted, time: .shortened))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            if !entry.summary.isEmpty {
+                Text(entry.summary)
+                    .font(.body)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            if let caregiverName = entry.caregiverName {
+                Text("Por \(caregiverName)")
+                    .font(.caption)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            if !isLast {
+                Divider()
+                    .padding(.top, 6)
+            }
+        }
+        .padding(.vertical, 8)
     }
 }
 

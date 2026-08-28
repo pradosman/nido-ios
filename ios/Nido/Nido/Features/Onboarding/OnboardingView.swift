@@ -24,7 +24,7 @@ struct OnboardingView: View {
                     }
                     .padding(.bottom, 32)
 
-                    Text("El día a día de vuestro bebé, siempre al día.")
+                    Text("El día a día de vuestro bebé.")
                         .nidoTitle(.hero)
 
                     Text("Registra sueño, tomas, pañales y cuidados. Compartid la misma información entre cuidadores.")

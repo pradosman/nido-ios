@@ -169,6 +169,82 @@ struct EntryGlyph: View {
     }
 }
 
+struct NidoDurationInput: View {
+    let title: String
+    @Binding var totalMinutes: Int
+    let range: ClosedRange<Int>
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 4) {
+                Picker("Horas", selection: hours) {
+                    ForEach(0...max(0, range.upperBound / 60), id: \.self) { value in
+                        Text("\(value)").tag(value)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("h")
+                    .foregroundStyle(NidoTheme.secondaryInk)
+
+                Picker("Minutos", selection: minutes) {
+                    ForEach(0..<60, id: \.self) { value in
+                        Text("\(value)").tag(value)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("min")
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            .monospacedDigit()
+        }
+    }
+
+    private var hours: Binding<Int> {
+        Binding(
+            get: { totalMinutes / 60 },
+            set: { update(hours: $0, minutes: totalMinutes % 60) }
+        )
+    }
+
+    private var minutes: Binding<Int> {
+        Binding(
+            get: { totalMinutes % 60 },
+            set: { update(hours: totalMinutes / 60, minutes: $0) }
+        )
+    }
+
+    private func update(hours: Int, minutes: Int) {
+        totalMinutes = min(max(hours * 60 + minutes, range.lowerBound), range.upperBound)
+    }
+}
+
+struct NidoIntegerInput: View {
+    let title: String
+    let unit: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 8) {
+                TextField(title, value: $value, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(minWidth: 52, maxWidth: 76)
+                Text(unit)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+                Stepper("", value: $value, in: range, step: step)
+                    .labelsHidden()
+            }
+        }
+        .onChange(of: value) { _, newValue in
+            value = min(max(newValue, range.lowerBound), range.upperBound)
+        }
+    }
+}
+
 struct PressScaleButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

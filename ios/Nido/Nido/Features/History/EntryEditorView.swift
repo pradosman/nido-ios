@@ -31,9 +31,6 @@ struct EntryEditorView: View {
                         EntryGlyph(kind: entry.kind, size: 24)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.title).font(.headline)
-                            Text("Corrige solo lo necesario")
-                                .font(.caption)
-                                .foregroundStyle(NidoTheme.secondaryInk)
                         }
                     }
                 }
@@ -57,12 +54,22 @@ struct EntryEditorView: View {
                     }
                 } else if entry.durationMinutes != nil {
                     Section("Duración") {
-                        Stepper("\(durationMinutes) min", value: $durationMinutes, in: 1...720)
+                        NidoDurationInput(
+                            title: "Duración",
+                            totalMinutes: $durationMinutes,
+                            range: 1...720
+                        )
                     }
                 }
                 if entry.amountMl != nil {
                     Section("Cantidad") {
-                        Stepper("\(amountMl) ml", value: $amountMl, in: 0...500, step: 5)
+                        NidoIntegerInput(
+                            title: "Cantidad",
+                            unit: "ml",
+                            value: $amountMl,
+                            range: 0...500,
+                            step: 5
+                        )
                     }
                 }
                 Section("Detalle") {

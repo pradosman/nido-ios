@@ -18,26 +18,26 @@ This document is the delivery ledger for the visual, interaction, accessibility,
 | ID | Priority | Area | Acceptance criterion | Status | Commit |
 | --- | --- | --- | --- | --- | --- |
 | AQ-01 | Critical | Navigation | Remove the second tab-like quick-capture bar; expose capture as a native action menu. | Implemented | `refactor(ios): consolidate visual system and navigation` |
-| AQ-02 | Critical | Dynamic Type | Primary tasks remain discoverable and text reflows at accessibility sizes without forced shrinking. | In progress | `refactor(ios): consolidate visual system and navigation` |
+| AQ-02 | Critical | Dynamic Type | Primary tasks remain discoverable and text reflows at accessibility sizes without forced shrinking. | Implemented; visual verification pending | `refactor(ios): adapt flows and accessibility` |
 | AQ-03 | Critical | Dark Mode | Surfaces use semantic elevation and no hard-coded glowing white outlines. | Implemented; visual verification pending | `refactor(ios): consolidate visual system and navigation` |
 | AQ-04 | Critical | Notices | Notices avoid the Dynamic Island, navigation controls, and tab bar. | Implemented; visual verification pending | `refactor(ios): consolidate visual system and navigation` |
 | AQ-05 | Critical | Contrast | Secondary text and controls meet semantic contrast in light, dark, and increased-contrast appearances. | Implemented; visual verification pending | `refactor(ios): consolidate visual system and navigation` |
-| AQ-06 | High | Home hierarchy | Daily information and capture actions take precedence over decorative copy. | Planned | — |
+| AQ-06 | High | Home hierarchy | Daily information and capture actions take precedence over decorative copy. | Implemented | `refactor(ios): adapt flows and accessibility` |
 | AQ-07 | High | Typography | Use a small, explicit set of adaptive system text roles. | Implemented | `refactor(ios): consolidate visual system and navigation` |
 | AQ-08 | High | Titles | Remove one-line shrinking and hard-coded tracking from responsive titles. | Implemented | `refactor(ios): consolidate visual system and navigation` |
 | AQ-09 | High | Symbols | Normalize symbol weight and variants across tabs and activity categories. | Implemented | `refactor(ios): consolidate visual system and navigation` |
 | AQ-10 | High | Brand | Stop using an SF Symbol as the Nido brand mark inside the app. | Implemented | `refactor(ios): consolidate visual system and navigation` |
 | AQ-11 | High | Materials | Use materials and shadows only when they communicate elevation. | Implemented | `refactor(ios): consolidate visual system and navigation` |
 | AQ-12 | High | Profile action | Remove nested custom circle-and-glass treatment from the toolbar avatar. | Implemented | `refactor(ios): consolidate visual system and navigation` |
-| AQ-13 | High | Screen consistency | Align Home, History, Rhythms, Settings, and forms to the same spacing and surface system. | Planned | — |
+| AQ-13 | High | Screen consistency | Align Home, History, Rhythms, Settings, and forms to the same spacing and surface system. | Implemented | `refactor(ios): adapt flows and accessibility` |
 | AQ-14 | High | Semantics | Separate care-category color from error/destructive color. | Implemented | `refactor(ios): consolidate visual system and navigation` |
 | AQ-15 | Medium | Access/onboarding | Reduce top-heavy composition and prioritize the active form. | Implemented; visual verification pending | `refactor(ios): consolidate visual system and navigation` |
 | AQ-16 | Medium | Sheets | Use content-appropriate detents and system corner treatment. | Implemented | `refactor(ios): consolidate visual system and navigation` |
-| AQ-17 | Medium | Inputs | Replace inefficient high-range steppers with direct, repeatable controls. | Planned | — |
-| AQ-18 | Medium | Charts | Show interpretable scales and provide accessible chart summaries. | Planned | — |
-| AQ-19 | Medium | Motion | Respect Reduce Motion consistently across custom transitions. | Planned | — |
-| AQ-20 | Medium | Feedback | Use neutral, success, warning, and error feedback according to meaning. | Planned | — |
-| COPY-01 | High | Microcopy | Remove ornamental or generic copy and standardize concise Spanish terminology. | Planned | — |
+| AQ-17 | Medium | Inputs | Replace inefficient high-range steppers with direct, repeatable controls. | Implemented | `refactor(ios): adapt flows and accessibility` |
+| AQ-18 | Medium | Charts | Show interpretable scales and provide accessible chart summaries. | Implemented | `refactor(ios): adapt flows and accessibility` |
+| AQ-19 | Medium | Motion | Respect Reduce Motion consistently across custom transitions. | Implemented | `refactor(ios): adapt flows and accessibility` |
+| AQ-20 | Medium | Feedback | Use neutral, success, warning, and error feedback according to meaning. | Implemented | `refactor(ios): adapt flows and accessibility` |
+| COPY-01 | High | Microcopy | Remove ornamental or generic copy and standardize concise Spanish terminology. | Implemented | `refactor(ios): adapt flows and accessibility` |
 
 ## Verification matrix
 
