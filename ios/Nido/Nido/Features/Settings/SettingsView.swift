@@ -217,7 +217,6 @@ struct SettingsView: View {
             InviteCaregiverView()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(32)
         }
     }
 
