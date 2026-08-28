@@ -79,7 +79,11 @@ struct NidoCoreTests {
 
         let edited = original.edited(
             detail: interval.detail(note: "Ventana abierta"),
-            occurredAt: interval.end,
+            occurredAt: EntryEditMoment.resolve(
+                kind: .sleep,
+                selectedDate: originalEnd,
+                sleepInterval: interval
+            ),
             durationMinutes: interval.durationMinutes,
             amountMl: nil
         )
@@ -88,6 +92,25 @@ struct NidoCoreTests {
         #expect(edited.durationMinutes == 360)
         #expect(edited.detail.contains("Ventana abierta"))
         #expect(edited.id == original.id)
+    }
+
+    @Test(arguments: [EntryKind.feed, .diaper, .health])
+    func editingANonSleepEntryUsesTheSelectedMoment(kind: EntryKind) throws {
+        let calendar = utcCalendar
+        let selectedDate = try date(hour: 13, minute: 24, calendar: calendar)
+        let staleSleepInterval = try #require(SleepInterval.validated(
+            start: try date(hour: 15, minute: 9, calendar: calendar),
+            end: try date(hour: 15, minute: 24, calendar: calendar),
+            notAfter: try date(hour: 18, calendar: calendar)
+        ))
+
+        let resolved = EntryEditMoment.resolve(
+            kind: kind,
+            selectedDate: selectedDate,
+            sleepInterval: staleSleepInterval
+        )
+
+        #expect(resolved == selectedDate)
     }
 
     @Test

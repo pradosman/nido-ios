@@ -86,7 +86,11 @@ struct EntryEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Guardar") {
                         isSaving = true
-                        let savedDate = sleepInterval?.end ?? date
+                        let savedDate = EntryEditMoment.resolve(
+                            kind: entry.kind,
+                            selectedDate: date,
+                            sleepInterval: sleepInterval
+                        )
                         let savedDuration = entry.kind == .sleep ? sleepInterval?.durationMinutes : (entry.durationMinutes == nil ? nil : durationMinutes)
                         let savedDetail = entry.kind == .sleep
                             ? sleepInterval?.detail(note: detail) ?? detail

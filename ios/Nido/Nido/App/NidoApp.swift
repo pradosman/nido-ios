@@ -7,15 +7,27 @@ struct NidoApp: App {
     private let shouldLoadOnLaunch: Bool
 
     init() {
-        let store = NidoStore()
         #if DEBUG
         if let scenario = ProcessInfo.processInfo.environment["NIDO_UI_TEST_SCENARIO"] {
+            let runID = ProcessInfo.processInfo.environment["NIDO_UI_TEST_RUN_ID"] ?? UUID().uuidString
+            let defaultsSuite = "com.momentumia.nido.uitests.\(runID)"
+            let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
+            defaults.removePersistentDomain(forName: defaultsSuite)
+            let cacheURL = FileManager.default.temporaryDirectory
+                .appending(path: "NidoUITests", directoryHint: .isDirectory)
+                .appending(path: runID, directoryHint: .isDirectory)
+                .appending(path: "snapshot.json")
+            let store = NidoStore(
+                cache: LocalCache(fileURL: cacheURL),
+                defaults: defaults
+            )
             store.prepareForUITesting(scenario: scenario)
             _store = State(initialValue: store)
             shouldLoadOnLaunch = false
             return
         }
         #endif
+        let store = NidoStore()
         _store = State(initialValue: store)
         shouldLoadOnLaunch = true
     }

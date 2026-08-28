@@ -146,6 +146,13 @@ nonisolated struct Entry: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+nonisolated enum EntryEditMoment {
+    static func resolve(kind: EntryKind, selectedDate: Date, sleepInterval: SleepInterval?) -> Date {
+        guard kind == .sleep else { return selectedDate }
+        return sleepInterval?.end ?? selectedDate
+    }
+}
+
 nonisolated enum EntryReconciliation {
     static func merge(remote: [Entry], local: [Entry], protectedIDs: Set<String>) -> [Entry] {
         var entriesByID: [String: Entry] = [:]
