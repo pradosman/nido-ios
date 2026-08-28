@@ -100,7 +100,7 @@ struct NidoDomainCharacterizationTests {
         (60, "1 h"),
         (75, "1 h 15 min"),
     ])
-    func timelineSummaryFormatsDurationsAsHoursAndMinutes(value: (minutes: Int, expected: String)) {
+    func entrySummaryFormatsDurationsAsHoursAndMinutes(value: (minutes: Int, expected: String)) {
         let entryValue = entry(
             id: "duration",
             kind: .sleep,
@@ -108,7 +108,7 @@ struct NidoDomainCharacterizationTests {
             durationMinutes: value.minutes
         )
 
-        #expect(entryValue.timelineSummary == value.expected)
+        #expect(entryValue.summary == value.expected)
     }
 
     @Test

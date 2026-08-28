@@ -357,7 +357,7 @@ private struct TimelineEntryRow: View {
                 Text(entry.title)
                     .font(.system(.headline, design: .serif))
                     .foregroundStyle(NidoTheme.ink)
-                Text(entry.timelineSummary)
+                Text(entry.summary)
                     .font(.subheadline)
                     .foregroundStyle(NidoTheme.secondaryInk)
                     .lineLimit(2)
@@ -386,8 +386,8 @@ private struct TimelineEntryRow: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(NidoTheme.secondaryInk)
             }
-            if !entry.timelineSummary.isEmpty {
-                Text(entry.timelineSummary)
+            if !entry.summary.isEmpty {
+                Text(entry.summary)
                     .font(.body)
                     .foregroundStyle(NidoTheme.secondaryInk)
             }
@@ -409,16 +409,5 @@ private extension TimeInterval {
     var durationLabel: String {
         let total = max(0, Int(self))
         return String(format: "%02d:%02d:%02d", total / 3_600, (total % 3_600) / 60, total % 60)
-    }
-}
-
-extension Entry {
-    var summary: String {
-        let pieces: [String?] = [
-            durationMinutes.map { "\($0) min" },
-            amountMl.map { "\($0) ml" },
-            detail.isEmpty ? nil : detail,
-        ]
-        return pieces.compactMap { $0 }.joined(separator: " · ")
     }
 }
