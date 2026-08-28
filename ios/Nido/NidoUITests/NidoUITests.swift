@@ -66,6 +66,17 @@ final class NidoUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["75 min"].exists)
     }
 
+    func testLongPressingATodayEntryOpensItsEditor() {
+        launch(scenario: "timeline-duration")
+
+        XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
+        let sleepEntry = app.descendants(matching: .any)["today-entry-ui-test-sleep"]
+        XCTAssertTrue(sleepEntry.exists)
+        sleepEntry.press(forDuration: 1)
+
+        XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+    }
+
     func testHistoryFormatsDurationAsHoursAndMinutes() {
         launch(scenario: "timeline-duration")
 
