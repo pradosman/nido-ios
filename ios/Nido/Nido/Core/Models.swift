@@ -147,7 +147,7 @@ nonisolated struct Entry: Codable, Equatable, Identifiable, Sendable {
 }
 
 extension Entry {
-    var timelineSummary: String {
+    var summary: String {
         let pieces: [String?] = [
             durationMinutes.map(DurationLabel.minutes),
             amountMl.map { "\($0) ml" },

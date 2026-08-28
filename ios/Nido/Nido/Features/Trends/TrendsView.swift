@@ -31,7 +31,7 @@ struct TrendsView: View {
                             Text("Sueño · últimos 7 días")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(NidoTheme.secondaryInk)
-                            Text(week.reduce(0) { $0 + $1.minutes }.minutesLabel)
+                            Text(DurationLabel.minutes(week.reduce(0) { $0 + $1.minutes }))
                                 .font(.system(.title, design: .serif, weight: .semibold))
                                 .foregroundStyle(NidoTheme.ink)
                         }
@@ -50,7 +50,7 @@ struct TrendsView: View {
                                     .foregroundStyle(NidoTheme.separator)
                                 AxisValueLabel {
                                     if let minutes = value.as(Int.self) {
-                                        Text(minutes.minutesLabel)
+                                        Text(DurationLabel.minutes(minutes))
                                     }
                                 }
                             }
@@ -154,7 +154,7 @@ struct TrendsView: View {
 
     private var weekAccessibilityValue: String {
         week.map { item in
-            "\(item.date.formatted(.dateTime.weekday(.wide))): \(item.minutes.minutesLabel)"
+            "\(item.date.formatted(.dateTime.weekday(.wide))): \(DurationLabel.minutes(item.minutes))"
         }
         .joined(separator: ", ")
     }
@@ -185,14 +185,5 @@ struct TrendsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .paperCard()
-    }
-}
-
-private extension Int {
-    var minutesLabel: String {
-        let hours = self / 60
-        let minutes = self % 60
-        if hours == 0 { return "\(minutes) min" }
-        return minutes == 0 ? "\(hours) h" : "\(hours) h \(minutes) min"
     }
 }

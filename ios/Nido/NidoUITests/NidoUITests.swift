@@ -66,6 +66,29 @@ final class NidoUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["75 min"].exists)
     }
 
+    func testHistoryFormatsDurationAsHoursAndMinutes() {
+        launch(scenario: "timeline-duration")
+
+        app.tabBars.buttons["Historia"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["1 h 15 min"].exists)
+        XCTAssertFalse(app.staticTexts["75 min"].exists)
+    }
+
+    func testPediatricReportCanBePreparedFromDurationEntry() {
+        launch(scenario: "timeline-duration")
+
+        app.tabBars.buttons["Ajustes"].tap()
+        let prepareReport = app.buttons["Preparar informe de 30 días"]
+        for _ in 0..<3 where !prepareReport.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(prepareReport.exists)
+        prepareReport.tap()
+
+        XCTAssertTrue(app.buttons["Compartir informe de 30 días"].waitForExistence(timeout: 3))
+    }
+
     func testEditingADiaperUpdatesItsTimelineTime() {
         launch(scenario: "diaper-edit")
 
