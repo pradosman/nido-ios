@@ -72,6 +72,23 @@ private struct MainTabView: View {
                 await store.refresh()
             }
         }
+        .task(id: NoticeDismissID(
+            message: store.notice,
+            deletedEntryID: store.recentlyDeletedEntry?.id
+        )) {
+            guard store.notice != nil else { return }
+
+            do {
+                try await Task.sleep(for: .seconds(store.recentlyDeletedEntry == nil ? 3 : 5))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
+                store.dismissNotice()
+            }
+        }
         .sheet(item: $store.presentedEntryKind) { kind in
             EntrySheet(kind: kind)
                 .presentationDetents([.medium, .large])
@@ -104,13 +121,14 @@ private struct MainTabView: View {
                             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
                         }
                     }
-                    .task {
-                        try? await Task.sleep(for: .seconds(3))
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
-                    }
             }
         }
     }
+}
+
+private struct NoticeDismissID: Equatable {
+    let message: String?
+    let deletedEntryID: String?
 }
 
 private struct NoticeView: View {
