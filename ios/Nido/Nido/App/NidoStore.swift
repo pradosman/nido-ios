@@ -129,10 +129,27 @@ final class NidoStore {
                 caregiverID: caregiver.id,
                 caregiverName: caregiver.name
             )]
-        } else if scenario == "circular-timeline" {
+        } else if scenario == "circular-timeline" || scenario == "circular-timeline-dense" {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
             let today = calendar.date(from: DateComponents(year: 2026, month: 8, day: 28))!
+            if scenario == "circular-timeline-dense" {
+                entries = (0..<6).map { index in
+                    Entry(
+                        id: "dense-\(index)",
+                        kind: index.isMultiple(of: 2) ? .feed : .diaper,
+                        title: index.isMultiple(of: 2) ? EntryKind.feed.title : EntryKind.diaper.title,
+                        detail: index.isMultiple(of: 2) ? "Leche de fórmula" : "Pis",
+                        occurredAt: Int64(today.addingTimeInterval(8 * 3_600 + TimeInterval(index * 60)).timeIntervalSince1970 * 1_000),
+                        durationMinutes: nil,
+                        amountMl: index.isMultiple(of: 2) ? 60 : nil,
+                        caregiverID: caregiver.id,
+                        caregiverName: caregiver.name
+                    )
+                }
+                phase = .ready
+                return
+            }
             entries = [
                 Entry(
                     id: "ui-test-feed",

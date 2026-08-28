@@ -50,20 +50,38 @@ struct CircularTimelineTests {
     }
 
     @Test
-    func assignsDeterministicRadialLanesToNearbyEvents() throws {
+    func groupsASleepAndAPointEventThatStartAtTheSameMinute() throws {
         let calendar = utcCalendar
         let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
         let values = [
-            entry(id: "a", kind: .feed, date: day.addingTimeInterval(8 * 3_600)),
-            entry(id: "b", kind: .diaper, date: day.addingTimeInterval(8 * 3_600 + 5 * 60)),
-            entry(id: "c", kind: .health, date: day.addingTimeInterval(8 * 3_600 + 10 * 60)),
-            entry(id: "d", kind: .feed, date: day.addingTimeInterval(9 * 3_600)),
+            entry(id: "sleep", kind: .sleep, date: day.addingTimeInterval(9 * 3_600), duration: 60),
+            entry(id: "feed", kind: .feed, date: day.addingTimeInterval(8 * 3_600)),
         ]
 
         let timeline = CircularTimeline.day(on: day, entries: values, now: day, calendar: calendar)
-        let lanes = Dictionary(uniqueKeysWithValues: timeline.items.map { ($0.entry.id, $0.lane) })
 
-        #expect(lanes == ["a": 0, "b": 1, "c": 2, "d": 0])
+        #expect(timeline.markerGroups.count == 1)
+        #expect(timeline.markerGroups[0].isCluster)
+        #expect(timeline.markerGroups[0].items.map(\.entry.id) == ["feed", "sleep"])
+    }
+
+    @Test
+    func clustersSixDenseEventsWithoutDroppingAnyRecord() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let values = (0..<6).map { index in
+            entry(
+                id: "dense-\(index)",
+                kind: index.isMultiple(of: 2) ? .feed : .diaper,
+                date: day.addingTimeInterval(8 * 3_600 + TimeInterval(index * 60))
+            )
+        }
+
+        let timeline = CircularTimeline.day(on: day, entries: values, now: day, calendar: calendar)
+
+        #expect(timeline.markerGroups.count == 1)
+        #expect(timeline.markerGroups[0].isCluster)
+        #expect(timeline.markerGroups[0].items.map(\.entry.id) == (0..<6).map { "dense-\($0)" })
     }
 
     @Test
@@ -76,6 +94,25 @@ struct CircularTimelineTests {
         #expect(dates.count == 90)
         #expect(dates.last == calendar.startOfDay(for: today))
         #expect(CircularTimeline.clampedDay(today.addingTimeInterval(86_400), through: today, calendar: calendar) == calendar.startOfDay(for: today))
+    }
+
+    @Test
+    func routesDirectlyBackToTodayFromADistantPastPage() throws {
+        let calendar = utcCalendar
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28, hour: 12)))
+        let earliest = try #require(calendar.date(byAdding: .day, value: -30, to: today))
+        let dates = CircularTimeline.availableDates(earliest: earliest, through: today, calendar: calendar)
+        let selected = try #require(dates.first)
+
+        let destination = CircularTimeline.destination(
+            for: .today,
+            from: selected,
+            availableDates: dates,
+            through: today,
+            calendar: calendar
+        )
+
+        #expect(destination == calendar.startOfDay(for: today))
     }
 
     @Test
