@@ -2,6 +2,13 @@ import Foundation
 import Observation
 import os
 
+enum NidoFeedbackKind {
+    case selection
+    case success
+    case warning
+    case error
+}
+
 @Observable
 final class NidoStore {
     enum Phase: Equatable {
@@ -27,6 +34,7 @@ final class NidoStore {
     var recentlyDeletedEntry: Entry?
     var isEditingProfile = false
     var feedbackToken = 0
+    var feedbackKind = NidoFeedbackKind.selection
 
     private var pendingEntryIDs: Set<String> = []
     private var profileNeedsSync = false
@@ -72,7 +80,7 @@ final class NidoStore {
                 } catch {
                     if case APIError.server(status: 409, message: _) = error {
                         phase = .caregiverAccess
-                        notice = "Este espacio ya existe. Necesitas una invitación de otro cuidador."
+                        notice = "Este espacio ya existe. Pide a otro cuidador un código de invitación."
                     } else {
                         phase = .onboarding
                         isOffline = true
@@ -152,7 +160,7 @@ final class NidoStore {
             isOffline = false
             phase = .ready
             notice = "Perfil guardado"
-            feedbackToken += 1
+            signalFeedback(.success)
             persist()
         } catch {
             isOffline = true
@@ -183,7 +191,7 @@ final class NidoStore {
         entries.insert(entry, at: 0)
         pendingEntryIDs.insert(entry.id)
         presentedEntryKind = nil
-        feedbackToken += 1
+        signalFeedback(.success)
         persist()
         do {
             guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
@@ -225,7 +233,7 @@ final class NidoStore {
             isOffline = true
             notice = "Cambio guardado. Se sincronizará cuando vuelva la conexión."
         }
-        feedbackToken += 1
+        signalFeedback(.success)
         persist()
     }
 
@@ -236,7 +244,7 @@ final class NidoStore {
         pendingDeletionIDs.insert(entry.id)
         recentlyDeletedEntry = entry
         notice = "Registro eliminado"
-        feedbackToken += 1
+        signalFeedback(.warning)
         persist()
         do {
             guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
@@ -265,7 +273,7 @@ final class NidoStore {
             isOffline = true
             notice = "Registro recuperado. Se sincronizará cuando vuelva la conexión."
         }
-        feedbackToken += 1
+        signalFeedback(.success)
         persist()
     }
 
@@ -297,7 +305,7 @@ final class NidoStore {
             isOffline = true
             notice = "Copia restaurada. Se sincronizará cuando vuelva la conexión."
         }
-        feedbackToken += 1
+        signalFeedback(.success)
         persist()
     }
 
@@ -324,7 +332,7 @@ final class NidoStore {
                 startedAt: startedAt
             )
             notice = "Sueño iniciado"
-            feedbackToken += 1
+            signalFeedback(.selection)
             updateWidgets()
         }
     }
@@ -341,7 +349,7 @@ final class NidoStore {
             babyName: profile?.babyName ?? "Bebé"
         )
         notice = "Hora de inicio actualizada"
-        feedbackToken += 1
+        signalFeedback(.selection)
         updateWidgets()
     }
 
@@ -356,7 +364,7 @@ final class NidoStore {
             startedAt: activeFeedStartedAt ?? .now
         )
         notice = "Lactancia iniciada"
-        feedbackToken += 1
+        signalFeedback(.selection)
         updateWidgets()
     }
 
@@ -387,8 +395,8 @@ final class NidoStore {
         let invitation = try await api.inviteCaregiver(name: name.trimmingCharacters(in: .whitespacesAndNewlines), accessToken: accessToken)
         caregivers.removeAll { $0.id == invitation.id }
         caregivers.append(invitation)
-        notice = "Invitación preparada"
-        feedbackToken += 1
+        notice = "Invitación creada"
+        signalFeedback(.success)
         return invitation
     }
 
@@ -398,7 +406,7 @@ final class NidoStore {
             try await api.removeCaregiver(id: caregiver.id, accessToken: accessToken)
             caregivers.removeAll { $0.id == caregiver.id }
             notice = caregiver.status == .pending ? "Invitación cancelada" : "Acceso retirado"
-            feedbackToken += 1
+            signalFeedback(.warning)
         } catch {
             notice = error.localizedDescription
         }
@@ -412,14 +420,19 @@ final class NidoStore {
         caregivers.append(caregiver)
         selectCaregiver(caregiver)
         phase = .ready
-        notice = "Ya compartes el espacio de \(profile?.babyName ?? "Nido")"
-        feedbackToken += 1
+        notice = "Ya puedes consultar y registrar la información de \(profile?.babyName ?? "Nido")"
+        signalFeedback(.success)
         await refresh()
     }
 
     func dismissNotice() {
         notice = nil
         recentlyDeletedEntry = nil
+    }
+
+    private func signalFeedback(_ kind: NidoFeedbackKind) {
+        feedbackKind = kind
+        feedbackToken += 1
     }
 
     private func restoreCache() {

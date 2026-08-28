@@ -3,6 +3,8 @@ import SwiftUI
 struct EntrySheet: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let kind: EntryKind
 
     @State private var date = Date.now
@@ -139,7 +141,9 @@ struct EntrySheet: View {
                     } else if kind == .health {
                         Section {
                             LazyVGrid(
-                                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                                columns: dynamicTypeSize.isAccessibilitySize
+                                    ? [GridItem(.flexible())]
+                                    : [GridItem(.flexible()), GridItem(.flexible())],
                                 spacing: 12
                             ) {
                                 ForEach(CareActivity.allCases) { activity in
@@ -147,7 +151,7 @@ struct EntrySheet: View {
                                         activity: activity,
                                         isSelected: careActivity == activity
                                     ) {
-                                        withAnimation(.snappy(duration: 0.18, extraBounce: 0)) {
+                                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.18, extraBounce: 0)) {
                                             careActivity = activity
                                             detail = ""
                                         }
@@ -240,7 +244,11 @@ struct EntrySheet: View {
                     ForEach(BreastSide.allCases) { side in Text(side.title).tag(side) }
                 }
                 .pickerStyle(.segmented)
-                Stepper("\(feedDurationMinutes) min", value: $feedDurationMinutes, in: 1...180, step: 1)
+                NidoDurationInput(
+                    title: "Duración",
+                    totalMinutes: $feedDurationMinutes,
+                    range: 1...180
+                )
                 if let start = store.activeFeedStartedAt {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         LabeledContent("En curso", value: context.date.timeIntervalSince(start).feedTimerLabel)
@@ -271,13 +279,29 @@ struct EntrySheet: View {
                     Text("Leche materna").tag("Leche materna")
                     Text("Fórmula").tag("Fórmula")
                 }
-                Stepper("\(amountMl) ml", value: $amountMl, in: 0...400, step: 10)
+                NidoIntegerInput(
+                    title: "Cantidad",
+                    unit: "ml",
+                    value: $amountMl,
+                    range: 0...400,
+                    step: 10
+                )
             }
             optionalCareNote(placeholder: "Cómo ha ido la toma…")
         case .pumping:
             Section("Extracción") {
-                Stepper("\(amountMl) ml", value: $amountMl, in: 0...500, step: 10)
-                Stepper("\(feedDurationMinutes) min", value: $feedDurationMinutes, in: 1...120, step: 1)
+                NidoIntegerInput(
+                    title: "Cantidad",
+                    unit: "ml",
+                    value: $amountMl,
+                    range: 0...500,
+                    step: 10
+                )
+                NidoDurationInput(
+                    title: "Duración",
+                    totalMinutes: $feedDurationMinutes,
+                    range: 1...120
+                )
             }
             optionalCareNote(placeholder: "Un pecho o ambos…")
         case .solids:
@@ -418,7 +442,7 @@ private struct CareActivityButton: View {
                 Text(activity.title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(NidoTheme.ink)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Spacer(minLength: 0)
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
@@ -428,7 +452,7 @@ private struct CareActivityButton: View {
             }
             .padding(.horizontal, 13)
             .frame(maxWidth: .infinity)
-            .frame(height: 58)
+            .frame(minHeight: 58)
             .background(
                 isSelected ? NidoTheme.care.opacity(0.12) : Color.clear,
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous)

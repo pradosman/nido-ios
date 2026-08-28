@@ -18,7 +18,14 @@ struct RootView: View {
             }
         }
         .animation(reduceMotion ? nil : .smooth(duration: 0.4), value: store.phase)
-        .sensoryFeedback(.selection, trigger: store.feedbackToken)
+        .sensoryFeedback(trigger: store.feedbackToken) { _, _ in
+            switch store.feedbackKind {
+            case .selection: .selection
+            case .success: .success
+            case .warning: .warning
+            case .error: .error
+            }
+        }
     }
 }
 
@@ -30,7 +37,7 @@ private struct LoadingView: View {
                 NidoMark()
                     .frame(width: 52, height: 52)
                     .foregroundStyle(NidoTheme.moss)
-                Text("Preparando vuestro espacio…")
+                Text("Preparando Nido…")
                     .font(.callout)
                     .foregroundStyle(NidoTheme.secondaryInk)
                 ProgressView()
@@ -128,14 +135,16 @@ private struct NoticeDismissID: Equatable {
 }
 
 private struct NoticeView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let message: String
     let isOffline: Bool
     let canUndo: Bool
     let undo: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        adaptiveLayout {
             Label(message, systemImage: isOffline ? "wifi.slash" : "checkmark.circle.fill")
+                .fixedSize(horizontal: false, vertical: true)
             if canUndo {
                 Button("Deshacer", action: undo)
                     .fontWeight(.bold)
@@ -146,9 +155,19 @@ private struct NoticeView: View {
             .foregroundStyle(NidoTheme.ink)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.regularMaterial, in: Capsule())
-            .overlay(Capsule().stroke(.white.opacity(0.65), lineWidth: 0.5))
+            .frame(maxWidth: 560)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(NidoTheme.separator.opacity(0.55), lineWidth: 0.5)
+            }
             .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
             .padding(.horizontal)
+    }
+
+    private var adaptiveLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 10))
     }
 }

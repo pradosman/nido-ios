@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var filter: EntryKind?
 
     private var filteredEntries: [Entry] {
@@ -59,7 +60,7 @@ struct HistoryView: View {
                                     .foregroundStyle(NidoTheme.ink)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.vertical, 8)
-                                    .background(NidoTheme.paper.opacity(0.92))
+                                    .background(NidoTheme.paper)
                             }
                         }
                     }
@@ -87,7 +88,7 @@ struct HistoryView: View {
 
     private func filterButton(title: String, kind: EntryKind?) -> some View {
         let isSelected = filter == kind
-        return Button { withAnimation(.snappy(duration: 0.16, extraBounce: 0)) { filter = kind } } label: {
+        return Button { withAnimation(reduceMotion ? nil : .snappy(duration: 0.16, extraBounce: 0)) { filter = kind } } label: {
             HStack(spacing: 6) {
                 if let kind {
                     Image(systemName: kind.symbolName)
@@ -99,38 +100,81 @@ struct HistoryView: View {
             .foregroundStyle(isSelected ? .white : NidoTheme.secondaryInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(isSelected ? NidoTheme.moss : .white.opacity(0.52), in: Capsule())
+            .background(isSelected ? NidoTheme.moss : NidoTheme.surface, in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(isSelected ? .clear : NidoTheme.separator.opacity(0.5), lineWidth: 0.5)
+            }
         }
         .buttonStyle(PressScaleButtonStyle())
     }
 }
 
 private struct HistoryRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: Entry
 
     var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                accessibilityLayout
+            } else {
+                standardLayout
+            }
+        }
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .accessibilityHint("Toca para editar este registro")
+    }
+
+    private var standardLayout: some View {
         HStack(spacing: 10) {
             EntryGlyph(kind: entry.kind, size: 19)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(entry.title).font(.headline)
-                if !entry.summary.isEmpty {
-                    Text(entry.summary)
-                        .font(.subheadline)
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                }
-                if let caregiverName = entry.caregiverName {
-                    Label("Registrado por \(caregiverName)", systemImage: "person.fill")
-                        .font(.caption)
-                        .foregroundStyle(NidoTheme.secondaryInk.opacity(0.82))
-                }
-            }
+            details
             Spacer()
             Text(entry.date.formatted(date: .omitted, time: .shortened))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(NidoTheme.secondaryInk)
         }
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-        .accessibilityHint("Toca para editar este registro")
+    }
+
+    private var accessibilityLayout: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                EntryGlyph(kind: entry.kind, size: 19)
+                Text(entry.title)
+                    .font(.headline)
+                Spacer(minLength: 8)
+                Text(entry.date.formatted(date: .omitted, time: .shortened))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            if !entry.summary.isEmpty {
+                Text(entry.summary)
+                    .font(.body)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            if let caregiverName = entry.caregiverName {
+                Text("Registrado por \(caregiverName)")
+                    .font(.caption)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+        }
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(entry.title).font(.headline)
+            if !entry.summary.isEmpty {
+                Text(entry.summary)
+                    .font(.subheadline)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+            if let caregiverName = entry.caregiverName {
+                Label("Registrado por \(caregiverName)", systemImage: "person.fill")
+                    .font(.caption)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+        }
     }
 }
