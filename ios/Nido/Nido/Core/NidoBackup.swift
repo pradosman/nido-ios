@@ -24,7 +24,12 @@ nonisolated struct NidoBackup: Codable, Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         let url = FileManager.default.temporaryDirectory.appending(path: "Copia-Nido-\(Date.now.formatted(.iso8601.year().month().day())).json")
-        try encoder.encode(backup).write(to: url, options: [.atomic, .completeFileProtection])
+        #if os(iOS)
+        let writeOptions: Data.WritingOptions = [.atomic, .completeFileProtection]
+        #else
+        let writeOptions: Data.WritingOptions = [.atomic]
+        #endif
+        try encoder.encode(backup).write(to: url, options: writeOptions)
         return url
     }
 
