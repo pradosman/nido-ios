@@ -1,0 +1,66 @@
+import XCTest
+
+@MainActor
+final class NidoUITests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
+    func testOnboardingShowsOnlyTheInformationNeededToCreateAHome() {
+        launch(scenario: "onboarding")
+
+        XCTAssertTrue(app.staticTexts["El día a día de vuestro bebé."].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["Tu nombre"].exists)
+        XCTAssertTrue(app.textFields["Nombre del bebé"].exists)
+        XCTAssertTrue(app.buttons["Crear espacio"].exists)
+        XCTAssertFalse(app.buttons["Crear espacio"].isEnabled)
+    }
+
+    func testReadyHomeAndPrimaryNavigationAreAvailable() {
+        launch(scenario: "ready")
+
+        XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.tabBars.buttons["Historia"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ritmos"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ajustes"].exists)
+
+        app.tabBars.buttons["Historia"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
+    }
+
+    func testSleepRegistrationUsesStartAndEndDates() {
+        launch(scenario: "ready")
+
+        let activityButton = app.buttons["Registrar una actividad"]
+        XCTAssertTrue(activityButton.waitForExistence(timeout: 3))
+        activityButton.tap()
+        app.buttons["Registrar sueño"].tap()
+
+        XCTAssertTrue(app.navigationBars["Sueño"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Desde"].exists)
+        XCTAssertTrue(app.staticTexts["Hasta"].exists)
+        XCTAssertFalse(app.staticTexts["Fecha y hora"].exists)
+    }
+
+    func testActiveSleepStartCanBeEdited() {
+        launch(scenario: "active-sleep")
+
+        XCTAssertTrue(app.staticTexts["Marco está durmiendo"].waitForExistence(timeout: 3))
+        let editStart = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH 'Editar hora de inicio'")
+        ).firstMatch
+        XCTAssertTrue(editStart.exists)
+        editStart.tap()
+        XCTAssertTrue(app.navigationBars["Hora de inicio"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Guardar"].exists)
+    }
+
+    private func launch(scenario: String) {
+        app = XCUIApplication()
+        app.launchEnvironment["NIDO_UI_TEST_SCENARIO"] = scenario
+        app.launch()
+    }
+}
