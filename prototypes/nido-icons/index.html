@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nido · Prototipos de icono</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      font-synthesis: none;
+      --paper: #f4eddf;
+      --paper-light: #fbf7ef;
+      --ink: #24221d;
+      --secondary: #787268;
+      --moss: #526f60;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: #e9e7e2;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font: inherit; }
+
+    #stage { min-height: 100vh; }
+    .prototype {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(340px, 0.9fr) minmax(460px, 1.1fr);
+      gap: clamp(34px, 6vw, 100px);
+      align-items: center;
+      padding: clamp(42px, 6vw, 96px) clamp(28px, 7vw, 120px) 110px;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255,255,255,.92), transparent 30%),
+        linear-gradient(135deg, #f0eee9 0%, #e6e3dc 100%);
+      animation: proto-enter 420ms cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .story { max-width: 560px; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 22px;
+      color: #50665b;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 22px;
+      height: 1px;
+      background: currentColor;
+      opacity: .55;
+    }
+    h1 {
+      margin: 0;
+      max-width: 10ch;
+      font-family: ui-serif, "New York", Georgia, serif;
+      font-size: clamp(52px, 6.4vw, 92px);
+      font-weight: 500;
+      line-height: .94;
+      letter-spacing: -.045em;
+    }
+    .intro {
+      max-width: 46ch;
+      margin: 28px 0 0;
+      color: var(--secondary);
+      font-size: clamp(17px, 1.55vw, 21px);
+      line-height: 1.48;
+      letter-spacing: -.01em;
+    }
+    .traits {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 28px;
+    }
+    .trait {
+      padding: 8px 12px;
+      border: 1px solid rgba(36,34,29,.1);
+      border-radius: 999px;
+      background: rgba(255,255,255,.42);
+      color: #5e5a52;
+      font-size: 13px;
+      font-weight: 550;
+    }
+
+    .showcase {
+      display: grid;
+      grid-template-columns: minmax(270px, 390px) minmax(150px, 220px);
+      gap: clamp(18px, 3vw, 34px);
+      align-items: center;
+      justify-content: end;
+    }
+    .phone {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 390 / 780;
+      overflow: hidden;
+      border: 8px solid #20201f;
+      border-radius: 54px;
+      background:
+        radial-gradient(circle at 62% 22%, rgba(117,154,133,.45), transparent 28%),
+        linear-gradient(155deg, #f7f1e6 4%, #dbe5df 49%, #c3d8d1 100%);
+      box-shadow: 0 36px 80px rgba(35,40,36,.22), 0 8px 24px rgba(35,40,36,.12);
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      z-index: 3;
+      top: 12px;
+      left: 50%;
+      width: 112px;
+      height: 31px;
+      border-radius: 18px;
+      background: #151515;
+      transform: translateX(-50%);
+    }
+    .status {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      padding: 22px 26px 0;
+      color: #1b1d1b;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px 12px;
+      padding: 54px 18px 0;
+    }
+    .app-cell {
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+      color: rgba(20,24,21,.8);
+      font-size: 10px;
+    }
+    .ghost-icon {
+      width: 56px;
+      aspect-ratio: 1;
+      border-radius: 13px;
+      background: rgba(255,255,255,.62);
+      box-shadow: 0 5px 15px rgba(46,54,49,.08);
+    }
+    .ghost-icon.blue { background: linear-gradient(145deg, #82c7ee, #398ccc); }
+    .ghost-icon.gold { background: linear-gradient(145deg, #f5d071, #e5923f); }
+    .ghost-icon.rose { background: linear-gradient(145deg, #efb7b4, #c7707f); }
+    .ghost-icon.dark { background: linear-gradient(145deg, #4d5250, #202422); }
+
+    .nido-cell { transform: translateY(-2px); }
+    .nido-cell .app-icon {
+      width: 62px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(37,49,42,.18);
+    }
+    .nido-cell span { font-weight: 650; color: #1c231f; }
+    .dock {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-around;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.5);
+      border-radius: 28px;
+      background: rgba(255,255,255,.42);
+      backdrop-filter: blur(22px) saturate(1.25);
+    }
+    .dock .ghost-icon { width: 52px; border-radius: 13px; }
+
+    .scale-card {
+      display: grid;
+      justify-items: center;
+      gap: 24px;
+      padding: 28px 22px;
+      border: 1px solid rgba(255,255,255,.65);
+      border-radius: 34px;
+      background: rgba(255,255,255,.46);
+      box-shadow: 0 24px 60px rgba(45,51,47,.12);
+      backdrop-filter: blur(18px);
+    }
+    .scale-card::before {
+      content: "Escala real";
+      color: #77736b;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .scale-row { display: flex; align-items: end; gap: 16px; }
+    .scale-item { display: grid; justify-items: center; gap: 7px; color: #77736b; font-size: 10px; }
+    .scale-item .app-icon { box-shadow: 0 6px 18px rgba(37,49,42,.16); }
+    .size-120 { width: 120px; border-radius: 28px; }
+    .size-60 { width: 60px; border-radius: 14px; }
+    .size-29 { width: 29px; border-radius: 7px; }
+
+    .app-icon {
+      display: block;
+      aspect-ratio: 1;
+      overflow: hidden;
+      transform: translateZ(0);
+    }
+    .app-icon svg { display: block; width: 100%; height: 100%; }
+
+    @keyframes proto-enter {
+      from { opacity: 0; transform: translateY(10px) scale(.992); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .prototype { animation: none; }
+    }
+    @media (max-width: 940px) {
+      .prototype { grid-template-columns: 1fr; align-items: start; }
+      .story { max-width: 680px; }
+      .showcase { justify-content: center; grid-template-columns: minmax(260px, 390px) minmax(140px, 210px); }
+    }
+    @media (max-width: 620px) {
+      .prototype { padding: 36px 20px 112px; }
+      .showcase { grid-template-columns: minmax(260px, 360px); }
+      .scale-card { display: none; }
+      h1 { font-size: 58px; }
+    }
+
+    .proto-picker {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2147483647;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(10, 10, 10, 0.82);
+      -webkit-backdrop-filter: blur(12px) saturate(1.4);
+      backdrop-filter: blur(12px) saturate(1.4);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+        0 8px 24px rgba(0, 0, 0, 0.24),
+        0 2px 6px rgba(0, 0, 0, 0.12);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      line-height: 1;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .proto-picker-highlight {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      will-change: transform;
+    }
+    .proto-picker[data-ready] .proto-picker-highlight {
+      transition:
+        transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+        width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+    }
+    .proto-picker-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.55);
+      font: inherit;
+      cursor: pointer;
+      transition: color 150ms ease-out;
+    }
+    .proto-picker-item:hover { color: rgba(255, 255, 255, 0.85); }
+    .proto-picker-item:active { transform: scale(0.97); }
+    .proto-picker-item:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 2px; }
+    .proto-picker-item[data-active] { color: #fff; }
+    .proto-picker-divider { width: 1px; height: 16px; margin: 0 4px; background: rgba(255, 255, 255, 0.12); }
+    .proto-picker-replay { padding: 0 10px; font-size: 14px; }
+    .proto-picker[data-position="top"] { bottom: auto; top: 24px; }
+  </style>
+</head>
+<body>
+  <main id="stage"></main>
+
+  <nav class="proto-picker" data-position="top" aria-label="Prototype variants">
+    <span class="proto-picker-highlight" aria-hidden="true"></span>
+    <button class="proto-picker-item" data-active aria-current="true">Diario</button>
+    <button class="proto-picker-item">Móvil</button>
+    <button class="proto-picker-item">Sonajero</button>
+    <span class="proto-picker-divider" aria-hidden="true"></span>
+    <button class="proto-picker-item proto-picker-replay" aria-label="Replay animation (R)">↻</button>
+  </nav>
+
+  <script>
+    const journalIcon = (id = "journal") => `
+      <svg viewBox="0 0 1024 1024" role="img" aria-label="Icono Nido Diario">
+        <defs>
+          <radialGradient id="${id}-room" cx=".28" cy=".16" r=".92">
+            <stop offset="0" stop-color="#f9f1df"/><stop offset=".54" stop-color="#d9e3d9"/><stop offset="1" stop-color="#9fb8a9"/>
+          </radialGradient>
+          <linearGradient id="${id}-cover" x1=".08" y1="0" x2=".95" y2="1">
+            <stop offset="0" stop-color="#6d907b"/><stop offset=".48" stop-color="#4e725e"/><stop offset="1" stop-color="#2d4e3d"/>
+          </linearGradient>
+          <linearGradient id="${id}-pages" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#fffdf4"/><stop offset="1" stop-color="#d9cdae"/>
+          </linearGradient>
+          <linearGradient id="${id}-gold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ffe2a2"/><stop offset=".5" stop-color="#dba85d"/><stop offset="1" stop-color="#9f6e35"/>
+          </linearGradient>
+          <filter id="${id}-bookshadow" x="-30%" y="-30%" width="170%" height="180%">
+            <feDropShadow dx="8" dy="38" stdDeviation="30" flood-color="#294235" flood-opacity=".32"/>
+          </filter>
+        </defs>
+        <rect width="1024" height="1024" rx="224" fill="url(#${id}-room)"/>
+        <ellipse cx="518" cy="825" rx="296" ry="60" fill="#395245" opacity=".16"/>
+        <g filter="url(#${id}-bookshadow)" transform="rotate(-4 512 512)">
+          <path d="M284 184h466c34 0 62 28 62 62v575c0 29-24 53-53 53H284c-40 0-72-32-72-72V256c0-40 32-72 72-72Z" fill="url(#${id}-pages)"/>
+          <path d="M275 155h444c38 0 69 31 69 69v568c0 36-29 65-65 65H275c-44 0-79-35-79-79V234c0-44 35-79 79-79Z" fill="url(#${id}-cover)"/>
+          <path d="M275 155h82v702h-82c-44 0-79-35-79-79V234c0-44 35-79 79-79Z" fill="#345443" opacity=".72"/>
+          <path d="M351 174v661" stroke="#97b19e" stroke-width="3" opacity=".42"/>
+          <path d="M431 323c71-58 174-47 231 25 56 71 45 174-26 230-71 57-174 45-231-26-56-71-45-173 26-229Z" fill="none" stroke="#d6c393" stroke-width="18" opacity=".86"/>
+          <path d="M487 375c-45 19-66 70-47 115 19 44 70 65 114 46 31-13 50-41 53-72-15 11-35 16-54 12-39-7-64-44-57-83 2-7 4-13 7-19-5-1-11-1-16 1Z" fill="url(#${id}-gold)"/>
+          <circle cx="600" cy="367" r="16" fill="#efc46f"/>
+          <path d="M650 792v108l-38-26-39 26V792" fill="#d7905c"/>
+          <path d="M220 247c8-36 31-58 63-65" fill="none" stroke="#b4cab9" stroke-width="6" opacity=".5"/>
+        </g>
+      </svg>`;
+
+    const mobileIcon = (id = "mobile") => `
+      <svg viewBox="0 0 1024 1024" role="img" aria-label="Icono Nido Móvil de cuna">
+        <defs>
+          <linearGradient id="${id}-sky" x1=".08" y1=".04" x2=".92" y2="1">
+            <stop offset="0" stop-color="#eaf5ef"/><stop offset=".48" stop-color="#b6d2c5"/><stop offset="1" stop-color="#668d7a"/>
+          </linearGradient>
+          <linearGradient id="${id}-wood" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f1d8a3"/><stop offset=".5" stop-color="#c49250"/><stop offset="1" stop-color="#79522d"/>
+          </linearGradient>
+          <linearGradient id="${id}-moon" x1=".15" y1=".05" x2=".85" y2=".95">
+            <stop offset="0" stop-color="#fff9e8"/><stop offset="1" stop-color="#d6c5a2"/>
+          </linearGradient>
+          <linearGradient id="${id}-drop" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#8dc3c6"/><stop offset="1" stop-color="#3e7c85"/>
+          </linearGradient>
+          <linearGradient id="${id}-heart" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#e9a4a1"/><stop offset="1" stop-color="#ad5d70"/>
+          </linearGradient>
+          <filter id="${id}-float" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#285243" flood-opacity=".26"/></filter>
+        </defs>
+        <rect width="1024" height="1024" rx="224" fill="url(#${id}-sky)"/>
+        <circle cx="231" cy="218" r="210" fill="#fff" opacity=".18"/>
+        <g filter="url(#${id}-float)">
+          <path d="M271 261c122-103 360-103 482 0" fill="none" stroke="url(#${id}-wood)" stroke-width="46" stroke-linecap="round"/>
+          <circle cx="512" cy="222" r="43" fill="url(#${id}-wood)"/>
+          <path d="M330 292v202M512 237v209M694 292v194" stroke="#5d665e" stroke-width="7" opacity=".65"/>
+          <path d="M330 472c-75 0-136 61-136 136s61 136 136 136c51 0 96-29 119-70-16 7-33 11-52 11-70 0-126-56-126-126 0-33 12-62 33-84 8-2 17-3 26-3Z" fill="url(#${id}-moon)"/>
+          <path d="M512 420c-58 75-96 122-96 181 0 53 43 96 96 96s96-43 96-96c0-59-38-106-96-181Z" fill="url(#${id}-drop)"/>
+          <path d="M694 492c-63-62-171 18-101 103l101 100 101-100c70-85-38-165-101-103Z" fill="url(#${id}-heart)"/>
+          <path d="M493 539c19-21 49-21 68-2" fill="none" stroke="#d7f1ee" stroke-width="12" stroke-linecap="round" opacity=".5"/>
+          <path d="M330 786v31M512 733v31M694 732v31" stroke="#826844" stroke-width="9" stroke-linecap="round"/>
+          <circle cx="330" cy="832" r="25" fill="#e7b761"/><circle cx="512" cy="779" r="25" fill="#f2e0b5"/><circle cx="694" cy="778" r="25" fill="#e7b761"/>
+        </g>
+      </svg>`;
+
+    const rattleIcon = (id = "rattle") => `
+      <svg viewBox="0 0 1024 1024" role="img" aria-label="Icono Nido Sonajero">
+        <defs>
+          <radialGradient id="${id}-paper" cx=".32" cy=".2" r=".9">
+            <stop offset="0" stop-color="#fff9ec"/><stop offset=".58" stop-color="#e8dfca"/><stop offset="1" stop-color="#c9b99d"/>
+          </radialGradient>
+          <radialGradient id="${id}-head" cx=".32" cy=".22" r=".85">
+            <stop offset="0" stop-color="#87aa93"/><stop offset=".55" stop-color="#50745f"/><stop offset="1" stop-color="#294a39"/>
+          </radialGradient>
+          <linearGradient id="${id}-handle" x1=".15" y1="0" x2=".85" y2="1">
+            <stop offset="0" stop-color="#f4d89e"/><stop offset=".5" stop-color="#c9904c"/><stop offset="1" stop-color="#754a27"/>
+          </linearGradient>
+          <linearGradient id="${id}-ivory" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#fffbee"/><stop offset="1" stop-color="#d8c8a8"/>
+          </linearGradient>
+          <filter id="${id}-object" x="-40%" y="-35%" width="180%" height="190%"><feDropShadow dx="10" dy="38" stdDeviation="30" flood-color="#624d35" flood-opacity=".27"/></filter>
+        </defs>
+        <rect width="1024" height="1024" rx="224" fill="url(#${id}-paper)"/>
+        <ellipse cx="529" cy="826" rx="240" ry="55" fill="#725c40" opacity=".15"/>
+        <g filter="url(#${id}-object)" transform="rotate(18 512 512)">
+          <path d="M457 581h110v284c0 31-25 56-55 56s-55-25-55-56V581Z" fill="url(#${id}-handle)"/>
+          <path d="M472 622h80v222c0 23-18 41-40 41s-40-18-40-41V622Z" fill="#f3d18f" opacity=".38"/>
+          <circle cx="512" cy="405" r="254" fill="url(#${id}-head)"/>
+          <circle cx="512" cy="405" r="181" fill="none" stroke="#a9c1ae" stroke-width="5" opacity=".42"/>
+          <circle cx="512" cy="405" r="126" fill="url(#${id}-ivory)"/>
+          <circle cx="512" cy="405" r="65" fill="#e3aa60"/>
+          <circle cx="486" cy="380" r="21" fill="#fff3d1" opacity=".72"/>
+          <circle cx="356" cy="316" r="30" fill="#e6b45f"/><circle cx="676" cy="340" r="24" fill="#efd08b"/><circle cx="371" cy="508" r="23" fill="#e9c77d"/><circle cx="658" cy="518" r="30" fill="#d69165"/>
+          <path d="M352 240c72-69 185-94 280-55" fill="none" stroke="#d1e2d6" stroke-width="16" stroke-linecap="round" opacity=".42"/>
+        </g>
+      </svg>`;
+
+    function context(icon, title, eyebrow, intro, traits) {
+      const scale = (size, label, suffix) => `<div class="scale-item"><div class="app-icon size-${size}">${icon(suffix)}</div><span>${label}</span></div>`;
+      return `
+        <section class="prototype">
+          <div class="story">
+            <div class="eyebrow">${eyebrow}</div>
+            <h1>${title}</h1>
+            <p class="intro">${intro}</p>
+            <div class="traits">${traits.map(value => `<span class="trait">${value}</span>`).join("")}</div>
+          </div>
+          <div class="showcase">
+            <div class="phone" aria-label="Vista del icono en una pantalla de inicio de iPhone">
+              <div class="status"><span>9:41</span><span>●●● ᴡɪғɪ ▰</span></div>
+              <div class="home-grid">
+                <div class="app-cell"><div class="ghost-icon blue"></div><span>Tiempo</span></div>
+                <div class="app-cell"><div class="ghost-icon rose"></div><span>Fotos</span></div>
+                <div class="app-cell"><div class="ghost-icon gold"></div><span>Casa</span></div>
+                <div class="app-cell"><div class="ghost-icon dark"></div><span>Watch</span></div>
+                <div class="app-cell"><div class="ghost-icon"></div><span>Salud</span></div>
+                <div class="app-cell nido-cell"><div class="app-icon">${icon("home")}</div><span>Nido</span></div>
+                <div class="app-cell"><div class="ghost-icon blue"></div><span>Mapas</span></div>
+                <div class="app-cell"><div class="ghost-icon"></div><span>Notas</span></div>
+              </div>
+              <div class="dock"><div class="ghost-icon blue"></div><div class="ghost-icon gold"></div><div class="ghost-icon rose"></div><div class="ghost-icon dark"></div></div>
+            </div>
+            <aside class="scale-card">
+              <div class="app-icon size-120">${icon("hero")}</div>
+              <div class="scale-row">${scale(60, "60 px", "sixty")}${scale(29, "29 px", "tiny")}</div>
+            </aside>
+          </div>
+        </section>`;
+    }
+
+    const variants = [
+      () => context(journalIcon, "Diario", "Memoria y registro", "Un cuaderno de piel con páginas marfil y detalles en relieve. Cuenta qué hace Nido sin recurrir al típico icono de bebé y aporta una presencia más premium.", ["Editorial", "Táctil", "Duradero"]),
+      () => context(mobileIcon, "Móvil", "El día suspendido", "Sueño, toma y cuidado convertidos en piezas de un móvil de cuna. Es la dirección más narrativa y la que mejor representa el conjunto de la app.", ["Narrativo", "Espacial", "Propio"]),
+      () => context(rattleIcon, "Sonajero", "Objeto cotidiano", "Un sonajero de madera y esmalte tratado como un objeto real. Gana cercanía y alegría sin caer en una ilustración infantil genérica.", ["Táctil", "Alegre", "Reconocible"])
+    ];
+
+    const stage = document.getElementById('stage');
+    const picker = document.querySelector('.proto-picker');
+    const highlight = picker.querySelector('.proto-picker-highlight');
+    const items = [...picker.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)')];
+    const replay = picker.querySelector('.proto-picker-replay');
+    let current = 0;
+
+    function moveHighlight() {
+      const el = items[current];
+      highlight.style.width = el.offsetWidth + 'px';
+      highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+    }
+
+    function mount(i) {
+      stage.innerHTML = '';
+      requestAnimationFrame(() => { stage.innerHTML = variants[i](); });
+    }
+
+    function setActive(i) {
+      if (i < 0 || i >= variants.length) return;
+      current = i;
+      items.forEach((el, j) => {
+        el.toggleAttribute('data-active', j === i);
+        if (j === i) el.setAttribute('aria-current', 'true');
+        else el.removeAttribute('aria-current');
+      });
+      moveHighlight();
+      const url = new URL(location);
+      url.searchParams.set('v', i + 1);
+      history.replaceState(null, '', url);
+      mount(i);
+    }
+
+    items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+    replay?.addEventListener('click', () => mount(current));
+    window.addEventListener('resize', moveHighlight);
+
+    document.addEventListener('keydown', (e) => {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= variants.length) setActive(num - 1);
+      else if (e.key === 'ArrowRight') setActive((current + 1) % variants.length);
+      else if (e.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+      else if (e.key === 'r' || e.key === 'R') mount(current);
+    });
+
+    setActive((parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1);
+    requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+  </script>
+</body>
+</html>
