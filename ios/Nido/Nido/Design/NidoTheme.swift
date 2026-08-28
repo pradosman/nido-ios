@@ -257,7 +257,9 @@ struct PressScaleButtonStyle: ButtonStyle {
 }
 
 private extension Color {
-    init(
+    // UIKit can resolve dynamic colors from SwiftUI's asynchronous renderer.
+    // Keep this initializer nonisolated so the provider never inherits MainActor.
+    nonisolated init(
         light: UIColor,
         dark: UIColor,
         highContrastLight: UIColor? = nil,
