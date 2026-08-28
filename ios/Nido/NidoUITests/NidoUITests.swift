@@ -86,6 +86,30 @@ final class NidoUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["15:24"].exists)
     }
 
+    func testCreatingAFeedUsesTheSelectedTimelineTime() {
+        launch(scenario: "feed-create")
+
+        let activityButton = app.buttons["Registrar una actividad"]
+        XCTAssertTrue(activityButton.waitForExistence(timeout: 3))
+        activityButton.tap()
+        app.buttons["Registrar toma"].tap()
+        XCTAssertTrue(app.navigationBars["Toma"].waitForExistence(timeout: 2))
+
+        let timeButton = app.buttons["17:50"]
+        XCTAssertTrue(timeButton.waitForExistence(timeout: 2))
+        timeButton.tap()
+        let hourWheel = app.pickerWheels.element(boundBy: 0)
+        let minuteWheel = app.pickerWheels.element(boundBy: 1)
+        XCTAssertTrue(hourWheel.waitForExistence(timeout: 2))
+        XCTAssertTrue(minuteWheel.exists)
+        hourWheel.adjust(toPickerWheelValue: "16")
+        minuteWheel.adjust(toPickerWheelValue: "00")
+        app.buttons["Guardar"].tap()
+
+        XCTAssertTrue(app.staticTexts["16:00"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["17:50"].exists)
+    }
+
     private func launch(scenario: String) {
         app = XCUIApplication()
         app.launchEnvironment["NIDO_UI_TEST_SCENARIO"] = scenario

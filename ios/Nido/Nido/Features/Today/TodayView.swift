@@ -9,7 +9,7 @@ struct TodayView: View {
     }
 
     private var todayEntries: [Entry] {
-        NidoMetrics.entries(on: .now, from: store.entries)
+        NidoMetrics.entries(on: store.now, from: store.entries)
     }
 
     var body: some View {
@@ -59,7 +59,7 @@ struct TodayView: View {
 
     private var pageHeader: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            Text(store.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.system(.subheadline, design: .serif, weight: .medium))
                 .italic()
                 .foregroundStyle(NidoTheme.secondaryInk)

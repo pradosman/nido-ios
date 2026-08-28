@@ -9,6 +9,20 @@ struct NidoApp: App {
     init() {
         #if DEBUG
         if let scenario = ProcessInfo.processInfo.environment["NIDO_UI_TEST_SCENARIO"] {
+            let referenceNow: Date
+            if scenario == "feed-create" {
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+                referenceNow = calendar.date(from: DateComponents(
+                    year: 2026,
+                    month: 8,
+                    day: 28,
+                    hour: 17,
+                    minute: 50
+                ))!
+            } else {
+                referenceNow = .now
+            }
             let runID = ProcessInfo.processInfo.environment["NIDO_UI_TEST_RUN_ID"] ?? UUID().uuidString
             let defaultsSuite = "com.momentumia.nido.uitests.\(runID)"
             let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
@@ -19,7 +33,8 @@ struct NidoApp: App {
                 .appending(path: "snapshot.json")
             let store = NidoStore(
                 cache: LocalCache(fileURL: cacheURL),
-                defaults: defaults
+                defaults: defaults,
+                now: { referenceNow }
             )
             store.prepareForUITesting(scenario: scenario)
             _store = State(initialValue: store)

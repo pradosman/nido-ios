@@ -45,6 +45,7 @@ final class NidoStore {
     private let cache: LocalCache
     private let credentialStore: CredentialStore
     private let defaults: UserDefaults
+    private let nowProvider: () -> Date
     private let logger = Logger(subsystem: "com.momentumia.nido", category: "store")
     private let caregiverIDKey = "currentCaregiverID"
 
@@ -52,12 +53,14 @@ final class NidoStore {
         api: NidoAPI = NidoAPI(baseURL: AppConfiguration.apiBaseURL),
         cache: LocalCache = LocalCache(),
         credentialStore: CredentialStore = CredentialStore(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        now: @escaping () -> Date = { .now }
     ) {
         self.api = api
         self.cache = cache
         self.credentialStore = credentialStore
         self.defaults = defaults
+        self.nowProvider = now
         accessToken = credentialStore.load()
         pendingUpdatedEntryIDs = Set(defaults.stringArray(forKey: "pendingUpdatedEntryIDs") ?? [])
         pendingDeletionIDs = Set(defaults.stringArray(forKey: "pendingDeletionIDs") ?? [])
@@ -69,6 +72,8 @@ final class NidoStore {
             activeFeedSide = defaults.string(forKey: "activeFeedSide").flatMap(BreastSide.init(rawValue:)) ?? .left
         }
     }
+
+    var now: Date { nowProvider() }
 
     #if DEBUG
     func prepareForUITesting(scenario: String) {
