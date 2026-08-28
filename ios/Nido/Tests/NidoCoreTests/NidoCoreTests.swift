@@ -3,6 +3,32 @@ import Testing
 @testable import NidoCore
 
 struct NidoCoreTests {
+    @Test
+    func physicalDeviceNeverUsesTheMacLoopbackAPI() {
+        let endpoint = NidoAPIEndpoint.resolve(
+            configuredValue: "http://127.0.0.1:43133",
+            isSimulator: false
+        )
+
+        #expect(endpoint == NidoAPIEndpoint.productionURL)
+    }
+
+    @Test
+    func simulatorCanKeepUsingTheLocalAPI() {
+        let local = "http://127.0.0.1:43133"
+        let endpoint = NidoAPIEndpoint.resolve(configuredValue: local, isSimulator: true)
+
+        #expect(endpoint.absoluteString == local)
+    }
+
+    @Test
+    func physicalDeviceKeepsAnExplicitRemoteAPI() {
+        let remote = "https://example.com"
+        let endpoint = NidoAPIEndpoint.resolve(configuredValue: remote, isSimulator: false)
+
+        #expect(endpoint.absoluteString == remote)
+    }
+
     @Test func dailyMetricsIgnoreOtherDays() throws {
         let calendar = Calendar(identifier: .gregorian)
         let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 27, hour: 12)))
