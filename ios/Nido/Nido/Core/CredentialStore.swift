@@ -50,5 +50,5 @@ nonisolated struct CredentialStore: Sendable {
 nonisolated private enum CredentialError: LocalizedError {
     case couldNotSave
 
-    var errorDescription: String? { "No se pudo proteger el acceso en este iPhone." }
+    var errorDescription: String? { "No se ha podido guardar el acceso de forma segura." }
 }

@@ -87,7 +87,7 @@ final class NidoStore {
                 } catch {
                     phase = .onboarding
                     isOffline = true
-                    notice = "No hemos podido comprobar el servidor."
+                    notice = "No se ha podido conectar con Nido."
                 }
                 return
             }
@@ -116,7 +116,7 @@ final class NidoStore {
             isOffline = true
             logger.error("Initial sync failed: \(error.localizedDescription, privacy: .private(mask: .hash))")
             if profile != nil {
-                notice = "Mostrando los datos guardados en este iPhone."
+                notice = "Sin conexión. Algunos datos pueden no estar actualizados."
                 if currentCaregiver == nil, let profile {
                     selectCaregiver(Caregiver(
                         id: defaults.string(forKey: caregiverIDKey) ?? UUID().uuidString,
@@ -186,7 +186,7 @@ final class NidoStore {
         feedbackToken += 1
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Este iPhone necesita una invitación") }
+            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
             let saved = try await api.create(entry: entry, accessToken: accessToken)
             if let index = entries.firstIndex(where: { $0.id == entry.id }) { entries[index] = saved }
             pendingEntryIDs.remove(entry.id)
@@ -198,7 +198,7 @@ final class NidoStore {
             }
         } catch {
             isOffline = true
-            notice = "Guardado en el iPhone. Se sincronizará después."
+            notice = "Guardado. Se sincronizará cuando vuelva la conexión."
         }
     }
 
@@ -210,7 +210,7 @@ final class NidoStore {
         editingEntry = nil
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Este iPhone necesita una invitación") }
+            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
             let saved = try await api.update(entry: entry, accessToken: accessToken)
             if let savedIndex = entries.firstIndex(where: { $0.id == entry.id }) {
                 var attributed = saved
@@ -223,7 +223,7 @@ final class NidoStore {
             notice = "Registro actualizado"
         } catch {
             isOffline = true
-            notice = "Cambio guardado en el iPhone. Se sincronizará después."
+            notice = "Cambio guardado. Se sincronizará cuando vuelva la conexión."
         }
         feedbackToken += 1
         persist()
@@ -239,7 +239,7 @@ final class NidoStore {
         feedbackToken += 1
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Este iPhone necesita una invitación") }
+            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
             try await api.delete(entryID: entry.id, accessToken: accessToken)
             pendingDeletionIDs.remove(entry.id)
         } catch {
@@ -257,13 +257,13 @@ final class NidoStore {
         pendingEntryIDs.insert(entry.id)
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Este iPhone necesita una invitación") }
+            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
             _ = try await api.create(entry: entry, accessToken: accessToken)
             pendingEntryIDs.remove(entry.id)
             notice = "Registro recuperado"
         } catch {
             isOffline = true
-            notice = "Recuperado en el iPhone. Se sincronizará después."
+            notice = "Registro recuperado. Se sincronizará cuando vuelva la conexión."
         }
         feedbackToken += 1
         persist()
@@ -271,7 +271,7 @@ final class NidoStore {
 
     func restoreBackup(_ backup: NidoBackup) async {
         guard let accessToken else {
-            notice = "Este iPhone necesita acceso antes de restaurar una copia."
+            notice = "Necesitas acceso al espacio para restaurar una copia."
             return
         }
         if currentCaregiver?.role == .owner, let backupProfile = backup.profile {
@@ -295,7 +295,7 @@ final class NidoStore {
             notice = missing.isEmpty ? "La copia no contiene registros nuevos" : "Copia restaurada · \(missing.count) registros"
         } catch {
             isOffline = true
-            notice = "Restaurado en el iPhone. Se sincronizará después."
+            notice = "Copia restaurada. Se sincronizará cuando vuelva la conexión."
         }
         feedbackToken += 1
         persist()
@@ -318,12 +318,12 @@ final class NidoStore {
             let startedAt = Date.now
             activeSleepStartedAt = startedAt
             defaults.set(startedAt.timeIntervalSince1970, forKey: "activeSleepStartedAt")
-            let appearsOutsideApp = NidoLiveActivity.start(
+            _ = NidoLiveActivity.start(
                 kind: "sleep",
                 babyName: profile?.babyName ?? "Bebé",
                 startedAt: startedAt
             )
-            notice = appearsOutsideApp ? "Sueño iniciado" : "Sueño iniciado · Actividad en directo no disponible"
+            notice = "Sueño iniciado"
             feedbackToken += 1
             updateWidgets()
         }
@@ -334,12 +334,12 @@ final class NidoStore {
         activeFeedSide = side
         defaults.set(Date.now.timeIntervalSince1970, forKey: "activeFeedStartedAt")
         defaults.set(side.rawValue, forKey: "activeFeedSide")
-        let appearsOutsideApp = NidoLiveActivity.start(
+        _ = NidoLiveActivity.start(
             kind: "feed",
             babyName: profile?.babyName ?? "Bebé",
             startedAt: activeFeedStartedAt ?? .now
         )
-        notice = appearsOutsideApp ? "Lactancia iniciada" : "Lactancia iniciada · Actividad en directo no disponible"
+        notice = "Lactancia iniciada"
         feedbackToken += 1
         updateWidgets()
     }
@@ -367,7 +367,7 @@ final class NidoStore {
     }
 
     func inviteCaregiver(name: String) async throws -> Caregiver {
-        guard let accessToken else { throw APIError.server(status: 401, message: "Este iPhone no tiene acceso") }
+        guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
         let invitation = try await api.inviteCaregiver(name: name.trimmingCharacters(in: .whitespacesAndNewlines), accessToken: accessToken)
         caregivers.removeAll { $0.id == invitation.id }
         caregivers.append(invitation)
@@ -511,13 +511,5 @@ enum AppTab: Hashable {
 }
 
 enum AppConfiguration {
-    static var apiBaseURL: URL {
-        let configured = Bundle.main.object(forInfoDictionaryKey: "NIDO_API_BASE_URL") as? String
-#if targetEnvironment(simulator)
-        let isSimulator = true
-#else
-        let isSimulator = false
-#endif
-        return NidoAPIEndpoint.resolve(configuredValue: configured, isSimulator: isSimulator)
-    }
+    static let apiBaseURL = URL(string: "https://nido.momentumia.com")!
 }

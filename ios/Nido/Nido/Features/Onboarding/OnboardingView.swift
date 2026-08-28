@@ -24,11 +24,11 @@ struct OnboardingView: View {
                     }
                     .padding(.bottom, 46)
 
-                    Text("Vuestros días,\nen un lugar.")
+                    Text("Todo sobre vuestro bebé,\nen un solo lugar.")
                         .editorialTitle(48)
                         .lineSpacing(-4)
 
-                    Text("Registra lo importante sin apartarte del momento. Privado, tranquilo y sin datos de muestra.")
+                    Text("Registra sueño, tomas, pañales y cuidados. Comparte la información con quienes cuidáis del bebé.")
                         .font(.body)
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
@@ -36,8 +36,8 @@ struct OnboardingView: View {
                         .padding(.bottom, 36)
 
                     VStack(spacing: 14) {
-                        field(title: "¿Cómo te llamas?", text: $caregiverName, field: .caregiver, contentType: .name)
-                        field(title: "¿Cómo se llama el bebé?", text: $babyName, field: .baby, contentType: .name)
+                        field(title: "Tu nombre", text: $caregiverName, field: .caregiver, contentType: .name)
+                        field(title: "Nombre del bebé", text: $babyName, field: .baby, contentType: .name)
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Fecha de nacimiento")
@@ -73,7 +73,7 @@ struct OnboardingView: View {
                         }
                     } label: {
                         HStack {
-                            Text(isSaving ? "Creando vuestro espacio…" : "Crear nuestro espacio")
+                            Text(isSaving ? "Creando espacio…" : "Crear espacio")
                             Spacer()
                             if isSaving { ProgressView().tint(.white) } else { Image(systemName: "arrow.right") }
                         }
@@ -88,10 +88,6 @@ struct OnboardingView: View {
                     .opacity(caregiverName.isEmpty || babyName.isEmpty ? 0.55 : 1)
                     .padding(.top, 24)
 
-                    Label("Los datos quedan guardados también en este iPhone.", systemImage: "lock.fill")
-                        .font(.footnote)
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                        .padding(.top, 20)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)

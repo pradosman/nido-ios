@@ -24,7 +24,7 @@ export async function requireCaregiver(request: Request, ownerOnly = false): Pro
   const authorization = request.headers.get("authorization") ?? "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
   if (!token) {
-    return { response: Response.json({ error: "Este iPhone no tiene acceso al nido" }, { status: 401 }) };
+    return { response: Response.json({ error: "Necesitas una invitación para acceder" }, { status: 401 }) };
   }
 
   const tokenHash = await hashAccessToken(token);

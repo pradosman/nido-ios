@@ -23,7 +23,7 @@ export async function POST(request: Request) {
         && profile.babyName.localeCompare(body.babyName.trim(), "es", { sensitivity: "base" }) === 0
         && profile.birthDate === body.birthDate);
       if (!ownerMatches || !babyMatches) {
-        return Response.json({ error: "No se ha podido verificar la copia local de este nido" }, { status: 403 });
+        return Response.json({ error: "No se ha podido verificar este espacio" }, { status: 403 });
       }
       await db.insert(caregiverTokens).values({ caregiverId: existing.id, tokenHash: accessTokenHash });
       const [claimed] = await db.select(publicCaregiverFields).from(caregivers).where(eq(caregivers.id, existing.id)).limit(1);
