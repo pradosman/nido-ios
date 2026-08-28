@@ -32,7 +32,20 @@ El núcleo de la aplicación también está disponible como paquete Swift para e
 swift test
 ```
 
+Los recorridos de interfaz se ejecutan desde Xcode con `⌘U` usando el esquema **Nido**, o por terminal:
+
+```sh
+xcodebuild test \
+  -project Nido.xcodeproj \
+  -scheme Nido \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:NidoUITests \
+  CODE_SIGNING_ALLOWED=NO
+```
+
 El Mac necesita Xcode completo seleccionado como developer directory para ejecutar las pruebas del paquete y compilar el simulador.
+
+La cobertura, el alcance y las comprobaciones que todavía requieren un iPhone real están documentados en [`docs/ios-test-strategy.md`](../../docs/ios-test-strategy.md).
 
 ## Flujo de desarrollo
 
