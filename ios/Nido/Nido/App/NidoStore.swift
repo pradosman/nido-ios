@@ -105,7 +105,11 @@ final class NidoStore {
             try await synchronizePendingChanges()
             let remote = try await api.load(accessToken: token)
             profile = remote.profile ?? profile
-            entries = merge(remote: remote.entries, local: entries, pendingIDs: pendingEntryIDs)
+            entries = EntryReconciliation.merge(
+                remote: remote.entries,
+                local: entries,
+                protectedIDs: pendingEntryIDs.union(pendingUpdatedEntryIDs)
+            )
             caregivers = remote.caregivers
             if let authenticated = caregivers.first(where: { $0.id == remote.currentCaregiverID && $0.status == .active }) {
                 selectCaregiver(authenticated)
@@ -220,13 +224,14 @@ final class NidoStore {
         do {
             guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
             let saved = try await api.update(entry: entry, accessToken: accessToken)
-            if let savedIndex = entries.firstIndex(where: { $0.id == entry.id }) {
-                var attributed = saved
-                attributed.caregiverID = entry.caregiverID
-                attributed.caregiverName = entry.caregiverName
-                entries[savedIndex] = attributed
+            if let savedIndex = entries.firstIndex(where: { $0.id == entry.id }),
+               entries[savedIndex] == entry {
+                var confirmed = entries[savedIndex]
+                confirmed.caregiverID = saved.caregiverID ?? entry.caregiverID
+                confirmed.caregiverName = saved.caregiverName ?? entry.caregiverName
+                entries[savedIndex] = confirmed
+                pendingUpdatedEntryIDs.remove(entry.id)
             }
-            pendingUpdatedEntryIDs.remove(entry.id)
             isOffline = false
             notice = "Registro actualizado"
         } catch {
@@ -525,11 +530,6 @@ final class NidoStore {
         defaults.set(caregiver.id, forKey: caregiverIDKey)
     }
 
-    private func merge(remote: [Entry], local: [Entry], pendingIDs: Set<String>) -> [Entry] {
-        let pending = local.filter { pendingIDs.contains($0.id) }
-        return Array(Dictionary(uniqueKeysWithValues: (remote + pending).map { ($0.id, $0) }).values)
-            .sorted { $0.occurredAt > $1.occurredAt }
-    }
 }
 
 enum AppTab: Hashable {

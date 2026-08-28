@@ -91,16 +91,11 @@ struct EntryEditorView: View {
                         let savedDetail = entry.kind == .sleep
                             ? sleepInterval?.detail(note: detail) ?? detail
                             : detail.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let updated = Entry(
-                            id: entry.id,
-                            kind: entry.kind,
-                            title: entry.title,
+                        let updated = entry.edited(
                             detail: savedDetail,
-                            occurredAt: Int64(savedDate.timeIntervalSince1970 * 1_000),
+                            occurredAt: savedDate,
                             durationMinutes: savedDuration,
-                            amountMl: entry.amountMl == nil ? nil : amountMl,
-                            caregiverID: entry.caregiverID,
-                            caregiverName: entry.caregiverName
+                            amountMl: entry.amountMl == nil ? nil : amountMl
                         )
                         Task {
                             await store.updateEntry(updated)

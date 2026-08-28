@@ -64,6 +64,60 @@ struct NidoCoreTests {
         #expect(calendar.component(.hour, from: interval.end) == 16)
     }
 
+    @Test
+    func editingSleepReplacesItsStoredTimes() throws {
+        let calendar = utcCalendar
+        let originalEnd = try date(day: 20, hour: 12, calendar: calendar)
+        let newStart = try date(day: 20, hour: 9, calendar: calendar)
+        let newEnd = try date(day: 20, hour: 15, calendar: calendar)
+        let interval = try #require(SleepInterval.validated(
+            start: newStart,
+            end: newEnd,
+            notAfter: try date(hour: 18, calendar: calendar)
+        ))
+        let original = entry(kind: .sleep, date: originalEnd, detail: "10:00–12:00", duration: 120)
+
+        let edited = original.edited(
+            detail: interval.detail(note: "Ventana abierta"),
+            occurredAt: interval.end,
+            durationMinutes: interval.durationMinutes,
+            amountMl: nil
+        )
+
+        #expect(edited.date == newEnd)
+        #expect(edited.durationMinutes == 360)
+        #expect(edited.detail.contains("Ventana abierta"))
+        #expect(edited.id == original.id)
+    }
+
+    @Test
+    func pendingEditsWinOverAnOlderRemoteCopy() throws {
+        let calendar = utcCalendar
+        let original = entry(
+            kind: .sleep,
+            date: try date(day: 20, hour: 12, calendar: calendar),
+            detail: "Anterior",
+            duration: 120
+        )
+        let edited = original.edited(
+            detail: "09:00–15:00",
+            occurredAt: try date(day: 20, hour: 15, calendar: calendar),
+            durationMinutes: 360,
+            amountMl: nil
+        )
+
+        let merged = EntryReconciliation.merge(
+            remote: [original],
+            local: [edited],
+            protectedIDs: [edited.id]
+        )
+
+        let result = try #require(merged.first)
+        #expect(result.date == edited.date)
+        #expect(result.durationMinutes == 360)
+        #expect(result.detail == "09:00–15:00")
+    }
+
     @Test func dailyMetricsIgnoreOtherDays() throws {
         let calendar = Calendar(identifier: .gregorian)
         let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 27, hour: 12)))

@@ -125,6 +125,38 @@ nonisolated struct Entry: Codable, Equatable, Identifiable, Sendable {
     var date: Date {
         Date(timeIntervalSince1970: TimeInterval(occurredAt) / 1_000)
     }
+
+    func edited(
+        detail: String,
+        occurredAt date: Date,
+        durationMinutes: Int?,
+        amountMl: Int?
+    ) -> Entry {
+        Entry(
+            id: id,
+            kind: kind,
+            title: title,
+            detail: detail.trimmingCharacters(in: .whitespacesAndNewlines),
+            occurredAt: Int64(date.timeIntervalSince1970 * 1_000),
+            durationMinutes: durationMinutes,
+            amountMl: amountMl,
+            caregiverID: caregiverID,
+            caregiverName: caregiverName
+        )
+    }
+}
+
+nonisolated enum EntryReconciliation {
+    static func merge(remote: [Entry], local: [Entry], protectedIDs: Set<String>) -> [Entry] {
+        var entriesByID: [String: Entry] = [:]
+        for entry in remote {
+            entriesByID[entry.id] = entry
+        }
+        for entry in local where protectedIDs.contains(entry.id) {
+            entriesByID[entry.id] = entry
+        }
+        return entriesByID.values.sorted { $0.occurredAt > $1.occurredAt }
+    }
 }
 
 nonisolated struct SleepInterval: Equatable, Sendable {
