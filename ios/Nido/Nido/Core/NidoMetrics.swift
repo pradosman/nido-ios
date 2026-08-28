@@ -10,7 +10,10 @@ nonisolated enum NidoMetrics {
     static func day(_ date: Date, entries: [Entry], calendar: Calendar = .current) -> DayMetrics {
         let values = self.entries(on: date, from: entries, calendar: calendar)
         return DayMetrics(
-            sleepMinutes: values.compactMap(\.durationMinutes).reduce(0, +),
+            sleepMinutes: values
+                .filter { $0.kind == .sleep }
+                .compactMap(\.durationMinutes)
+                .reduce(0, +),
             feeds: values.count { $0.kind == .feed },
             feedMl: values.compactMap(\.amountMl).reduce(0, +),
             diapers: values.count { $0.kind == .diaper }
