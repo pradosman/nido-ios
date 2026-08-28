@@ -207,7 +207,6 @@ private struct SleepCard: View {
                 ActiveSleepStartEditor(startedAt: start)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
-                    .presentationCornerRadius(32)
             }
         } else {
             Button {
