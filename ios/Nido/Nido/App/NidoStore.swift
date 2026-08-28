@@ -329,6 +329,22 @@ final class NidoStore {
         }
     }
 
+    func updateActiveSleepStart(_ startedAt: Date) async {
+        guard activeSleepStartedAt != nil else { return }
+
+        let correctedStart = min(startedAt, .now)
+        activeSleepStartedAt = correctedStart
+        defaults.set(correctedStart.timeIntervalSince1970, forKey: "activeSleepStartedAt")
+        await NidoLiveActivity.reconcile(
+            sleepStartedAt: correctedStart,
+            feedStartedAt: activeFeedStartedAt,
+            babyName: profile?.babyName ?? "Bebé"
+        )
+        notice = "Hora de inicio actualizada"
+        feedbackToken += 1
+        updateWidgets()
+    }
+
     func startFeed(side: BreastSide) {
         activeFeedStartedAt = .now
         activeFeedSide = side
