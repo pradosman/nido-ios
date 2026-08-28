@@ -36,7 +36,17 @@ struct EntryEditorView: View {
                 Section("Momento") {
                     DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
                 }
-                if entry.durationMinutes != nil {
+                if entry.kind == .sleep {
+                    Section {
+                        SleepDurationPicker(totalMinutes: $durationMinutes)
+                    } header: {
+                        Text("Duración")
+                    } footer: {
+                        if durationMinutes == 0 {
+                            Text("Elige una duración mayor que cero.")
+                        }
+                    }
+                } else if entry.durationMinutes != nil {
                     Section("Duración") {
                         Stepper("\(durationMinutes) min", value: $durationMinutes, in: 1...720)
                     }
@@ -78,7 +88,7 @@ struct EntryEditorView: View {
                         }
                     }
                     .fontWeight(.semibold)
-                    .disabled(isSaving)
+                    .disabled(isSaving || (entry.kind == .sleep && durationMinutes == 0))
                 }
             }
         }
