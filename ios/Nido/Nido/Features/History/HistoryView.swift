@@ -26,7 +26,7 @@ struct HistoryView: View {
 
                     if sections.isEmpty {
                         ContentUnavailableView(
-                            "Todavía no hay historia",
+                            "Sin registros",
                             systemImage: "book.closed",
                             description: Text("Los registros aparecerán aquí ordenados por día.")
                         )

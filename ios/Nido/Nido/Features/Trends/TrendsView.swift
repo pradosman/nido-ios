@@ -21,7 +21,7 @@ struct TrendsView: View {
             PaperBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Los ritmos aparecen poco a poco. No son objetivos; son una forma de entender mejor el día.")
+                    Text("Los ritmos se calculan a partir de los registros y no representan objetivos.")
                         .font(.system(.body, design: .serif))
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
@@ -80,7 +80,7 @@ struct TrendsView: View {
                 Text("Crecimiento")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(NidoTheme.secondaryInk)
-                Text("Su evolución, con calma")
+                Text("Evolución")
                     .font(.system(.title3, design: .serif, weight: .semibold))
                     .foregroundStyle(NidoTheme.ink)
             }
@@ -92,7 +92,7 @@ struct TrendsView: View {
                 growthChart(title: "Altura", unit: "cm", color: NidoTheme.moss) { $0.heightCentimeters }
             }
 
-            Text("Son tus mediciones, no una evaluación clínica. Puedes incluirlas en el informe para el pediatra.")
+            Text("Estas mediciones no sustituyen una evaluación clínica. Puedes incluirlas en el informe para el pediatra.")
                 .font(.caption)
                 .foregroundStyle(NidoTheme.secondaryInk)
                 .lineSpacing(3)

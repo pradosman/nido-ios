@@ -22,11 +22,11 @@ struct CaregiverAccessView: View {
                     }
                     .padding(.bottom, 46)
 
-                    Text("Este nido ya está\nen familia.")
+                    Text("Únete a vuestro\nespacio.")
                         .editorialTitle(46)
                         .lineSpacing(-4)
 
-                    Text("Introduce el código que te ha enviado otro cuidador para compartir el día a día de \(store.profile?.babyName ?? "vuestro bebé").")
+                    Text("Introduce el código de invitación para acceder a la información compartida.")
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
                         .padding(.top, 18)
@@ -78,7 +78,7 @@ struct CaregiverAccessView: View {
                         }
                     } label: {
                         HStack {
-                            Text(isJoining ? "Abriendo vuestro espacio…" : "Unirme al nido")
+                            Text(isJoining ? "Accediendo…" : "Unirme")
                             Spacer()
                             if isJoining { ProgressView().tint(.white) } else { Image(systemName: "person.2.fill") }
                         }
@@ -93,10 +93,6 @@ struct CaregiverAccessView: View {
                     .opacity(cleanCode.count == 8 || cleanCode.count == 12 ? 1 : 0.55)
                     .padding(.top, 22)
 
-                    Label("Solo las personas invitadas pueden registrar y consultar información.", systemImage: "lock.fill")
-                        .font(.footnote)
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                        .padding(.top, 20)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)

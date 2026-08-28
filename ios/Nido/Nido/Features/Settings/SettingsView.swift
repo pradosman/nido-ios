@@ -77,17 +77,16 @@ struct SettingsView: View {
                 } header: {
                     Text("Cuidadores")
                 } footer: {
-                    Text(isOwner ? "Todos los cuidadores ven el mismo historial. Los registros nuevos indican quién los añadió." : "Compartes el historial familiar. Solo el cuidador principal puede invitar personas o modificar el perfil.")
+                    Text(isOwner ? "Todos los cuidadores comparten el mismo historial." : "Solo el propietario puede gestionar cuidadores y editar el perfil.")
                 }
 
-                Section("Sincronización") {
-                    Label(store.isOffline ? "Trabajando sin conexión" : "Conectado con Nido", systemImage: store.isOffline ? "wifi.slash" : "checkmark.icloud.fill")
+                Section("Estado") {
+                    Label(store.isOffline ? "Sin conexión" : "Actualizado", systemImage: store.isOffline ? "wifi.slash" : "checkmark.icloud.fill")
                         .foregroundStyle(store.isOffline ? NidoTheme.feed : NidoTheme.moss)
-                    LabeledContent("Servidor", value: AppConfiguration.apiBaseURL.host() ?? "Nido")
-                    Button("Sincronizar ahora") { Task { await store.refresh() } }
+                    Button("Actualizar") { Task { await store.refresh() } }
                 }
 
-                Section("Avisos tranquilos") {
+                Section("Recordatorios") {
                     Toggle("Resumen diario a las 20:00", isOn: $dailySummaryReminder)
                         .onChange(of: dailySummaryReminder) { _, enabled in
                             Task {
@@ -139,7 +138,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Pediatra")
                 } footer: {
-                    Text("Un resumen de los datos registrados para comentarlos con el profesional sanitario.")
+                    Text("Genera un resumen de los últimos 30 días para la consulta.")
                 }
 
                 Section {
@@ -157,13 +156,12 @@ struct SettingsView: View {
                 } header: {
                     Text("Tus datos")
                 } footer: {
-                    Text("Crea un archivo JSON portátil con el perfil, los cuidadores y todos los registros. No incluye credenciales de acceso.")
+                    Text("Exporta una copia del perfil, los cuidadores y los registros.")
                 }
 
                 Section("Privacidad") {
-                    Label("Copia local en este iPhone", systemImage: "iphone")
                     Label("Sin publicidad ni seguimiento", systemImage: "hand.raised.fill")
-                    Label("Datos enviados solo a tu servidor", systemImage: "lock.shield.fill")
+                    Label("Acceso solo para cuidadores invitados", systemImage: "lock.shield.fill")
                 }
 
                 Section {
@@ -324,7 +322,7 @@ private struct InviteCaregiverView: View {
                         } header: {
                             Text("¿A quién quieres invitar?")
                         } footer: {
-                            Text("Nido preparará un código privado para compartir mediante Mensajes, AirDrop o la app que prefieras.")
+                            Text("Crearemos un código de invitación para compartir.")
                         }
 
                         if let errorMessage {

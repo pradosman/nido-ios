@@ -24,8 +24,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.healthcare-fitness</string>
-	<key>NIDO_API_BASE_URL</key>
-	<string>$(NIDO_API_BASE_URL)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

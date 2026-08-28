@@ -53,7 +53,7 @@ struct TodayView: View {
     }
 
     private var pageHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.system(.subheadline, design: .serif, weight: .medium))
                 .italic()
@@ -63,16 +63,13 @@ struct TodayView: View {
                 .editorialTitle(44)
                 .minimumScaleFactor(0.72)
                 .lineLimit(1)
-            Text(todayEntries.isEmpty ? "Un día nuevo, todavía por escribir." : "Cada pequeño momento va encontrando su lugar.")
-                .font(.system(.body, design: .serif))
-                .foregroundStyle(NidoTheme.secondaryInk)
         }
         .padding(.top, 18)
     }
 
     private var storyHeader: some View {
         HStack(spacing: 14) {
-            Text("La historia de hoy")
+            Text("Actividad de hoy")
                 .font(.system(.subheadline, design: .serif, weight: .medium))
                 .italic()
                 .foregroundStyle(NidoTheme.secondaryInk)
@@ -198,7 +195,7 @@ private struct EmptyStoryView: View {
                     .fill(NidoTheme.secondaryInk.opacity(0.2))
                     .frame(width: 1, height: 92)
             }
-            Text("El primer registro aparecerá aquí como un momento del día, no como una cifra en un panel.")
+            Text("Los registros de hoy aparecerán aquí.")
                 .font(.system(.body, design: .serif))
                 .foregroundStyle(NidoTheme.secondaryInk)
                 .lineSpacing(5)

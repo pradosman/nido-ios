@@ -74,20 +74,6 @@ struct EntrySheet: View {
             ZStack {
                 PaperBackground()
                 Form {
-                    Section {
-                        HStack(spacing: 14) {
-                            EntryGlyph(kind: kind, size: 28)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Registrar \(kind.title.lowercased())")
-                                    .font(.system(.title2, design: .serif, weight: .semibold))
-                                Text("Un gesto breve. El momento queda guardado.")
-                                    .font(.footnote)
-                                    .foregroundStyle(NidoTheme.secondaryInk)
-                            }
-                        }
-                        .listRowBackground(Color.clear)
-                    }
-
                     Section("Momento") {
                         DatePicker("Fecha y hora", selection: $date, in: ...Date.now)
                     }
@@ -128,10 +114,10 @@ struct EntrySheet: View {
                         } header: {
                             Text("¿Qué había en el pañal?")
                         } footer: {
-                            Text("Puedes seleccionar una opción o las dos.")
+                            Text("Selecciona una o ambas opciones.")
                         }
 
-                        Section("Un detalle, si quieres") {
+                        Section("Nota opcional") {
                             TextField("Color, consistencia…", text: $detail, axis: .vertical)
                                 .lineLimit(2...4)
                         }
@@ -158,13 +144,13 @@ struct EntrySheet: View {
                             Text("¿Qué quieres registrar?")
                         } footer: {
                             if careActivity == nil {
-                                Text("Elige una opción para continuar.")
+                                Text("Selecciona una opción.")
                             }
                         }
 
                         careFields
                     } else if kind != .feed {
-                        Section("Un detalle, si quieres") {
+                        Section("Nota opcional") {
                             TextField("Añadir una nota", text: $detail, axis: .vertical)
                                 .lineLimit(2...4)
                         }
@@ -342,7 +328,7 @@ struct EntrySheet: View {
     }
 
     private func optionalCareNote(placeholder: String) -> some View {
-        Section("Un detalle, si quieres") {
+        Section("Nota opcional") {
             TextField(placeholder, text: $detail, axis: .vertical)
                 .lineLimit(2...4)
         }
