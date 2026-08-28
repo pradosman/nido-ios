@@ -74,7 +74,7 @@ struct EntrySheet: View {
     }
 
     private var sleepInterval: SleepInterval? {
-        SleepInterval.resolve(startTime: sleepStart, endTime: sleepEnd)
+        SleepInterval.validated(start: sleepStart, end: sleepEnd)
     }
 
     var body: some View {
@@ -94,15 +94,15 @@ struct EntrySheet: View {
 
                     if kind == .sleep {
                         Section {
-                            DatePicker("Desde", selection: $sleepStart, displayedComponents: .hourAndMinute)
-                            DatePicker("Hasta", selection: $sleepEnd, displayedComponents: .hourAndMinute)
+                            DatePicker("Desde", selection: $sleepStart, in: ...sleepEnd)
+                            DatePicker("Hasta", selection: $sleepEnd, in: sleepStart...Date.now)
                         } header: {
                             Text("Horario")
                         } footer: {
                             if let sleepInterval {
                                 Text("Duración: \(sleepInterval.durationLabel)")
                             } else {
-                                Text("La hora de finalización debe ser anterior a la hora actual.")
+                                Text("La fecha de finalización debe ser posterior a la de inicio.")
                             }
                         }
                     }
