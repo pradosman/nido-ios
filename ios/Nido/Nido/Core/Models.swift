@@ -57,7 +57,7 @@ nonisolated enum EntryKind: String, Codable, CaseIterable, Identifiable, Sendabl
         case .sleep: "Sueño"
         case .feed: "Toma"
         case .diaper: "Pañal"
-        case .health: "Salud y cuidado"
+        case .health: "Cuidados"
         }
     }
 

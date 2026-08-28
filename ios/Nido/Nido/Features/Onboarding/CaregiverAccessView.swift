@@ -20,17 +20,16 @@ struct CaregiverAccessView: View {
                         NidoMark().frame(width: 42, height: 42)
                         Text("Nido").font(.headline)
                     }
-                    .padding(.bottom, 46)
+                    .padding(.bottom, 32)
 
-                    Text("Únete a vuestro\nespacio.")
-                        .editorialTitle(46)
-                        .lineSpacing(-4)
+                    Text("Únete al espacio familiar.")
+                        .nidoTitle(.hero)
 
-                    Text("Introduce el código de invitación para acceder a la información compartida.")
+                    Text("Introduce el código que te ha enviado otro cuidador.")
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
-                        .padding(.top, 18)
-                        .padding(.bottom, 34)
+                        .padding(.top, 14)
+                        .padding(.bottom, 28)
 
                     VStack(alignment: .leading, spacing: 9) {
                         Text("Código de invitación")
@@ -59,7 +58,7 @@ struct CaregiverAccessView: View {
                     if let errorMessage {
                         Label(errorMessage, systemImage: "exclamationmark.circle.fill")
                             .font(.footnote)
-                            .foregroundStyle(NidoTheme.care)
+                            .foregroundStyle(NidoTheme.error)
                             .padding(.top, 14)
                     }
 
