@@ -33,3 +33,7 @@ swift test
 ```
 
 El Mac necesita Xcode completo seleccionado como developer directory para ejecutar las pruebas del paquete y compilar el simulador.
+
+## Flujo de desarrollo
+
+Los cambios de comportamiento siguen TDD estricto: primero se reproduce el requisito o el fallo con una prueba en rojo, después se implementa el mínimo cambio para llevarla a verde y finalmente se refactoriza manteniendo toda la suite correcta. Las reglas completas y la evidencia requerida están en [`AGENTS.md`](../../AGENTS.md).
