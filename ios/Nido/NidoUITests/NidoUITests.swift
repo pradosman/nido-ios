@@ -58,9 +58,31 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Guardar"].exists)
     }
 
+    func testEditingADiaperUpdatesItsTimelineTime() {
+        launch(scenario: "diaper-edit")
+
+        app.tabBars.buttons["Historia"].tap()
+        XCTAssertTrue(app.staticTexts["15:24"].waitForExistence(timeout: 3))
+        app.staticTexts["Pañal"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+
+        let timeButton = app.buttons["15:24"]
+        XCTAssertTrue(timeButton.waitForExistence(timeout: 2))
+        timeButton.tap()
+        let hourWheel = app.pickerWheels.element(boundBy: 0)
+        XCTAssertTrue(hourWheel.waitForExistence(timeout: 2))
+        hourWheel.adjust(toPickerWheelValue: "13")
+        app.buttons["Guardar"].tap()
+
+        XCTAssertTrue(app.staticTexts["13:24"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["15:24"].exists)
+    }
+
     private func launch(scenario: String) {
         app = XCUIApplication()
         app.launchEnvironment["NIDO_UI_TEST_SCENARIO"] = scenario
+        app.launchEnvironment["NIDO_UI_TEST_RUN_ID"] = UUID().uuidString
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
     }
 }

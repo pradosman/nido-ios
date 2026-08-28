@@ -87,6 +87,11 @@ final class NidoStore {
         editingEntry = nil
         recentlyDeletedEntry = nil
         isEditingProfile = false
+        pendingEntryIDs = []
+        pendingUpdatedEntryIDs = []
+        pendingDeletionIDs = []
+        profileNeedsSync = false
+        accessToken = nil
 
         guard scenario != "onboarding" else {
             phase = .onboarding
@@ -107,6 +112,27 @@ final class NidoStore {
         currentCaregiver = caregiver
         if scenario == "active-sleep" {
             activeSleepStartedAt = Date.now.addingTimeInterval(-47 * 60)
+        } else if scenario == "diaper-edit" {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+            let occurredAt = calendar.date(from: DateComponents(
+                year: 2026,
+                month: 8,
+                day: 28,
+                hour: 15,
+                minute: 24
+            ))!
+            entries = [Entry(
+                id: "ui-test-diaper",
+                kind: .diaper,
+                title: EntryKind.diaper.title,
+                detail: "Pis",
+                occurredAt: Int64(occurredAt.timeIntervalSince1970 * 1_000),
+                durationMinutes: nil,
+                amountMl: nil,
+                caregiverID: caregiver.id,
+                caregiverName: caregiver.name
+            )]
         }
         phase = .ready
     }
