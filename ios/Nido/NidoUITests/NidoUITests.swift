@@ -119,6 +119,22 @@ final class NidoUITests: XCTestCase {
         XCTAssertLessThan(sleepCard.frame.maxY, dial.frame.minY)
     }
 
+    func testSleepActionsMeetTheMinimumTouchTarget() {
+        launch(scenario: "circular-timeline")
+
+        var sleepCard = app.descendants(matching: .any)["sleep-status-card"]
+        XCTAssertTrue(sleepCard.waitForExistence(timeout: 3))
+        XCTAssertTrue(sleepCard.label.contains("Iniciar"))
+        XCTAssertGreaterThanOrEqual(sleepCard.frame.height, 44)
+
+        app.terminate()
+        launch(scenario: "active-sleep")
+
+        let finishButton = app.buttons["Terminar"]
+        XCTAssertTrue(finishButton.waitForExistence(timeout: 3))
+        XCTAssertGreaterThanOrEqual(finishButton.frame.height, 44)
+    }
+
     func testCircularTimelineExplainsItsOrientationAndDefaultState() {
         launch(scenario: "circular-timeline")
 

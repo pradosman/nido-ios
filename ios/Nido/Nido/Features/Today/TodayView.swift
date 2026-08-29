@@ -309,8 +309,9 @@ private struct SleepCard: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.black)
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .frame(minHeight: 45)
                         .background(.white, in: Capsule())
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(PressScaleButtonStyle())
                 .accessibilityHint("Finaliza y guarda el sueño")
