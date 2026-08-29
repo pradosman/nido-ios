@@ -15,6 +15,41 @@ struct CircularTimelineTests {
     }
 
     @Test
+    func dividesTheDialIntoSemanticDayAndNightSegments() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+
+        let timeline = CircularTimeline.day(on: day, entries: [], now: day, calendar: calendar)
+
+        let expected: [CircularTimeline.PeriodSegment] = [
+            CircularTimeline.PeriodSegment(period: .night, startMinute: 0, endMinute: 6 * 60),
+            CircularTimeline.PeriodSegment(period: .day, startMinute: 6 * 60, endMinute: 18 * 60),
+            CircularTimeline.PeriodSegment(period: .night, startMinute: 18 * 60, endMinute: 24 * 60),
+        ]
+        #expect(timeline.periodSegments == expected)
+    }
+
+    @Test
+    func showsTheNowMarkerOnlyOnTodayAtItsCivilClockPosition() throws {
+        let calendar = utcCalendar
+        let today = try #require(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 28,
+            hour: 9,
+            minute: 30
+        )))
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: today))
+
+        let todayTimeline = CircularTimeline.day(on: today, entries: [], now: today, calendar: calendar)
+        let pastTimeline = CircularTimeline.day(on: yesterday, entries: [], now: today, calendar: calendar)
+
+        #expect(todayTimeline.nowMarker?.minute == 9 * 60 + 30)
+        #expect(todayTimeline.nowMarker?.angle == 142.5)
+        #expect(pastTimeline.nowMarker == nil)
+    }
+
+    @Test
     func clipsASleepThatCrossesMidnightIntoEachDay() throws {
         let calendar = utcCalendar
         let firstDay = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 27)))
