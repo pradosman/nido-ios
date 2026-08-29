@@ -9,11 +9,8 @@ struct CircularTimelineDayView: View {
     @Binding var expandedClusterID: String?
 
     private var selectedItem: CircularTimeline.Item? {
-        if let selectedEntryID, let selected = day.items.first(where: { $0.entry.id == selectedEntryID }) {
-            return selected
-        }
-        if day.activeSleep != nil { return nil }
-        return day.items.last
+        guard let selectedEntryID else { return nil }
+        return day.items.first(where: { $0.entry.id == selectedEntryID })
     }
 
     private var expandedCluster: CircularTimeline.MarkerGroup? {
@@ -28,8 +25,8 @@ struct CircularTimelineDayView: View {
                 .aspectRatio(1, contentMode: .fit)
             if dynamicTypeSize.isAccessibilitySize {
                 AccessibilityTimelineDetail(
-                    item: selectedItem,
-                    isSleeping: day.activeSleep != nil && selectedItem == nil
+                    day: day,
+                    item: selectedItem
                 )
             }
         }
@@ -63,10 +60,14 @@ struct CircularTimelineDayView: View {
 
                 if expandedCluster == nil {
                     DialCenterContent(
+                        day: day,
                         item: selectedItem,
-                        isSleeping: day.activeSleep != nil && selectedItem == nil,
                         compact: dynamicTypeSize.isAccessibilitySize
                     )
+                }
+
+                if let nowMarker = day.nowMarker {
+                    nowMarkerView(nowMarker, center: center, radius: side * 0.405)
                 }
 
                 ForEach(day.markerGroups) { group in
@@ -104,6 +105,11 @@ struct CircularTimelineDayView: View {
             Circle()
                 .stroke(NidoTheme.separator.opacity(0.55), lineWidth: 0.75)
 
+            ForEach(Array(day.periodSegments.enumerated()), id: \.offset) { _, segment in
+                PeriodArc(segment: segment)
+                    .padding(side * 0.028)
+            }
+
             ForEach(0..<24, id: \.self) { hour in
                 Capsule()
                     .fill(hour.isMultiple(of: 6) ? NidoTheme.secondaryInk.opacity(0.72) : NidoTheme.secondaryInk.opacity(0.28))
@@ -112,13 +118,29 @@ struct CircularTimelineDayView: View {
                     .rotationEffect(.degrees(Double(hour) * 15))
             }
 
-            cardinalLabel("00", x: 0, y: -side * 0.35)
+            semanticCardinalLabel(hour: "00", meaning: "Medianoche", x: 0, y: -side * 0.335)
             cardinalLabel("06", x: side * 0.35, y: 0)
-            cardinalLabel("12", x: 0, y: side * 0.35)
+            semanticCardinalLabel(hour: "12", meaning: "Mediodía", x: 0, y: side * 0.335)
             cardinalLabel("18", x: -side * 0.35, y: 0)
 
         }
-        .accessibilityHidden(true)
+    }
+
+    private func semanticCardinalLabel(
+        hour: String,
+        meaning: String,
+        x: CGFloat,
+        y: CGFloat
+    ) -> some View {
+        VStack(spacing: 0) {
+            Text(hour)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            Text(meaning)
+                .font(.system(size: 7.5, weight: .medium))
+        }
+        .foregroundStyle(NidoTheme.secondaryInk)
+        .offset(x: x, y: y)
+        .accessibilityElement(children: .contain)
     }
 
     private func cardinalLabel(_ label: String, x: CGFloat, y: CGFloat) -> some View {
@@ -138,6 +160,32 @@ struct CircularTimelineDayView: View {
             x: center.x + sin(radians) * radius,
             y: center.y - cos(radians) * radius
         )
+    }
+
+    private func nowMarkerView(
+        _ marker: CircularTimeline.NowMarker,
+        center: CGPoint,
+        radius: CGFloat
+    ) -> some View {
+        let radians = marker.angle * .pi / 180
+        let position = CGPoint(
+            x: center.x + sin(radians) * radius,
+            y: center.y - cos(radians) * radius
+        )
+        return Circle()
+            .fill(NidoTheme.moss)
+            .frame(width: 8, height: 8)
+            .overlay {
+                Circle()
+                    .stroke(NidoTheme.surface, lineWidth: 2)
+            }
+            .shadow(color: NidoTheme.ink.opacity(0.12), radius: 3, y: 1)
+            .frame(width: 44, height: 44)
+            .position(position)
+            .accessibilityElement()
+            .accessibilityLabel("Ahora, \(clockLabel(marker.minute))")
+            .accessibilityIdentifier("timeline-now-marker")
+            .accessibilitySortPriority(1_500)
     }
 
     private func eventMarker(for item: CircularTimeline.Item) -> some View {
@@ -322,6 +370,26 @@ private struct ExpandedTimelineCluster: View {
     }
 }
 
+private struct PeriodArc: View {
+    let segment: CircularTimeline.PeriodSegment
+
+    var body: some View {
+        Circle()
+            .trim(
+                from: CGFloat(segment.startMinute) / 1_440,
+                to: CGFloat(segment.endMinute) / 1_440
+            )
+            .stroke(
+                segment.period == .night
+                    ? NidoTheme.sleep.opacity(0.11)
+                    : NidoTheme.feed.opacity(0.07),
+                style: StrokeStyle(lineWidth: 12, lineCap: .butt)
+            )
+            .rotationEffect(.degrees(-90))
+            .accessibilityHidden(true)
+    }
+}
+
 private struct SleepArc: View {
     let startMinute: Int
     let endMinute: Int
@@ -361,9 +429,11 @@ private struct SleepArc: View {
 }
 
 private struct DialCenterContent: View {
+    let day: CircularTimeline.Day
     let item: CircularTimeline.Item?
-    let isSleeping: Bool
     let compact: Bool
+
+    private var isSleeping: Bool { day.activeSleep != nil && item == nil }
 
     var body: some View {
         ZStack {
@@ -406,19 +476,31 @@ private struct DialCenterContent: View {
                         Text("Sueño en curso")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(NidoTheme.ink)
-                        Text("Ahora")
+                        Text("Ahora · \(day.items.count) registros hoy")
                             .font(.caption2)
                             .foregroundStyle(NidoTheme.secondaryInk)
                     }
                 } else {
-                    VStack(spacing: 3) {
-                        Text("Sin registros")
+                    VStack(spacing: 4) {
+                        Text(primaryDefaultLabel)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(NidoTheme.ink)
-                        Text("Este día")
+                        Text(recordSummary)
                             .font(.caption2)
                             .foregroundStyle(NidoTheme.secondaryInk)
+                        HStack(spacing: 8) {
+                            Label("Sueño", systemImage: EntryKind.sleep.symbolName)
+                                .foregroundStyle(NidoTheme.sleep)
+                            if day.nowMarker != nil {
+                                Label("Ahora", systemImage: "circle.fill")
+                                    .foregroundStyle(NidoTheme.moss)
+                            }
+                        }
+                        .font(.system(size: 8.5, weight: .medium))
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(accessibilityLabel)
+                    .accessibilityIdentifier("timeline-dial-default-summary")
                 }
             }
             .frame(maxWidth: 122)
@@ -433,7 +515,10 @@ private struct DialCenterContent: View {
                 .filter { !$0.isEmpty }
                 .joined(separator: ", ")
         }
-        return isSleeping ? "Sueño en curso" : "Sin registros en este día"
+        if isSleeping {
+            return "Sueño en curso, \(recordSummary)"
+        }
+        return "\(recordSummary), \(primaryDefaultLabel)"
     }
 
     private var compactSymbolName: String {
@@ -445,6 +530,19 @@ private struct DialCenterContent: View {
     private var compactColor: Color {
         if let item { return NidoTheme.color(for: item.entry.kind) }
         return isSleeping ? NidoTheme.sleep : NidoTheme.secondaryInk
+    }
+
+    private var primaryDefaultLabel: String {
+        if let nowMarker = day.nowMarker {
+            return "Ahora · \(clockLabel(nowMarker.minute))"
+        }
+        return day.date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    private var recordSummary: String {
+        let count = day.items.count
+        let noun = count == 1 ? "registro" : "registros"
+        return day.nowMarker == nil ? "\(count) \(noun) ese día" : "\(count) \(noun) hoy"
     }
 
     private func timeLabel(for item: CircularTimeline.Item) -> String {
@@ -462,8 +560,10 @@ private struct DialCenterContent: View {
 }
 
 private struct AccessibilityTimelineDetail: View {
+    let day: CircularTimeline.Day
     let item: CircularTimeline.Item?
-    let isSleeping: Bool
+
+    private var isSleeping: Bool { day.activeSleep != nil && item == nil }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -490,11 +590,19 @@ private struct AccessibilityTimelineDetail: View {
 
     private var title: String {
         if let item { return item.entry.title }
-        return isSleeping ? "Sueño en curso" : "Sin registros"
+        if isSleeping { return "Sueño en curso" }
+        if let nowMarker = day.nowMarker { return "Ahora · \(clockLabel(nowMarker.minute))" }
+        return day.date.formatted(.dateTime.day().month(.abbreviated))
     }
 
     private var detail: String? {
-        guard let item else { return isSleeping ? "Ahora" : "Este día" }
+        guard let item else {
+            let count = day.items.count
+            let noun = count == 1 ? "registro" : "registros"
+            if isSleeping { return "Ahora · \(count) \(noun) hoy · Arcos azules: sueño" }
+            let suffix = day.nowMarker == nil ? "ese día" : "hoy"
+            return "\(count) \(noun) \(suffix) · Arcos azules: sueño"
+        }
         let moment: String
         if item.presentation == .sleepSegment {
             moment = "\(clockLabel(item.startMinute))–\(clockLabel(item.endMinute))"

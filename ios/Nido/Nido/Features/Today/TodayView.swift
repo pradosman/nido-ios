@@ -71,31 +71,25 @@ struct TodayView: View {
 
     @ViewBuilder
     private var prioritizedContent: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            dayPager
-                .padding(.top, 8)
-            pageHeader
-                .padding(.top, 18)
-            todayStatusCards
-        } else {
-            pageHeader
+        pageHeader
+        SleepCard()
+            .padding(.top, 12)
+        if !dynamicTypeSize.isAccessibilitySize {
             storyHeader
-            dayPager
-            todayStatusCards
         }
+        dayPager
+        todayStatusCards
     }
 
     @ViewBuilder
     private var todayStatusCards: some View {
         if isTodaySelected {
-            SleepCard()
-                .padding(.top, 24)
             if store.activeFeedStartedAt != nil {
                 ActiveFeedCard()
-                    .padding(.top, 12)
+                    .padding(.top, 10)
             }
         }
-        Color.clear.frame(height: 36)
+        Color.clear.frame(height: 28)
     }
 
     private var pageHeader: some View {
@@ -110,7 +104,7 @@ struct TodayView: View {
                 .lineLimit(2)
                 .accessibilityIdentifier("timeline-day-heading")
         }
-        .padding(.top, 18)
+        .padding(.top, 10)
     }
 
     private var storyHeader: some View {
@@ -123,12 +117,12 @@ struct TodayView: View {
                 .fill(NidoTheme.secondaryInk.opacity(0.24))
                 .frame(height: 0.5)
         }
-        .padding(.top, 42)
-        .padding(.bottom, 26)
+        .padding(.top, 18)
+        .padding(.bottom, 8)
     }
 
     private var dayPager: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 4) {
             dayControls
             TabView(selection: $selectedDay) {
                 ForEach(dayDates, id: \.self) { date in
@@ -146,7 +140,7 @@ struct TodayView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 540 : 350)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 510 : 326)
         }
     }
 
@@ -276,7 +270,9 @@ private struct SleepCard: View {
     var body: some View {
         if let start = store.activeSleepStartedAt {
             adaptiveLayout {
-                EntryGlyph(kind: .sleep, size: 28)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    EntryGlyph(kind: .sleep, size: 28)
+                }
 
                 Button {
                     isEditingStart = true
@@ -321,7 +317,13 @@ private struct SleepCard: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity)
-            .background(NidoTheme.sleep, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: 21, style: .continuous)
+                    .fill(NidoTheme.sleep)
+                    .accessibilityElement()
+                    .accessibilityLabel("Estado del sueño de hoy")
+                    .accessibilityIdentifier("sleep-status-card")
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
                     .stroke(.white.opacity(0.72), lineWidth: 0.7)
@@ -337,11 +339,15 @@ private struct SleepCard: View {
                 Task { await store.toggleSleep() }
             } label: {
                 adaptiveLayout {
-                    EntryGlyph(kind: .sleep, size: 28)
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        EntryGlyph(kind: .sleep, size: 28)
+                    }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Sueño")
-                            .font(.caption)
-                            .foregroundStyle(NidoTheme.secondaryInk)
+                        if !dynamicTypeSize.isAccessibilitySize {
+                            Text("Sueño de hoy")
+                                .font(.caption)
+                                .foregroundStyle(NidoTheme.secondaryInk)
+                        }
                         Text("Registrar sueño")
                             .font(.headline)
                             .foregroundStyle(NidoTheme.ink)
@@ -365,6 +371,7 @@ private struct SleepCard: View {
             }
             .buttonStyle(PressScaleButtonStyle())
             .accessibilityHint("Inicia el temporizador de sueño")
+            .accessibilityIdentifier("sleep-status-card")
         }
     }
 

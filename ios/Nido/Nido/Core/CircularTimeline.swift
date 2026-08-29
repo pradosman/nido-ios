@@ -5,7 +5,26 @@ nonisolated enum CircularTimeline {
         let date: Date
         let items: [Item]
         let markerGroups: [MarkerGroup]
+        let periodSegments: [PeriodSegment]
+        let nowMarker: NowMarker?
         let activeSleep: ActiveSleep?
+    }
+
+    struct PeriodSegment: Equatable, Sendable {
+        enum Period: Equatable, Sendable {
+            case day
+            case night
+        }
+
+        let period: Period
+        let startMinute: Int
+        let endMinute: Int
+    }
+
+    struct NowMarker: Equatable, Sendable {
+        let minute: Int
+
+        var angle: Double { CircularTimeline.angle(forMinute: minute) }
     }
 
     struct Item: Equatable, Identifiable, Sendable {
@@ -64,7 +83,14 @@ nonisolated enum CircularTimeline {
     ) -> Day {
         let dayStart = calendar.startOfDay(for: date)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
-            return Day(date: dayStart, items: [], markerGroups: [], activeSleep: nil)
+            return Day(
+                date: dayStart,
+                items: [],
+                markerGroups: [],
+                periodSegments: defaultPeriodSegments,
+                nowMarker: nil,
+                activeSleep: nil
+            )
         }
 
         var values: [Item] = []
@@ -120,6 +146,10 @@ nonisolated enum CircularTimeline {
             date: dayStart,
             items: values,
             markerGroups: markerGroups(for: values),
+            periodSegments: defaultPeriodSegments,
+            nowMarker: calendar.isDate(dayStart, inSameDayAs: now)
+                ? NowMarker(minute: minute(now, dayEnd: dayEnd, calendar: calendar))
+                : nil,
             activeSleep: activeSleep
         )
     }
@@ -194,6 +224,12 @@ nonisolated enum CircularTimeline {
             MarkerGroup(minute: group[0].startMinute, items: group)
         }
     }
+
+    private static let defaultPeriodSegments = [
+        PeriodSegment(period: .night, startMinute: 0, endMinute: 6 * 60),
+        PeriodSegment(period: .day, startMinute: 6 * 60, endMinute: 18 * 60),
+        PeriodSegment(period: .night, startMinute: 18 * 60, endMinute: 24 * 60),
+    ]
 
     private static func minute(_ date: Date, dayEnd: Date, calendar: Calendar) -> Int {
         if date >= dayEnd { return 1_440 }

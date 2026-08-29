@@ -62,6 +62,9 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "timeline-duration")
 
         XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
+        let sleep = app.buttons["timeline-event-ui-test-sleep"]
+        XCTAssertTrue(sleep.exists)
+        sleep.tap()
         XCTAssertTrue(app.staticTexts["1 h 15 min"].exists)
         XCTAssertFalse(app.staticTexts["75 min"].exists)
     }
@@ -88,10 +91,44 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(sleep.exists)
         sleep.tap()
         XCTAssertTrue(app.staticTexts["1 h 15 min"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["07:00–08:15"].exists)
         XCTAssertTrue(app.otherElements["timeline-dial-center-detail"].exists)
 
         sleep.press(forDuration: 1)
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+    }
+
+    func testSleepControlsStayAboveTheCircularTimelineWhenIdleAndActive() {
+        launch(scenario: "circular-timeline")
+
+        var sleepCard = app.descendants(matching: .any)["sleep-status-card"]
+        var dial = app.otherElements["timeline-circular-dial"]
+        XCTAssertTrue(sleepCard.waitForExistence(timeout: 3))
+        XCTAssertTrue(sleepCard.label.contains("Iniciar"))
+        XCTAssertTrue(dial.exists)
+        XCTAssertLessThan(sleepCard.frame.maxY, dial.frame.minY)
+
+        app.terminate()
+        launch(scenario: "active-sleep")
+
+        sleepCard = app.descendants(matching: .any)["sleep-status-card"]
+        dial = app.otherElements["timeline-circular-dial"]
+        XCTAssertTrue(sleepCard.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Terminar"].exists)
+        XCTAssertTrue(dial.exists)
+        XCTAssertLessThan(sleepCard.frame.maxY, dial.frame.minY)
+    }
+
+    func testCircularTimelineExplainsItsOrientationAndDefaultState() {
+        launch(scenario: "circular-timeline")
+
+        XCTAssertTrue(app.staticTexts["Medianoche"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Mediodía"].exists)
+        XCTAssertTrue(app.otherElements["timeline-now-marker"].exists)
+        let summary = app.otherElements["timeline-dial-default-summary"]
+        XCTAssertTrue(summary.exists)
+        XCTAssertTrue(summary.label.contains("3 registros hoy"))
+        XCTAssertTrue(summary.label.contains("17:50"))
     }
 
     func testCircularTimelinePagesToThePreviousDayAndBackToToday() {
@@ -101,15 +138,18 @@ final class NidoUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Volver a hoy"].exists)
         let dial = app.otherElements["timeline-circular-dial"]
         XCTAssertTrue(dial.exists)
+        XCTAssertTrue(app.otherElements["timeline-now-marker"].exists)
         dial.swipeRight()
         dial.swipeRight()
 
         XCTAssertTrue(app.buttons["Volver a hoy"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.otherElements["timeline-circular-dial"].exists)
+        XCTAssertFalse(app.otherElements["timeline-now-marker"].exists)
         app.buttons["Volver a hoy"].tap()
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.buttons["Volver a hoy"].exists)
         XCTAssertFalse(app.buttons["Día siguiente"].isEnabled)
+        XCTAssertTrue(app.otherElements["timeline-now-marker"].exists)
     }
 
     func testDenseCircularTimelineClusterExpandsEveryAccessibleRecord() {
@@ -215,8 +255,14 @@ final class NidoUITests: XCTestCase {
         minuteWheel.adjust(toPickerWheelValue: "00")
         app.buttons["Guardar"].tap()
 
-        XCTAssertTrue(app.staticTexts["16:00"].waitForExistence(timeout: 3))
-        XCTAssertFalse(app.staticTexts["17:50"].exists)
+        let savedFeed = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS 'Toma' AND label CONTAINS '16:00'")
+        ).firstMatch
+        XCTAssertTrue(savedFeed.waitForExistence(timeout: 3))
+        let feedAtDefaultTime = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS 'Toma' AND label CONTAINS '17:50'")
+        ).firstMatch
+        XCTAssertFalse(feedAtDefaultTime.exists)
     }
 
     private func launch(scenario: String, contentSizeCategory: String? = nil) {
