@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const [caregiver] = await db.select(publicCaregiverFields).from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
     return Response.json({ caregiver, accessToken }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo crear el cuidador principal";
+    const message = error instanceof Error ? error.message : "No se pudo crear el administrador del hogar";
     return Response.json({ error: message }, { status: 500 });
   }
 }

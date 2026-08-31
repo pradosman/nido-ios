@@ -1,6 +1,6 @@
 # Nido para iPhone: local y VPS
 
-Nido es una app nativa para iPhone. La interfaz web está retirada y `/` responde con `404`; el servicio conserva y sincroniza los datos entre cuidadores mediante la API. En el VPS utiliza una base SQLite persistente dentro de un volumen Docker.
+Nido es una app nativa para iPhone. La interfaz web está retirada y `/` responde con `404`; el servicio conserva y sincroniza los datos entre familiares mediante la API. En el VPS utiliza una base SQLite persistente dentro de un volumen Docker.
 
 ## Arranque local
 

@@ -43,7 +43,7 @@ export async function requireCaregiver(request: Request, ownerOnly = false): Pro
     return { response: Response.json({ error: "El acceso ha caducado o ya no es válido" }, { status: 401 }) };
   }
   if (ownerOnly && caregiver.role !== "owner") {
-    return { response: Response.json({ error: "Solo el cuidador principal puede hacer este cambio" }, { status: 403 }) };
+    return { response: Response.json({ error: "Solo el administrador del hogar puede hacer este cambio" }, { status: 403 }) };
   }
   return { caregiver };
 }

@@ -13,10 +13,26 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "onboarding")
 
         XCTAssertTrue(app.staticTexts["El día a día de vuestro bebé."].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Registra sueño, tomas, pañales y cuidados. Compartid la misma información entre familiares."].exists)
         XCTAssertTrue(app.textFields["Tu nombre"].exists)
         XCTAssertTrue(app.textFields["Nombre del bebé"].exists)
         XCTAssertTrue(app.buttons["Crear espacio"].exists)
         XCTAssertFalse(app.buttons["Crear espacio"].isEnabled)
+
+        app.buttons["Tengo un código de invitación"].tap()
+        XCTAssertTrue(app.staticTexts["Introduce el código que te ha enviado el administrador del hogar o un familiar."].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Crear un espacio familiar"].exists)
+    }
+
+    func testSettingsUsesFamilyTerminologyAndAdministratorPolicy() {
+        launch(scenario: "caregiver-removal")
+
+        app.buttons["bottom-nav-settings"].tap()
+        XCTAssertTrue(app.staticTexts["Familiares"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Invitar familiar"].exists)
+        XCTAssertTrue(app.staticTexts["Administrador del hogar"].exists)
+        XCTAssertTrue(app.staticTexts["Familiar"].exists)
+        XCTAssertTrue(app.staticTexts["Solo el administrador del hogar puede gestionar familiares y editar el perfil. Los familiares comparten el mismo historial."].exists)
     }
 
     func testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby() async throws {
@@ -215,7 +231,10 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(profileButton.waitForExistence(timeout: 5))
         XCTAssertFalse(profileButton.isEnabled)
         XCTAssertFalse(app.buttons["settings-invite-caregiver"].exists)
-        XCTAssertTrue(app.staticTexts["Solo el propietario puede gestionar cuidadores y editar el perfil."].exists)
+        XCTAssertTrue(app.staticTexts["Familiares"].exists)
+        XCTAssertTrue(app.staticTexts["Administrador del hogar"].exists)
+        XCTAssertTrue(app.staticTexts["Familiar"].exists)
+        XCTAssertTrue(app.staticTexts["Solo el administrador del hogar puede gestionar familiares y editar el perfil. Los familiares comparten el mismo historial."].exists)
         let ownerRow = app.staticTexts["UI Owner"]
         XCTAssertTrue(ownerRow.exists)
         ownerRow.swipeLeft()

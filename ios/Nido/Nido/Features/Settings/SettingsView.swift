@@ -73,14 +73,14 @@ struct SettingsView: View {
 
                     if isOwner {
                         Button { isInvitingCaregiver = true } label: {
-                            Label("Invitar cuidador", systemImage: "person.badge.plus")
+                            Label("Invitar familiar", systemImage: "person.badge.plus")
                         }
                         .accessibilityIdentifier("settings-invite-caregiver")
                     }
                 } header: {
-                    Text("Cuidadores")
+                    Text("Familiares")
                 } footer: {
-                    Text(isOwner ? "Todos los cuidadores comparten el mismo historial." : "Solo el propietario puede gestionar cuidadores y editar el perfil.")
+                    Text("Solo el administrador del hogar puede gestionar familiares y editar el perfil. Los familiares comparten el mismo historial.")
                 }
 
                 Section("Estado") {
@@ -159,12 +159,12 @@ struct SettingsView: View {
                 } header: {
                     Text("Tus datos")
                 } footer: {
-                    Text("Exporta una copia del perfil, los cuidadores y los registros.")
+                    Text("Exporta una copia del perfil, los familiares y los registros.")
                 }
 
                 Section("Privacidad") {
                     Label("Sin publicidad ni seguimiento", systemImage: "hand.raised.fill")
-                    Label("Acceso solo para cuidadores invitados", systemImage: "lock.shield.fill")
+                    Label("Acceso solo para familiares invitados", systemImage: "lock.shield.fill")
                 }
 
                 Section {
@@ -257,7 +257,7 @@ struct SettingsView: View {
     }
 
     private var caregiverRemovalTitle: String {
-        guard let caregiver = caregiverPendingRemoval else { return "Gestionar cuidador" }
+        guard let caregiver = caregiverPendingRemoval else { return "Gestionar familiar" }
         return caregiver.status == .pending
             ? "¿Cancelar la invitación de \(caregiver.name)?"
             : "¿Retirar el acceso de \(caregiver.name)?"
@@ -282,7 +282,7 @@ private struct CaregiverRow: View {
                 Text(caregiver.name)
                     .font(.body.weight(.medium))
                     .foregroundStyle(NidoTheme.ink)
-                Text(caregiver.status == .active ? (caregiver.role == .owner ? "Propietario" : "Cuidador") : "Invitación pendiente")
+                Text(caregiver.status == .active ? caregiver.role.displayName : "Invitación pendiente")
                     .font(.caption)
                     .foregroundStyle(NidoTheme.secondaryInk)
             }
@@ -352,7 +352,7 @@ private struct InviteCaregiverView: View {
                         }
                     } else {
                         Section {
-                            TextField("Nombre del cuidador", text: $name)
+                            TextField("Nombre del familiar", text: $name)
                                 .textContentType(.name)
                                 .textInputAutocapitalization(.words)
                                 .focused($isNameFocused)
@@ -372,7 +372,7 @@ private struct InviteCaregiverView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle(invitation == nil ? "Invitar cuidador" : "Invitación lista")
+            .navigationTitle(invitation == nil ? "Invitar familiar" : "Invitación lista")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

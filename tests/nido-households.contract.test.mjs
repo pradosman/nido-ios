@@ -154,6 +154,9 @@ test("owner and caregiver HTTP permissions match the shared-history policy", asy
       [forbiddenProfile.status, forbiddenInvite.status, forbiddenRemoval.status],
       [403, 403, 403],
     );
+    assert.deepEqual(forbiddenProfile.payload, {
+      error: "Solo el administrador del hogar puede hacer este cambio",
+    });
 
     const caregiverLoad = await request(baseURL, "/api/nido", { token: caregiverToken });
     assert.equal(caregiverLoad.status, 200);

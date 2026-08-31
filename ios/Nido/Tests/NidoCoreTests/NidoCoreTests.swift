@@ -249,6 +249,12 @@ struct NidoCoreTests {
     }
 
     @Test
+    func caregiverRolesUseFamilyFacingDisplayNames() {
+        #expect(CaregiverRole.owner.displayName == "Administrador del hogar")
+        #expect(CaregiverRole.caregiver.displayName == "Familiar")
+    }
+
+    @Test
     func caregiverInvitationExplainsHowToJoin() throws {
         let caregiver = Caregiver(
             id: "caregiver-1",

@@ -36,7 +36,7 @@ enum PediatricReport {
             }
 
             y += 10
-            draw("Este documento resume registros introducidos por los cuidadores. No contiene diagnósticos ni sustituye la valoración de un profesional sanitario.", font: .systemFont(ofSize: 9), color: .secondaryLabel)
+            draw("Este documento resume registros introducidos por los familiares. No contiene diagnósticos ni sustituye la valoración de un profesional sanitario.", font: .systemFont(ofSize: 9), color: .secondaryLabel)
         }
         return url
     }
