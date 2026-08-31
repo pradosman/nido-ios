@@ -53,14 +53,12 @@ struct EntrySheet: View {
             return diaperContents.detail(note: detail)
         }
         if kind == .feed {
-            let cleanNote = detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            let parts: [String] = switch feedType {
-            case .nursing: ["Lactancia", "Pecho \(breastSide.title.lowercased())", cleanNote]
-            case .bottle: ["Biberón", milkType, cleanNote]
-            case .pumping: ["Extracción", cleanNote]
-            case .solids: ["Sólidos", cleanNote]
-            }
-            return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+            return FeedEntryDetails(
+                type: feedType,
+                breastSide: breastSide,
+                milkType: milkType,
+                note: detail
+            ).formatted
         }
         if kind == .health, let careActivity {
             return careActivity.detail(
