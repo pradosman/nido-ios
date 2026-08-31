@@ -1,6 +1,6 @@
 # Nido para iPhone: local y VPS
 
-Nido es una app nativa para iPhone. El servicio del repositorio conserva y sincroniza los datos entre cuidadores; no es una versión web para uso diario. En el VPS utiliza una base SQLite persistente dentro de un volumen Docker.
+Nido es una app nativa para iPhone. La interfaz web está retirada y `/` responde con `404`; el servicio conserva y sincroniza los datos entre cuidadores mediante la API. En el VPS utiliza una base SQLite persistente dentro de un volumen Docker.
 
 ## Arranque local
 
@@ -15,6 +15,12 @@ Cada arranque verifica el esquema de forma segura y, si hace falta, crea la base
 
 ```bash
 curl http://localhost:3000/api/nido/status
+```
+
+El estado público indica las capacidades disponibles:
+
+```json
+{"canCreateHousehold":true,"canJoinWithInvitation":true}
 ```
 
 Para usarlo desde el Simulator, configura `NIDO_API_BASE_URL` en el target `Nido` con la dirección local del servicio. En un iPhone físico usa la IP local del Mac, no `127.0.0.1`.
@@ -57,7 +63,7 @@ Requisitos: un registro DNS `A` de `nido.momentumia.com` apuntando al VPS y una 
    curl https://nido.momentumia.com/api/nido/status
    ```
 
-Al usar `/api` como ruta pública, Traefik no expone la antigua interfaz web del contenedor. Los datos privados requieren la credencial de cuidador guardada en el Keychain del iPhone. No añadas `basic_auth` delante de la API: impediría que la app nativa sincronizase.
+Al usar `/api` como ruta pública, Traefik expone únicamente la API. `/api/nido/status` es público; las API de datos del hogar requieren `Authorization: Bearer <credencial>`. La app guarda esa credencial en el Keychain del iPhone. No añadas `basic_auth` delante de la API: impediría que la app nativa sincronizase.
 
 ## Operaciones habituales
 
@@ -84,7 +90,9 @@ El nombre de proyecto puede variar; Dokploy lo muestra al principio de cada desp
 
 ## Comprobación final
 
-- `/api/nido/status` responde con `configured`.
+- `/` responde con `404` y no sirve una interfaz web.
+- `/api/nido/status` responde con `canCreateHousehold` y `canJoinWithInvitation`.
+- Las API de datos del hogar rechazan peticiones sin credencial bearer.
 - La aplicación de iPhone abre y permite crear un registro.
 - Un segundo iPhone puede unirse con una invitación y ve la misma información.
 - El contenedor figura como `healthy`.
