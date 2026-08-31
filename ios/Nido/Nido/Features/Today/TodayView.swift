@@ -26,6 +26,15 @@ struct TodayView: View {
         Calendar.current.isDate(selectedDay, inSameDayAs: store.now)
     }
 
+    private var selectedTimelineDay: CircularTimeline.Day {
+        CircularTimeline.day(
+            on: selectedDay,
+            entries: store.entries,
+            activeSleepStartedAt: store.activeSleepStartedAt,
+            now: store.now
+        )
+    }
+
     var body: some View {
         ZStack {
             PaperBackground()
@@ -38,20 +47,7 @@ struct TodayView: View {
             .refreshable { await store.refresh() }
         }
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(EntryKind.allCases) { kind in
-                        Button {
-                            store.presentedEntryKind = kind
-                        } label: {
-                            Label("Registrar \(kind.title.lowercased())", systemImage: kind.symbolName)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("Registrar una actividad")
-
+            ToolbarItem(placement: .topBarTrailing) {
                 Button { store.selectedTab = .settings } label: {
                     Image(systemName: "person.crop.circle")
                 }
@@ -74,21 +70,28 @@ struct TodayView: View {
         pageHeader
         SleepCard()
             .padding(.top, 12)
+        if isTodaySelected, store.activeFeedStartedAt != nil {
+            ActiveFeedCard()
+                .padding(.top, 10)
+        }
         if !dynamicTypeSize.isAccessibilitySize {
             storyHeader
         }
         dayPager
-        todayStatusCards
-    }
-
-    @ViewBuilder
-    private var todayStatusCards: some View {
-        if isTodaySelected {
-            if store.activeFeedStartedAt != nil {
-                ActiveFeedCard()
-                    .padding(.top, 10)
-            }
-        }
+        LatestTimelineEvents(
+            day: selectedTimelineDay,
+            selectedEntryID: $selectedEntryID,
+            onEdit: { store.editingEntry = $0 }
+        )
+        .padding(.top, 18)
+        DayTimelineActivity(
+            day: selectedTimelineDay,
+            isToday: isTodaySelected,
+            selectedEntryID: $selectedEntryID,
+            onEdit: { store.editingEntry = $0 },
+            onShowAll: { store.selectedTab = .history }
+        )
+        .padding(.top, 24)
         Color.clear.frame(height: 28)
     }
 
@@ -126,21 +129,23 @@ struct TodayView: View {
             dayControls
             TabView(selection: $selectedDay) {
                 ForEach(dayDates, id: \.self) { date in
-                    CircularTimelineDayView(
-                        day: CircularTimeline.day(
-                            on: date,
-                            entries: store.entries,
-                            activeSleepStartedAt: store.activeSleepStartedAt,
-                            now: store.now
-                        ),
-                        selectedEntryID: $selectedEntryID,
-                        expandedClusterID: $expandedClusterID
-                    )
+                    TimelineView(.everyMinute) { context in
+                        CircularTimelineDayView(
+                            day: CircularTimeline.day(
+                                on: date,
+                                entries: store.entries,
+                                activeSleepStartedAt: store.activeSleepStartedAt,
+                                now: store.currentDate(for: context.date)
+                            ),
+                            selectedEntryID: $selectedEntryID,
+                            expandedClusterID: $expandedClusterID
+                        )
+                    }
                     .tag(date)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 510 : 326)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 510 : 350)
         }
     }
 
@@ -218,6 +223,217 @@ struct TodayView: View {
     }
 }
 
+private struct LatestTimelineEvents: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    let day: CircularTimeline.Day
+    @Binding var selectedEntryID: String?
+    let onEdit: (Entry) -> Void
+
+    private var columns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Últimos registros")
+                .font(.system(.headline, design: .serif, weight: .semibold))
+                .foregroundStyle(NidoTheme.ink)
+
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(TimelineLane.allCases) { lane in
+                    latestCard(for: lane)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(latestEventsLabel)
+        .accessibilityIdentifier("timeline-latest-events")
+    }
+
+    @ViewBuilder
+    private func latestCard(for lane: TimelineLane) -> some View {
+        if let item = latestItem(for: lane.kind) {
+            Button {
+                selectedEntryID = item.entry.id
+            } label: {
+                cardContent(lane: lane, detail: timeLabel(for: item), hasEntry: true)
+            }
+            .buttonStyle(PressScaleButtonStyle())
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.5)
+                    .onEnded { _ in onEdit(item.entry) }
+            )
+            .accessibilityLabel("\(lane.title), último registro, \(timeLabel(for: item))")
+            .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
+        } else {
+            cardContent(lane: lane, detail: "Sin registros", hasEntry: false)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(lane.title), sin registros")
+        }
+    }
+
+    private func cardContent(lane: TimelineLane, detail: String, hasEntry: Bool) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: lane.kind.symbolName)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(NidoTheme.color(for: lane.kind).opacity(hasEntry ? 1 : 0.5))
+            Text(detail)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(NidoTheme.secondaryInk)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 64 : 76)
+        .padding(.horizontal, 4)
+        .background(NidoTheme.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(NidoTheme.separator.opacity(0.45), lineWidth: 0.5)
+        }
+    }
+
+    private var latestEventsLabel: String {
+        let summaries = TimelineLane.allCases.map { lane in
+            guard let item = latestItem(for: lane.kind) else { return "\(lane.title), sin registros" }
+            return "\(lane.title), \(timeLabel(for: item))"
+        }
+        return "Últimos registros. \(summaries.joined(separator: ". "))"
+    }
+
+    private func latestItem(for kind: EntryKind) -> CircularTimeline.Item? {
+        day.items
+            .filter { $0.entry.kind == kind }
+            .max { $0.startMinute < $1.startMinute }
+    }
+
+    private func timeLabel(for item: CircularTimeline.Item) -> String {
+        if item.presentation == .sleepSegment {
+            return "\(clockLabel(item.startMinute))–\(clockLabel(item.endMinute))"
+        }
+        return clockLabel(item.startMinute)
+    }
+
+    private func clockLabel(_ minute: Int) -> String {
+        let normalized = min(max(minute, 0), 1_440)
+        if normalized == 1_440 { return "24:00" }
+        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
+    }
+}
+
+private struct DayTimelineActivity: View {
+    let day: CircularTimeline.Day
+    let isToday: Bool
+    @Binding var selectedEntryID: String?
+    let onEdit: (Entry) -> Void
+    let onShowAll: () -> Void
+
+    private var items: [CircularTimeline.Item] {
+        day.items.sorted { $0.startMinute < $1.startMinute }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isToday ? "Hoy" : day.date.formatted(.dateTime.day().month(.wide)))
+                        .font(.system(.title3, design: .serif, weight: .semibold))
+                        .foregroundStyle(NidoTheme.ink)
+                    Text("Actividad del día")
+                        .font(.caption)
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                }
+                Spacer()
+                Button("Ver todo", action: onShowAll)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.moss)
+                    .frame(minHeight: 44)
+            }
+
+            VStack(spacing: 0) {
+                if items.isEmpty {
+                    Label("Sin registros este día", systemImage: "clock")
+                        .font(.subheadline)
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                        .padding(.horizontal, 14)
+                } else {
+                    ForEach(items) { item in
+                        Button {
+                            selectedEntryID = item.entry.id
+                        } label: {
+                            activityRow(item)
+                        }
+                        .buttonStyle(.plain)
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.5)
+                                .onEnded { _ in onEdit(item.entry) }
+                        )
+                        .accessibilityLabel(activityAccessibilityLabel(item))
+                        .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
+                        .accessibilityIdentifier("timeline-activity-\(item.entry.id)")
+
+                        if item.id != items.last?.id {
+                            Divider().padding(.leading, 58)
+                        }
+                    }
+                }
+            }
+            .paperCard(cornerRadius: 18)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Actividad del día, \(items.count) registros")
+        .accessibilityIdentifier("timeline-day-activity-list")
+    }
+
+    private func activityRow(_ item: CircularTimeline.Item) -> some View {
+        HStack(spacing: 10) {
+            EntryGlyph(kind: item.entry.kind, size: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.entry.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.ink)
+                if !item.entry.summary.isEmpty {
+                    Text(item.entry.summary)
+                        .font(.caption)
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            Text(timeLabel(for: item))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(NidoTheme.secondaryInk)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 56)
+        .contentShape(Rectangle())
+    }
+
+    private func activityAccessibilityLabel(_ item: CircularTimeline.Item) -> String {
+        [item.entry.title, timeLabel(for: item), item.entry.summary]
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+    }
+
+    private func timeLabel(for item: CircularTimeline.Item) -> String {
+        if item.presentation == .sleepSegment {
+            return "\(clockLabel(item.startMinute))–\(clockLabel(item.endMinute))"
+        }
+        return clockLabel(item.startMinute)
+    }
+
+    private func clockLabel(_ minute: Int) -> String {
+        let normalized = min(max(minute, 0), 1_440)
+        if normalized == 1_440 { return "24:00" }
+        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
+    }
+}
+
 private struct ActiveFeedCard: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -252,6 +468,7 @@ private struct ActiveFeedCard: View {
             }
             .buttonStyle(PressScaleButtonStyle())
             .accessibilityHint("Finaliza y guarda la lactancia")
+            .accessibilityIdentifier("active-feed-card")
         }
     }
 

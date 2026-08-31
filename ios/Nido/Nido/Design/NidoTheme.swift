@@ -159,13 +159,93 @@ struct EntryGlyph: View {
     var size: CGFloat = 20
 
     var body: some View {
-        Image(systemName: kind.symbolName)
-            .font(.system(size: size, weight: .semibold))
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(NidoTheme.color(for: kind))
+        glyph
             .frame(width: max(44, size + 20), height: max(44, size + 20))
             .contentShape(Rectangle())
             .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        if kind == .diaper {
+            DiaperGlyph(color: NidoTheme.diaper, size: size)
+        } else {
+            Image(systemName: kind.symbolName)
+                .font(.system(size: size, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(NidoTheme.color(for: kind))
+        }
+    }
+}
+
+struct DiaperGlyph: View {
+    let color: Color
+    var size: CGFloat = 20
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let point: (CGFloat, CGFloat) -> CGPoint = { x, y in
+                CGPoint(x: canvasSize.width * x / 24, y: canvasSize.height * y / 24)
+            }
+
+            var silhouette = Path()
+            silhouette.move(to: point(3.25, 5.4))
+            silhouette.addLine(to: point(20.75, 5.4))
+            silhouette.addLine(to: point(20.75, 12.65))
+            silhouette.addCurve(
+                to: point(12, 21.4),
+                control1: point(20.75, 17.48),
+                control2: point(16.83, 21.4)
+            )
+            silhouette.addCurve(
+                to: point(3.25, 12.65),
+                control1: point(7.17, 21.4),
+                control2: point(3.25, 17.48)
+            )
+            silhouette.closeSubpath()
+            context.fill(silhouette, with: .color(color))
+
+            var frontPanel = Path()
+            frontPanel.move(to: point(3.25, 8.45))
+            frontPanel.addLine(to: point(7.45, 8.45))
+            frontPanel.addLine(to: point(9.47, 10.47))
+            frontPanel.addCurve(
+                to: point(14.53, 10.47),
+                control1: point(10.87, 11.87),
+                control2: point(13.13, 11.87)
+            )
+            frontPanel.addLine(to: point(16.55, 8.45))
+            frontPanel.addLine(to: point(20.75, 8.45))
+            frontPanel.addLine(to: point(20.75, 12.65))
+            frontPanel.addCurve(
+                to: point(19.75, 16.67),
+                control1: point(20.75, 14.1),
+                control2: point(20.39, 15.47)
+            )
+            frontPanel.addCurve(
+                to: point(4.25, 16.67),
+                control1: point(15.22, 12.8),
+                control2: point(8.78, 12.8)
+            )
+            frontPanel.addCurve(
+                to: point(3.25, 12.65),
+                control1: point(3.61, 15.47),
+                control2: point(3.25, 14.1)
+            )
+            frontPanel.closeSubpath()
+            context.fill(frontPanel, with: .color(.white.opacity(0.34)))
+
+            for x in [6.6, 17.4] {
+                let tab = Path(ellipseIn: CGRect(
+                    x: canvasSize.width * (x - 0.85) / 24,
+                    y: canvasSize.height * 6.15 / 24,
+                    width: canvasSize.width * 1.7 / 24,
+                    height: canvasSize.height * 1.7 / 24
+                ))
+                context.fill(tab, with: .color(.white.opacity(0.72)))
+            }
+        }
+        .frame(width: size, height: size)
     }
 }
 

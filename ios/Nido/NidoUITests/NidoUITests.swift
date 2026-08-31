@@ -62,9 +62,10 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "timeline-duration")
 
         XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
-        let sleep = app.buttons["timeline-event-ui-test-sleep"]
-        XCTAssertTrue(sleep.exists)
-        sleep.tap()
+        XCTAssertFalse(app.buttons["timeline-event-ui-test-sleep"].exists)
+        let sleepActivity = app.buttons["timeline-activity-ui-test-sleep"]
+        XCTAssertTrue(sleepActivity.exists)
+        sleepActivity.tap()
         XCTAssertTrue(app.staticTexts["1 h 15 min"].exists)
         XCTAssertFalse(app.staticTexts["75 min"].exists)
     }
@@ -73,28 +74,28 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "timeline-duration")
 
         XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
-        let sleepEntry = app.buttons["timeline-event-ui-test-sleep"]
+        let sleepEntry = app.buttons["timeline-activity-ui-test-sleep"]
         XCTAssertTrue(sleepEntry.exists)
         sleepEntry.press(forDuration: 1)
 
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
     }
 
-    func testCircularTimelineSelectsAndEditsAnEvent() {
+    func testCircularTimelineKeepsSleepInteractionInDayActivityList() {
         launch(scenario: "circular-timeline")
 
         let dial = app.otherElements["timeline-circular-dial"]
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
         XCTAssertFalse(app.otherElements["today-vertical-timeline"].exists)
 
-        let sleep = app.buttons["timeline-event-ui-test-sleep"]
+        let sleep = app.buttons["timeline-activity-ui-test-sleep"]
         XCTAssertTrue(sleep.exists)
         sleep.tap()
         XCTAssertTrue(app.staticTexts["1 h 15 min"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["07:00–08:15"].exists)
         XCTAssertTrue(app.otherElements["timeline-dial-center-detail"].exists)
 
-        sleep.press(forDuration: 1)
+        sleepActivity.press(forDuration: 1)
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
     }
 
@@ -138,13 +139,98 @@ final class NidoUITests: XCTestCase {
     func testCircularTimelineExplainsItsOrientationAndDefaultState() {
         launch(scenario: "circular-timeline")
 
-        XCTAssertTrue(app.staticTexts["Medianoche"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Mediodía"].exists)
+        let cardinalLabels = [
+            (identifier: "timeline-cardinal-0", label: "00:00"),
+            (identifier: "timeline-cardinal-360", label: "06:00"),
+            (identifier: "timeline-cardinal-720", label: "12:00"),
+            (identifier: "timeline-cardinal-1080", label: "18:00"),
+        ]
+        for cardinal in cardinalLabels {
+            let label = app.staticTexts[cardinal.identifier]
+            XCTAssertTrue(label.waitForExistence(timeout: 3))
+            XCTAssertTrue(label.label.contains(cardinal.label))
+        }
         XCTAssertTrue(app.otherElements["timeline-now-marker"].exists)
         let summary = app.otherElements["timeline-dial-default-summary"]
         XCTAssertTrue(summary.exists)
-        XCTAssertTrue(summary.label.contains("3 registros hoy"))
-        XCTAssertTrue(summary.label.contains("17:50"))
+        XCTAssertTrue(summary.label.contains("17 registros hoy"))
+        XCTAssertTrue(summary.label.contains("22:40"))
+    }
+
+    func testCircularTimelineRenderedMarkerHitAreasStayInsideTheDial() {
+        launch(scenario: "circular-timeline")
+
+        let dial = app.otherElements["timeline-circular-dial"]
+        XCTAssertTrue(dial.waitForExistence(timeout: 3))
+
+        for feedID in [
+            "timeline-event-ui-test-feed-0115",
+            "timeline-event-ui-test-feed-0355",
+            "timeline-event-ui-test-feed-0850",
+            "timeline-event-ui-test-feed-1223",
+            "timeline-event-ui-test-feed-1540",
+            "timeline-event-ui-test-feed",
+            "timeline-event-ui-test-feed-2110",
+        ] {
+            let feed = app.buttons[feedID]
+            XCTAssertTrue(feed.exists, "Missing rendered feed marker \(feedID)")
+            XCTAssertTrue(dial.frame.contains(feed.frame), "Feed marker must remain inside the dial")
+        }
+
+        for diaperID in [
+            "timeline-event-ui-test-diaper-0210",
+            "timeline-event-ui-test-diaper-0642",
+            "timeline-event-ui-test-diaper-1105",
+            "timeline-event-ui-test-diaper-1530",
+            "timeline-event-ui-test-diaper-2035",
+        ] {
+            let diaper = app.buttons[diaperID]
+            XCTAssertTrue(diaper.exists, "Missing rendered diaper marker \(diaperID)")
+            XCTAssertTrue(dial.frame.contains(diaper.frame), "Diaper marker must remain inside the dial")
+        }
+    }
+
+    func testCircularTimelineUsesOneCivilClockTrackAndCategorySpecificMarkers() {
+        launch(scenario: "circular-timeline")
+
+        let ring = app.otherElements["timeline-day-ring"]
+        XCTAssertTrue(ring.waitForExistence(timeout: 3))
+        XCTAssertTrue(ring.label.contains("24 horas"))
+        XCTAssertTrue(app.otherElements["timeline-clock-ticks"].exists)
+
+        let feeds = app.otherElements["timeline-feed-markers"]
+        XCTAssertTrue(feeds.exists)
+        XCTAssertTrue(feeds.label.contains("fuera del anillo"))
+
+        let diapers = app.otherElements["timeline-diaper-markers"]
+        XCTAssertTrue(diapers.exists)
+        XCTAssertTrue(diapers.label.contains("dentro del anillo"))
+
+        let summary = app.otherElements["timeline-center-summary"]
+        XCTAssertTrue(summary.exists)
+        XCTAssertTrue(summary.label.contains("Sueño"))
+        XCTAssertTrue(summary.label.contains("tomas"))
+        XCTAssertTrue(summary.label.contains("pañales"))
+        XCTAssertFalse(summary.label.contains("Cuidados"))
+    }
+
+    func testCircularTimelinePresentsDashboardHierarchy() {
+        launch(scenario: "circular-timeline")
+
+        let summary = app.otherElements["timeline-center-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 3))
+        for category in ["Sueño", "tomas", "pañales"] {
+            XCTAssertTrue(summary.label.contains(category))
+        }
+        XCTAssertFalse(summary.label.contains("Cuidados"))
+
+        let latestEvents = app.otherElements["timeline-latest-events"]
+        XCTAssertTrue(latestEvents.exists)
+        XCTAssertTrue(latestEvents.label.contains("Últimos registros"))
+
+        let activityList = app.otherElements["timeline-day-activity-list"]
+        XCTAssertTrue(activityList.exists)
+        XCTAssertTrue(activityList.label.contains("Actividad del día"))
     }
 
     func testCircularTimelinePagesToThePreviousDayAndBackToToday() {
@@ -168,20 +254,22 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["timeline-now-marker"].exists)
     }
 
-    func testDenseCircularTimelineClusterExpandsEveryAccessibleRecord() {
+    func testDenseCircularTimelineKeepsFeedAndDiaperClustersIndependent() {
         launch(scenario: "circular-timeline-dense")
 
-        let cluster = app.buttons["timeline-cluster-480"]
-        XCTAssertTrue(cluster.waitForExistence(timeout: 3))
-        XCTAssertTrue(cluster.label.contains("6 registros"))
-        cluster.tap()
+        let feedCluster = app.buttons["timeline-cluster-feed-480"]
+        let diaperCluster = app.buttons["timeline-cluster-diaper-481"]
+        XCTAssertTrue(feedCluster.waitForExistence(timeout: 3))
+        XCTAssertTrue(diaperCluster.exists)
+        XCTAssertTrue(feedCluster.label.contains("3 tomas"))
+        XCTAssertTrue(diaperCluster.label.contains("3 pañales"))
 
         XCTAssertTrue(app.otherElements["timeline-cluster-expanded"].waitForExistence(timeout: 2))
-        for index in 0..<6 {
+        for index in [1, 3, 5] {
             XCTAssertTrue(app.buttons["timeline-expanded-dense-\(index)"].exists)
         }
 
-        app.buttons["timeline-expanded-dense-0"].press(forDuration: 1)
+        app.buttons["timeline-expanded-dense-1"].press(forDuration: 1)
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
     }
 
@@ -292,3 +380,12 @@ final class NidoUITests: XCTestCase {
         app.launch()
     }
 }
+        feedCluster.tap()
+
+        XCTAssertTrue(app.otherElements["timeline-cluster-expanded"].waitForExistence(timeout: 2))
+        for index in [0, 2, 4] {
+            XCTAssertTrue(app.buttons["timeline-expanded-dense-\(index)"].exists)
+        }
+        app.buttons["Cerrar registros"].tap()
+
+        diaperCluster.tap()

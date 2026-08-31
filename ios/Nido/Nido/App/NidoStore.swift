@@ -47,6 +47,7 @@ final class NidoStore {
     private let defaults: UserDefaults
     private let nowProvider: () -> Date
     private let logger = Logger(subsystem: "com.momentumia.nido", category: "store")
+    private let hasInjectedNowProvider: Bool
     private let caregiverIDKey = "currentCaregiverID"
 
     init(
@@ -54,13 +55,14 @@ final class NidoStore {
         cache: LocalCache = LocalCache(),
         credentialStore: CredentialStore = CredentialStore(),
         defaults: UserDefaults = .standard,
-        now: @escaping () -> Date = { .now }
+        now: (() -> Date)? = nil
     ) {
         self.api = api
         self.cache = cache
         self.credentialStore = credentialStore
         self.defaults = defaults
-        self.nowProvider = now
+        self.nowProvider = now ?? { .now }
+        self.hasInjectedNowProvider = now != nil
         accessToken = credentialStore.load()
         pendingUpdatedEntryIDs = Set(defaults.stringArray(forKey: "pendingUpdatedEntryIDs") ?? [])
         pendingDeletionIDs = Set(defaults.stringArray(forKey: "pendingDeletionIDs") ?? [])
@@ -78,6 +80,10 @@ final class NidoStore {
     #if DEBUG
     func prepareForUITesting(scenario: String) {
         phase = .loading
+    func currentDate(for timelineDate: Date) -> Date {
+        hasInjectedNowProvider ? nowProvider() : timelineDate
+    }
+
         profile = nil
         entries = []
         caregivers = []
@@ -150,51 +156,44 @@ final class NidoStore {
                 phase = .ready
                 return
             }
+            func fixtureEntry(
+                id: String,
+                kind: EntryKind,
+                hour: Int,
+                minute: Int = 0,
+                durationMinutes: Int? = nil
+            ) -> Entry {
+                Entry(
+                    id: id,
+                    kind: kind,
+                    title: kind.title,
+                    detail: kind == .feed ? "Leche de fórmula" : kind == .diaper ? "Pis" : kind == .health ? "Baño" : "",
+                    occurredAt: Int64(today.addingTimeInterval(TimeInterval(hour * 3_600 + minute * 60)).timeIntervalSince1970 * 1_000),
+                    durationMinutes: durationMinutes,
+                    amountMl: kind == .feed ? 60 : nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                )
+            }
+
             entries = [
-                Entry(
-                    id: "ui-test-feed",
-                    kind: .feed,
-                    title: EntryKind.feed.title,
-                    detail: "Leche de fórmula",
-                    occurredAt: Int64(today.addingTimeInterval(16 * 3_600).timeIntervalSince1970 * 1_000),
-                    durationMinutes: nil,
-                    amountMl: 60,
-                    caregiverID: caregiver.id,
-                    caregiverName: caregiver.name
-                ),
-                Entry(
-                    id: "ui-test-sleep",
-                    kind: .sleep,
-                    title: EntryKind.sleep.title,
-                    detail: "",
-                    occurredAt: Int64(today.addingTimeInterval(8 * 3_600 + 15 * 60).timeIntervalSince1970 * 1_000),
-                    durationMinutes: 75,
-                    amountMl: nil,
-                    caregiverID: caregiver.id,
-                    caregiverName: caregiver.name
-                ),
-                Entry(
-                    id: "ui-test-overnight",
-                    kind: .sleep,
-                    title: EntryKind.sleep.title,
-                    detail: "",
-                    occurredAt: Int64(today.addingTimeInterval(60 * 60).timeIntervalSince1970 * 1_000),
-                    durationMinutes: 120,
-                    amountMl: nil,
-                    caregiverID: caregiver.id,
-                    caregiverName: caregiver.name
-                ),
-                Entry(
-                    id: "ui-test-previous-care",
-                    kind: .health,
-                    title: EntryKind.health.title,
-                    detail: "Baño",
-                    occurredAt: Int64(today.addingTimeInterval(-12 * 3_600).timeIntervalSince1970 * 1_000),
-                    durationMinutes: nil,
-                    amountMl: nil,
-                    caregiverID: caregiver.id,
-                    caregiverName: caregiver.name
-                ),
+                fixtureEntry(id: "ui-test-overnight", kind: .sleep, hour: 6, minute: 30, durationMinutes: 540),
+                fixtureEntry(id: "ui-test-sleep", kind: .sleep, hour: 8, minute: 15, durationMinutes: 75),
+                fixtureEntry(id: "ui-test-midday-sleep", kind: .sleep, hour: 11, minute: 35, durationMinutes: 95),
+                fixtureEntry(id: "ui-test-afternoon-sleep", kind: .sleep, hour: 14, minute: 30, durationMinutes: 120),
+                fixtureEntry(id: "ui-test-feed-0115", kind: .feed, hour: 1, minute: 15),
+                fixtureEntry(id: "ui-test-feed-0355", kind: .feed, hour: 3, minute: 55),
+                fixtureEntry(id: "ui-test-feed-0850", kind: .feed, hour: 8, minute: 50),
+                fixtureEntry(id: "ui-test-feed-1223", kind: .feed, hour: 12, minute: 23),
+                fixtureEntry(id: "ui-test-feed-1540", kind: .feed, hour: 15, minute: 40),
+                fixtureEntry(id: "ui-test-feed", kind: .feed, hour: 18, minute: 25),
+                fixtureEntry(id: "ui-test-feed-2110", kind: .feed, hour: 21, minute: 10),
+                fixtureEntry(id: "ui-test-diaper-0210", kind: .diaper, hour: 2, minute: 10),
+                fixtureEntry(id: "ui-test-diaper-0642", kind: .diaper, hour: 6, minute: 42),
+                fixtureEntry(id: "ui-test-diaper-1105", kind: .diaper, hour: 11, minute: 5),
+                fixtureEntry(id: "ui-test-diaper-1530", kind: .diaper, hour: 15, minute: 30),
+                fixtureEntry(id: "ui-test-diaper-2035", kind: .diaper, hour: 20, minute: 35),
+                fixtureEntry(id: "ui-test-health", kind: .health, hour: 13),
             ]
         } else if scenario == "diaper-edit" {
             var calendar = Calendar(identifier: .gregorian)

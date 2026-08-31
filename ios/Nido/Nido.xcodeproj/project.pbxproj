@@ -8,9 +8,17 @@
 
 /* Begin PBXBuildFile section */
 		E11111111111111111111111 /* NidoLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 555555555555555555555556 /* NidoLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F11111111111111111111111 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = F22222222222222222222222 /* SnapshotTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		E33333333333333333333333 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 111111111111111111111111 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 666666666666666666666667;
+			remoteInfo = NidoLiveActivity;
+		};
 		E33333333333333333333334 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 111111111111111111111111 /* Project object */;
@@ -18,12 +26,12 @@
 			remoteGlobalIDString = 666666666666666666666666;
 			remoteInfo = Nido;
 		};
-		E33333333333333333333333 /* PBXContainerItemProxy */ = {
+		FAB111111111111111111111 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 111111111111111111111111 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 666666666666666666666667;
-			remoteInfo = NidoLiveActivity;
+			remoteGlobalIDString = 666666666666666666666666;
+			remoteInfo = Nido;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -45,12 +53,14 @@
 		555555555555555555555555 /* Nido.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nido.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		555555555555555555555556 /* NidoLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NidoLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		555555555555555555555557 /* NidoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NidoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F44444444444444444444444 /* NidoSnapshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NidoSnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		444444444444444444444444 /* Nido */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Nido; sourceTree = "<group>"; };
 		444444444444444444444445 /* NidoLiveActivity */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoLiveActivity; sourceTree = "<group>"; };
 		444444444444444444444446 /* NidoUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoUITests; sourceTree = "<group>"; };
+		F55555555555555555555555 /* NidoSnapshotTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoSnapshotTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +85,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F66666666666666666666666 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F11111111111111111111111 /* SnapshotTesting in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -84,6 +102,7 @@
 				444444444444444444444444 /* Nido */,
 				444444444444444444444445 /* NidoLiveActivity */,
 				444444444444444444444446 /* NidoUITests */,
+				F55555555555555555555555 /* NidoSnapshotTests */,
 				333333333333333333333333 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -94,6 +113,7 @@
 				555555555555555555555555 /* Nido.app */,
 				555555555555555555555556 /* NidoLiveActivity.appex */,
 				555555555555555555555557 /* NidoUITests.xctest */,
+				F44444444444444444444444 /* NidoSnapshotTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -170,6 +190,30 @@
 			productReference = 555555555555555555555557 /* NidoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		F99999999999999999999999 /* NidoSnapshotTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FAA111111111111111111111 /* Build configuration list for PBXNativeTarget "NidoSnapshotTests" */;
+			buildPhases = (
+				F88888888888888888888888 /* Sources */,
+				F66666666666666666666666 /* Frameworks */,
+				F77777777777777777777777 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FAC111111111111111111111 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F55555555555555555555555 /* NidoSnapshotTests */,
+			);
+			name = NidoSnapshotTests;
+			packageProductDependencies = (
+				F22222222222222222222222 /* SnapshotTesting */,
+			);
+			productName = NidoSnapshotTests;
+			productReference = F44444444444444444444444 /* NidoSnapshotTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -190,6 +234,10 @@
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = 666666666666666666666666;
 					};
+					F99999999999999999999999 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 666666666666666666666666;
+					};
 				};
 			};
 			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAAAA /* Build configuration list for PBXProject "Nido" */;
@@ -202,6 +250,9 @@
 			);
 			mainGroup = 222222222222222222222222;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				F33333333333333333333333 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
+			);
 			productRefGroup = 333333333333333333333333 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -209,12 +260,20 @@
 				666666666666666666666666 /* Nido */,
 				666666666666666666666667 /* NidoLiveActivity */,
 				666666666666666666666668 /* NidoUITests */,
+				F99999999999999999999999 /* NidoSnapshotTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		999999999999999999999990 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		999999999999999999999991 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -228,7 +287,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		999999999999999999999991 /* Resources */ = {
+		F77777777777777777777777 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -259,6 +318,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F88888888888888888888888 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -271,6 +337,11 @@
 			isa = PBXTargetDependency;
 			target = 666666666666666666666666 /* Nido */;
 			targetProxy = E33333333333333333333334 /* PBXContainerItemProxy */;
+		};
+		FAC111111111111111111111 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 666666666666666666666666 /* Nido */;
+			targetProxy = FAB111111111111111111111 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -508,6 +579,46 @@
 			};
 			name = Release;
 		};
+		FAD111111111111111111111 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6VVEKN47Y3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.momentumia.nido.snapshottests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nido.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Nido";
+			};
+			name = Debug;
+		};
+		FAE111111111111111111111 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6VVEKN47Y3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.momentumia.nido.snapshottests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nido.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Nido";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -547,7 +658,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		FAA111111111111111111111 /* Build configuration list for PBXNativeTarget "NidoSnapshotTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FAD111111111111111111111 /* Debug */,
+				FAE111111111111111111111 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F33333333333333333333333 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.19.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F22222222222222222222222 /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F33333333333333333333333 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 111111111111111111111111 /* Project object */;
 }
