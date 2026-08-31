@@ -277,6 +277,24 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
     }
 
+    func testSettingsShowsBundleVersionBuildAndOptionalGitRevision() {
+        launch(scenario: "ready")
+
+        app.buttons["bottom-nav-settings"].tap()
+        let versionValue = app.staticTexts["app-version-value"]
+        for _ in 0..<4 where !versionValue.exists {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(versionValue.waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            versionValue.label.wholeMatch(
+                of: /[0-9]+\.[0-9]+\.[0-9]+ \([0-9]+\)( · [0-9a-f]{7}( dirty)?)?/
+            ) != nil,
+            "Expected semantic version and build from the app bundle, got: \(versionValue.label)"
+        )
+    }
+
     func testBottomBarUsesFiveEqualSlotsWithoutVisibleLabels() {
         launch(scenario: "ready")
 

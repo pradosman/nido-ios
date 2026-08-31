@@ -168,7 +168,13 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Versión", value: "1.0")
+                    HStack {
+                        Text("Versión")
+                        Spacer()
+                        Text(AppVersion.current?.displayString ?? "No disponible")
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("app-version-value")
+                    }
                 } footer: {
                     Text("Nido acompaña el cuidado diario, pero no sustituye el consejo de un profesional sanitario.")
                 }
