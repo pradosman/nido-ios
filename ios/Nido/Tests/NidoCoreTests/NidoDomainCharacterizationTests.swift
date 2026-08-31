@@ -80,6 +80,24 @@ struct NidoDomainCharacterizationTests {
     }
 
     @Test
+    func completeReconciliationRemovesStaleRemoteItemsAndExcludesPendingDeletions() {
+        let remoteCurrent = entry(id: "current", kind: .feed, timestamp: 4_000)
+        let remotePendingDeletion = entry(id: "deleting", kind: .diaper, timestamp: 3_000)
+        let staleLocal = entry(id: "server-deleted", kind: .sleep, timestamp: 2_000)
+        let pendingCreate = entry(id: "creating", kind: .feed, timestamp: 5_000)
+        let pendingUpdate = entry(id: "updating", kind: .health, timestamp: 1_000, detail: "Local edit")
+
+        let merged = EntryReconciliation.merge(
+            remote: [remoteCurrent, remotePendingDeletion],
+            local: [staleLocal, pendingCreate, pendingUpdate],
+            protectedIDs: [pendingCreate.id, pendingUpdate.id],
+            excludedIDs: [remotePendingDeletion.id]
+        )
+
+        #expect(merged.map(\.id) == ["creating", "current", "updating"])
+    }
+
+    @Test
     func sleepCopySeparatesGeneratedScheduleFromTheOptionalNote() throws {
         let interval = try #require(SleepInterval.validated(
             start: Date(timeIntervalSince1970: 1_000),
@@ -127,6 +145,43 @@ struct NidoDomainCharacterizationTests {
     func emptyDiaperSelectionStillProducesALegacySafeDescription() {
         #expect(DiaperContents().detail(note: "").contains("Cambio de pañal"))
         #expect(DiaperContents.urine.union(.stool).detail(note: "  Normal  ") == "Pis y caca · Normal")
+    }
+
+    @Test
+    func semanticEntryDetailsRoundTripStoredCreationFormats() throws {
+        let nursing = try #require(FeedEntryDetails.parse("Lactancia · Pecho derecho · Buen agarre"))
+        #expect(nursing.type == .nursing)
+        #expect(nursing.breastSide == .right)
+        #expect(nursing.note == "Buen agarre")
+        #expect(nursing.formatted == "Lactancia · Pecho derecho · Buen agarre")
+
+        let bottle = try #require(FeedEntryDetails.parse("Biberón · Fórmula · Sin incidencias"))
+        #expect(bottle.type == .bottle)
+        #expect(bottle.milkType == "Fórmula")
+        #expect(bottle.formatted == "Biberón · Fórmula · Sin incidencias")
+
+        let diaper = try #require(DiaperEntryDetails.parse("Pis y caca · Normal"))
+        #expect(diaper.contents == [.urine, .stool])
+        #expect(diaper.note == "Normal")
+        #expect(diaper.formatted == "Pis y caca · Normal")
+
+        let care = try #require(CareEntryDetails.parse("Medicación · Paracetamol · 2 ml · Fiebre"))
+        #expect(care.activity == .medication)
+        #expect(care.medicationName == "Paracetamol")
+        #expect(care.medicationDose == "2 ml")
+        #expect(care.note == "Fiebre")
+        #expect(care.formatted == "Medicación · Paracetamol · 2 ml · Fiebre")
+    }
+
+    @Test
+    func semanticEntryDetailsRejectUnknownLegacyCopyWithoutChangingIt() {
+        let legacyFeed = "Texto importado · con · separadores"
+        let legacyCare = "Consulta pediátrica externa"
+
+        #expect(FeedEntryDetails.parse(legacyFeed) == nil)
+        #expect(CareEntryDetails.parse(legacyCare) == nil)
+        #expect(EntryDetailPersistence.preserved(legacyFeed, semanticDetail: nil) == legacyFeed)
+        #expect(EntryDetailPersistence.preserved(legacyCare, semanticDetail: nil) == legacyCare)
     }
 
     private func caregiver(name: String, inviteCode: String? = nil) -> Caregiver {

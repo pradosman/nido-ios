@@ -176,15 +176,22 @@ nonisolated enum EntryMoment {
 }
 
 nonisolated enum EntryReconciliation {
-    static func merge(remote: [Entry], local: [Entry], protectedIDs: Set<String>) -> [Entry] {
+    static func merge(
+        remote: [Entry],
+        local: [Entry],
+        protectedIDs: Set<String>,
+        excludedIDs: Set<String> = []
+    ) -> [Entry] {
         var entriesByID: [String: Entry] = [:]
-        for entry in remote {
+        for entry in remote where !excludedIDs.contains(entry.id) {
             entriesByID[entry.id] = entry
         }
-        for entry in local where protectedIDs.contains(entry.id) {
+        for entry in local where protectedIDs.contains(entry.id) && !excludedIDs.contains(entry.id) {
             entriesByID[entry.id] = entry
         }
-        return entriesByID.values.sorted { $0.occurredAt > $1.occurredAt }
+        return entriesByID.values.sorted {
+            $0.occurredAt == $1.occurredAt ? $0.id > $1.id : $0.occurredAt > $1.occurredAt
+        }
     }
 }
 
@@ -285,6 +292,91 @@ nonisolated struct DiaperContents: OptionSet, Equatable, Sendable {
     }
 }
 
+nonisolated struct FeedEntryDetails: Equatable, Sendable {
+    var type: FeedType
+    var breastSide: BreastSide
+    var milkType: String
+    var note: String
+
+    var formatted: String {
+        let cleanNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts: [String] = switch type {
+        case .nursing: ["Lactancia", "Pecho \(breastSide.title.lowercased())", cleanNote]
+        case .bottle: ["Biberón", milkType, cleanNote]
+        case .pumping: ["Extracción", cleanNote]
+        case .solids: ["Sólidos", cleanNote]
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    static func parse(_ detail: String) -> FeedEntryDetails? {
+        let parts = detail.detailParts
+        guard let activity = parts.first else { return nil }
+        switch activity {
+        case "Lactancia":
+            guard parts.count >= 2, parts[1].hasPrefix("Pecho ") else { return nil }
+            let sideLabel = String(parts[1].dropFirst("Pecho ".count))
+            guard let side = BreastSide.allCases.first(where: {
+                $0.title.lowercased() == sideLabel.lowercased()
+            }) else { return nil }
+            return FeedEntryDetails(
+                type: .nursing,
+                breastSide: side,
+                milkType: "Leche materna",
+                note: parts.dropFirst(2).joined(separator: " · ")
+            )
+        case "Biberón":
+            guard parts.count >= 2, ["Leche materna", "Fórmula"].contains(parts[1]) else { return nil }
+            return FeedEntryDetails(
+                type: .bottle,
+                breastSide: .left,
+                milkType: parts[1],
+                note: parts.dropFirst(2).joined(separator: " · ")
+            )
+        case "Extracción":
+            return FeedEntryDetails(
+                type: .pumping,
+                breastSide: .left,
+                milkType: "Leche materna",
+                note: parts.dropFirst().joined(separator: " · ")
+            )
+        case "Sólidos":
+            return FeedEntryDetails(
+                type: .solids,
+                breastSide: .left,
+                milkType: "Leche materna",
+                note: parts.dropFirst().joined(separator: " · ")
+            )
+        default:
+            return nil
+        }
+    }
+}
+
+nonisolated struct DiaperEntryDetails: Equatable, Sendable {
+    var contents: DiaperContents
+    var note: String
+
+    var formatted: String { contents.detail(note: note) }
+
+    static func parse(_ detail: String) -> DiaperEntryDetails? {
+        let parts = detail.detailParts
+        guard let description = parts.first else { return nil }
+        let contents: DiaperContents
+        switch description {
+        case "Pis y caca": contents = [.urine, .stool]
+        case "Pis": contents = [.urine]
+        case "Caca": contents = [.stool]
+        case "Cambio de pañal": contents = []
+        default: return nil
+        }
+        return DiaperEntryDetails(
+            contents: contents,
+            note: parts.dropFirst().joined(separator: " · ")
+        )
+    }
+}
+
 nonisolated enum CareActivity: String, CaseIterable, Identifiable, Sendable {
     case bath
     case temperature
@@ -357,5 +449,90 @@ nonisolated enum CareActivity: String, CaseIterable, Identifiable, Sendable {
                 .locale(Locale(identifier: "es_ES"))
                 .precision(.fractionLength(1))
         )
+    }
+}
+
+nonisolated struct CareEntryDetails: Equatable, Sendable {
+    var activity: CareActivity
+    var note: String
+    var temperatureCelsius: Double
+    var medicationName: String
+    var medicationDose: String
+    var weightKilograms: Double
+    var heightCentimeters: Double
+
+    var formatted: String {
+        activity.detail(
+            note: note,
+            temperatureCelsius: temperatureCelsius,
+            medicationName: medicationName,
+            medicationDose: medicationDose,
+            weightKilograms: weightKilograms,
+            heightCentimeters: heightCentimeters
+        )
+    }
+
+    static func parse(_ detail: String) -> CareEntryDetails? {
+        let parts = detail.detailParts
+        guard let title = parts.first,
+              let activity = CareActivity.allCases.first(where: { $0.title == title })
+        else { return nil }
+
+        var result = CareEntryDetails(
+            activity: activity,
+            note: "",
+            temperatureCelsius: 36.5,
+            medicationName: "",
+            medicationDose: "",
+            weightKilograms: 4,
+            heightCentimeters: 52
+        )
+        switch activity {
+        case .bath, .symptom, .other:
+            result.note = parts.dropFirst().joined(separator: " · ")
+        case .temperature:
+            guard parts.count >= 2,
+                  let temperature = decimal(parts[1], unit: "°C")
+            else { return nil }
+            result.temperatureCelsius = temperature
+            result.note = parts.dropFirst(2).joined(separator: " · ")
+        case .medication:
+            guard parts.count >= 2 else { return nil }
+            result.medicationName = parts[1]
+            if parts.count >= 3 { result.medicationDose = parts[2] }
+            result.note = parts.dropFirst(min(parts.count, 3)).joined(separator: " · ")
+        case .measurements:
+            guard parts.count >= 3,
+                  let weight = decimal(parts[1], unit: "kg"),
+                  let height = decimal(parts[2], unit: "cm")
+            else { return nil }
+            result.weightKilograms = weight
+            result.heightCentimeters = height
+            result.note = parts.dropFirst(3).joined(separator: " · ")
+        }
+        return result
+    }
+
+    private static func decimal(_ value: String, unit: String) -> Double? {
+        guard value.hasSuffix(unit) else { return nil }
+        return Double(
+            value.dropLast(unit.count)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: ",", with: ".")
+        )
+    }
+}
+
+nonisolated enum EntryDetailPersistence {
+    static func preserved(_ original: String, semanticDetail: String?) -> String {
+        semanticDetail ?? original
+    }
+}
+
+private nonisolated extension String {
+    var detailParts: [String] {
+        components(separatedBy: " · ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }
