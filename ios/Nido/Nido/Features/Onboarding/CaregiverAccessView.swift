@@ -92,6 +92,14 @@ struct CaregiverAccessView: View {
                     .opacity(cleanCode.count == 8 || cleanCode.count == 12 ? 1 : 0.55)
                     .padding(.top, 22)
 
+                    Button("Crear otro espacio") {
+                        store.showOnboarding()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.moss)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.top, 10)
+
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)

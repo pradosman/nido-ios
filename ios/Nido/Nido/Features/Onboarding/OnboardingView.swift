@@ -87,6 +87,14 @@ struct OnboardingView: View {
                     .opacity(caregiverName.isEmpty || babyName.isEmpty ? 0.55 : 1)
                     .padding(.top, 24)
 
+                    Button("Tengo un código de invitación") {
+                        store.showCaregiverAccess()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.moss)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.top, 10)
+
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)

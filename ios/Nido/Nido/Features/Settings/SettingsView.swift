@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var isImportingBackup = false
     @State private var pendingBackup: NidoBackup?
     @State private var backupError: String?
+    @State private var caregiverPendingRemoval: Caregiver?
     @AppStorage("dailySummaryReminder") private var dailySummaryReminder = false
     @AppStorage("feedCheckReminder") private var feedCheckReminder = false
 
@@ -46,6 +47,7 @@ struct SettingsView: View {
                             }
                         }
                         .disabled(!isOwner)
+                        .accessibilityIdentifier("settings-profile-button")
                     }
                 }
 
@@ -61,7 +63,7 @@ struct SettingsView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if isOwner && caregiver.id != store.currentCaregiver?.id {
                                 Button(role: .destructive) {
-                                    Task { await store.removeCaregiver(caregiver) }
+                                    caregiverPendingRemoval = caregiver
                                 } label: {
                                     Label(caregiver.status == .pending ? "Cancelar" : "Retirar", systemImage: "person.badge.minus")
                                 }
@@ -73,6 +75,7 @@ struct SettingsView: View {
                         Button { isInvitingCaregiver = true } label: {
                             Label("Invitar cuidador", systemImage: "person.badge.plus")
                         }
+                        .accessibilityIdentifier("settings-invite-caregiver")
                     }
                 } header: {
                     Text("Cuidadores")
@@ -213,6 +216,28 @@ struct SettingsView: View {
         } message: {
             Text("Se añadirán únicamente los registros que todavía no existan. Los actuales no se sobrescribirán.")
         }
+        .confirmationDialog(
+            caregiverRemovalTitle,
+            isPresented: Binding(
+                get: { caregiverPendingRemoval != nil },
+                set: { if !$0 { caregiverPendingRemoval = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let caregiver = caregiverPendingRemoval {
+                Button(caregiver.status == .pending ? "Cancelar invitación" : "Retirar acceso", role: .destructive) {
+                    caregiverPendingRemoval = nil
+                    Task { await store.removeCaregiver(caregiver) }
+                }
+            }
+            Button("Cancelar", role: .cancel) { caregiverPendingRemoval = nil }
+        } message: {
+            if let caregiver = caregiverPendingRemoval {
+                Text(caregiver.status == .pending
+                    ? "La invitación de \(caregiver.name) dejará de ser válida."
+                    : "\(caregiver.name) dejará de poder consultar y registrar información en Nido.")
+            }
+        }
         .sheet(isPresented: $isInvitingCaregiver) {
             InviteCaregiverView()
                 .presentationDetents([.medium, .large])
@@ -223,6 +248,13 @@ struct SettingsView: View {
     private func ageLabel(_ profile: Profile) -> String {
         let months = NidoMetrics.ageInMonths(birthDate: profile.birthDate)
         return months == 0 ? "Recién nacido" : "\(months) \(months == 1 ? "mes" : "meses")"
+    }
+
+    private var caregiverRemovalTitle: String {
+        guard let caregiver = caregiverPendingRemoval else { return "Gestionar cuidador" }
+        return caregiver.status == .pending
+            ? "¿Cancelar la invitación de \(caregiver.name)?"
+            : "¿Retirar el acceso de \(caregiver.name)?"
     }
 }
 
