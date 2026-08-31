@@ -25,7 +25,7 @@ struct CaregiverAccessView: View {
                     Text("Únete al espacio familiar.")
                         .nidoTitle(.hero)
 
-                    Text("Introduce el código que te ha enviado otro cuidador.")
+                    Text("Introduce el código que te ha enviado el administrador del hogar o un familiar.")
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .lineSpacing(4)
                         .padding(.top, 14)
@@ -92,7 +92,7 @@ struct CaregiverAccessView: View {
                     .opacity(cleanCode.count == 8 || cleanCode.count == 12 ? 1 : 0.55)
                     .padding(.top, 22)
 
-                    Button("Crear otro espacio") {
+                    Button("Crear un espacio familiar") {
                         store.showOnboarding()
                     }
                     .font(.subheadline.weight(.semibold))

@@ -63,7 +63,7 @@ Antes de una entrega deben probarse en un iPhone real:
 - instalación y actualización de widgets;
 - permisos y entrega de notificaciones;
 - persistencia de credenciales en Keychain tras reinstalaciones y cambios de firma;
-- invitación de un segundo cuidador y sincronización entre dos dispositivos contra la API real;
+- invitación de otro familiar y sincronización entre dos dispositivos contra la API real;
 - funcionamiento sin conexión, reconexión y resolución de cambios pendientes.
 
 Estas integraciones dependen del sistema operativo, la firma, las notificaciones y el servidor. Las pruebas unitarias deben cubrir sus decisiones internas, pero no sustituyen esta comprobación final.

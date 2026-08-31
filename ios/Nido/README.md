@@ -19,7 +19,7 @@ Todas las configuraciones utilizan `https://nido.momentumia.com`.
 
 ## Datos y funcionamiento
 
-- Los cuidadores autorizados comparten el mismo perfil y los mismos registros.
+- Los familiares autorizados comparten el mismo perfil y los mismos registros.
 - Los cambios pendientes se actualizan automáticamente cuando vuelve la conexión.
 - Un sueño en curso sobrevive a cierres y reaperturas de la app.
 - La app no incluye publicidad ni servicios de seguimiento.

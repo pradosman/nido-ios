@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (authorization.response) return authorization.response;
     const body = await request.json() as { name?: string };
     const name = body.name?.trim() ?? "";
-    if (!name) return Response.json({ error: "Indica el nombre del cuidador" }, { status: 400 });
+    if (!name) return Response.json({ error: "Indica el nombre del familiar" }, { status: 400 });
 
     const db = getDb();
     const [caregiver] = await db.insert(caregivers).values({
@@ -37,7 +37,7 @@ export async function DELETE(request: Request) {
     const authorization = await requireCaregiver(request, true);
     if (authorization.response) return authorization.response;
     const id = new URL(request.url).searchParams.get("id")?.trim() ?? "";
-    if (!id) return Response.json({ error: "Falta el cuidador" }, { status: 400 });
+    if (!id) return Response.json({ error: "Falta el familiar" }, { status: 400 });
     if (id === authorization.caregiver.id) {
       return Response.json({ error: "No puedes retirar tu propio acceso" }, { status: 400 });
     }
@@ -46,7 +46,7 @@ export async function DELETE(request: Request) {
       eq(caregivers.id, id),
       eq(caregivers.householdId, authorization.caregiver.householdId),
     )).limit(1);
-    if (!target) return Response.json({ error: "El cuidador ya no existe" }, { status: 404 });
+    if (!target) return Response.json({ error: "El familiar ya no existe" }, { status: 404 });
     if (target.status === "pending") {
       await db.batch([
         db.delete(caregiverTokens).where(eq(caregiverTokens.caregiverId, id)),

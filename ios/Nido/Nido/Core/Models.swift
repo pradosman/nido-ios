@@ -13,6 +13,13 @@ nonisolated struct Profile: Codable, Equatable, Sendable {
 nonisolated enum CaregiverRole: String, Codable, Sendable {
     case owner
     case caregiver
+
+    var displayName: String {
+        switch self {
+        case .owner: "Administrador del hogar"
+        case .caregiver: "Familiar"
+        }
+    }
 }
 
 nonisolated enum CaregiverStatus: String, Codable, Sendable {
@@ -40,7 +47,7 @@ nonisolated struct Caregiver: Codable, Equatable, Identifiable, Sendable {
 
     var invitationText: String? {
         guard let inviteCode else { return nil }
-        return "Te invito a compartir el cuidado en Nido. Abre la app e introduce el código \(inviteCode)."
+        return "Te invito a compartir la información familiar en Nido. Abre la app e introduce el código \(inviteCode)."
     }
 }
 

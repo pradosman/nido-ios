@@ -372,7 +372,7 @@ final class NidoStore {
                 } catch {
                     if case APIError.server(status: 409, message: _) = error {
                         phase = .caregiverAccess
-                        notice = "Este espacio ya existe. Pide a otro cuidador un código de invitación."
+                        notice = "Este espacio ya existe. Pide al administrador del hogar un código de invitación."
                     } else {
                         phase = .onboarding
                         isOffline = true
