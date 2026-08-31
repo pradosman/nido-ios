@@ -32,6 +32,7 @@ final class NidoStore {
     var presentedEntryKind: EntryKind?
     var editingEntry: Entry?
     var recentlyDeletedEntry: Entry?
+    var recentlyCreatedEntry: Entry?
     var isEditingProfile = false
     var feedbackToken = 0
     var feedbackKind = NidoFeedbackKind.selection
@@ -46,8 +47,8 @@ final class NidoStore {
     private let credentialStore: CredentialStore
     private let defaults: UserDefaults
     private let nowProvider: () -> Date
-    private let logger = Logger(subsystem: "com.momentumia.nido", category: "store")
     private let hasInjectedNowProvider: Bool
+    private let logger = Logger(subsystem: "com.momentumia.nido", category: "store")
     private let caregiverIDKey = "currentCaregiverID"
 
     init(
@@ -55,7 +56,9 @@ final class NidoStore {
         cache: LocalCache = LocalCache(),
         credentialStore: CredentialStore = CredentialStore(),
         defaults: UserDefaults = .standard,
-        now: (() -> Date)? = nil
+        now: (() -> Date)? = nil,
+        shouldLoadCredential: Bool = true,
+        initialAccessToken: String? = nil
     ) {
         self.api = api
         self.cache = cache
@@ -63,7 +66,7 @@ final class NidoStore {
         self.defaults = defaults
         self.nowProvider = now ?? { .now }
         self.hasInjectedNowProvider = now != nil
-        accessToken = credentialStore.load()
+        accessToken = initialAccessToken ?? (shouldLoadCredential ? credentialStore.load() : nil)
         pendingUpdatedEntryIDs = Set(defaults.stringArray(forKey: "pendingUpdatedEntryIDs") ?? [])
         pendingDeletionIDs = Set(defaults.stringArray(forKey: "pendingDeletionIDs") ?? [])
         if let timestamp = defaults.object(forKey: "activeSleepStartedAt") as? Double {
@@ -77,13 +80,13 @@ final class NidoStore {
 
     var now: Date { nowProvider() }
 
-    #if DEBUG
-    func prepareForUITesting(scenario: String) {
-        phase = .loading
     func currentDate(for timelineDate: Date) -> Date {
         hasInjectedNowProvider ? nowProvider() : timelineDate
     }
 
+    #if DEBUG
+    func prepareForUITesting(scenario: String) {
+        phase = .loading
         profile = nil
         entries = []
         caregivers = []
@@ -97,6 +100,7 @@ final class NidoStore {
         presentedEntryKind = nil
         editingEntry = nil
         recentlyDeletedEntry = nil
+        recentlyCreatedEntry = nil
         isEditingProfile = false
         pendingEntryIDs = []
         pendingUpdatedEntryIDs = []
@@ -121,8 +125,145 @@ final class NidoStore {
         profile = Profile(caregiverName: caregiver.name, babyName: "Marco", birthDate: "2026-08-01")
         caregivers = [caregiver]
         currentCaregiver = caregiver
-        if scenario == "active-sleep" {
+        if scenario == "quick-diaper-registration" {
+            entries = [
+                Entry(
+                    id: "ui-test-latest-diaper",
+                    kind: .diaper,
+                    title: EntryKind.diaper.title,
+                    detail: "Pis y caca · Normal",
+                    occurredAt: Int64(now.addingTimeInterval(-60).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+                Entry(
+                    id: "ui-test-older-diaper",
+                    kind: .diaper,
+                    title: EntryKind.diaper.title,
+                    detail: "Caca",
+                    occurredAt: Int64(now.addingTimeInterval(-3_600).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+            ]
+        } else if scenario == "repeat-feed-registration" {
+            entries = [Entry(
+                id: "ui-test-latest-feed",
+                kind: .feed,
+                title: EntryKind.feed.title,
+                detail: "Biberón · Fórmula · Tomó despacio",
+                occurredAt: Int64(now.addingTimeInterval(-1_800).timeIntervalSince1970 * 1_000),
+                durationMinutes: 18,
+                amountMl: 120,
+                caregiverID: "ui-test-other-caregiver",
+                caregiverName: "Ana"
+            )]
+        } else if scenario == "active-sleep" {
             activeSleepStartedAt = Date.now.addingTimeInterval(-47 * 60)
+        } else if scenario == "active-feed" {
+            activeFeedStartedAt = now.addingTimeInterval(-12 * 60)
+            activeFeedSide = .right
+            entries = [Entry(
+                id: "ui-test-yesterday-feed",
+                kind: .feed,
+                title: EntryKind.feed.title,
+                detail: "Biberón · Fórmula",
+                occurredAt: Int64(now.addingTimeInterval(-25 * 60 * 60).timeIntervalSince1970 * 1_000),
+                durationMinutes: nil,
+                amountMl: 90,
+                caregiverID: caregiver.id,
+                caregiverName: caregiver.name
+            )]
+        } else if scenario == "undo-notice" {
+            let deleted = Entry(
+                id: "ui-test-deleted-entry",
+                kind: .diaper,
+                title: EntryKind.diaper.title,
+                detail: "Pis",
+                occurredAt: Int64(now.timeIntervalSince1970 * 1_000),
+                durationMinutes: nil,
+                amountMl: nil,
+                caregiverID: caregiver.id,
+                caregiverName: caregiver.name
+            )
+            recentlyDeletedEntry = deleted
+            notice = "Registro eliminado"
+        } else if scenario == "caregiver-removal" {
+            caregivers.append(Caregiver(
+                id: "ui-test-caregiver-ana",
+                name: "Ana",
+                role: .caregiver,
+                status: .active,
+                inviteCode: nil,
+                createdAt: nil,
+                joinedAt: nil
+            ))
+        } else if scenario == "semantic-edit" {
+            entries = [
+                Entry(
+                    id: "ui-test-semantic-feed",
+                    kind: .feed,
+                    title: EntryKind.feed.title,
+                    detail: "Biberón · Fórmula · Sin incidencias",
+                    occurredAt: Int64(now.addingTimeInterval(-60).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: 90,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+                Entry(
+                    id: "ui-test-semantic-diaper",
+                    kind: .diaper,
+                    title: EntryKind.diaper.title,
+                    detail: "Pis y caca · Normal",
+                    occurredAt: Int64(now.addingTimeInterval(-120).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+                Entry(
+                    id: "ui-test-semantic-care",
+                    kind: .health,
+                    title: EntryKind.health.title,
+                    detail: "Temperatura · 37,2 °C · Axilar",
+                    occurredAt: Int64(now.addingTimeInterval(-180).timeIntervalSince1970 * 1_000),
+                    durationMinutes: nil,
+                    amountMl: nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                ),
+            ]
+        } else if scenario == "history-calendar" {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+            let monthStart = calendar.date(from: DateComponents(year: 2026, month: 8, day: 1))!
+            func historyEntry(id: String, kind: EntryKind, day: Int, hour: Int, title: String) -> Entry {
+                let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart)!
+                    .addingTimeInterval(TimeInterval(hour * 3_600))
+                return Entry(
+                    id: id,
+                    kind: kind,
+                    title: title,
+                    detail: kind == .feed ? "Biberón · Fórmula" : kind == .diaper ? "Pis" : "",
+                    occurredAt: Int64(date.timeIntervalSince1970 * 1_000),
+                    durationMinutes: kind == .sleep ? 90 : nil,
+                    amountMl: kind == .feed ? 90 : nil,
+                    caregiverID: caregiver.id,
+                    caregiverName: caregiver.name
+                )
+            }
+            entries = [
+                historyEntry(id: "history-wednesday", kind: .diaper, day: 26, hour: 9, title: "Pañal del miércoles"),
+                historyEntry(id: "history-thursday", kind: .feed, day: 27, hour: 11, title: "Toma del jueves"),
+                historyEntry(id: "history-friday-sleep", kind: .sleep, day: 28, hour: 8, title: EntryKind.sleep.title),
+                historyEntry(id: "history-friday-feed", kind: .feed, day: 28, hour: 10, title: EntryKind.feed.title),
+                historyEntry(id: "history-friday-diaper", kind: .diaper, day: 28, hour: 11, title: EntryKind.diaper.title),
+            ]
         } else if scenario == "timeline-duration" {
             entries = [Entry(
                 id: "ui-test-sleep",
@@ -240,14 +381,8 @@ final class NidoStore {
                     return
                 }
             } else {
-                do {
-                    phase = try await api.status() ? .caregiverAccess : .onboarding
-                    isOffline = false
-                } catch {
-                    phase = .onboarding
-                    isOffline = true
-                    notice = "No se ha podido conectar con Nido."
-                }
+                phase = .onboarding
+                isOffline = false
                 return
             }
         }
@@ -259,7 +394,8 @@ final class NidoStore {
             entries = EntryReconciliation.merge(
                 remote: remote.entries,
                 local: entries,
-                protectedIDs: pendingEntryIDs.union(pendingUpdatedEntryIDs)
+                protectedIDs: pendingEntryIDs.union(pendingUpdatedEntryIDs),
+                excludedIDs: pendingDeletionIDs
             )
             caregivers = remote.caregivers
             if let authenticated = caregivers.first(where: { $0.id == remote.currentCaregiverID && $0.status == .active }) {
@@ -332,14 +468,27 @@ final class NidoStore {
     }
 
     func addEntry(kind: EntryKind, detail: String, date: Date, durationMinutes: Int?, amountMl: Int?) async {
-        let entry = Entry(
-            id: UUID().uuidString,
+        await addEntry(draft: RegistrationDraft(
             kind: kind,
-            title: kind.title,
-            detail: detail.trimmingCharacters(in: .whitespacesAndNewlines),
-            occurredAt: Int64(date.timeIntervalSince1970 * 1_000),
+            detail: detail,
+            date: date,
             durationMinutes: durationMinutes,
-            amountMl: amountMl,
+            amountMl: amountMl
+        ))
+    }
+
+    func addQuickEntry(_ choice: RegistrationQuickAction.Choice) async {
+        let notice = switch choice.draft.kind {
+        case .feed: "Toma registrada · \(choice.summary)"
+        case .diaper: "Pañal registrado · \(choice.summary)"
+        case .sleep, .health: "\(choice.draft.kind.title) registrado"
+        }
+        await addEntry(draft: choice.draft, actionableNotice: notice)
+    }
+
+    private func addEntry(draft: RegistrationDraft, actionableNotice: String? = nil) async {
+        let entry = draft.makeEntry(
+            id: UUID().uuidString,
             caregiverID: currentCaregiver?.id,
             caregiverName: currentCaregiver?.name
         )
@@ -348,26 +497,45 @@ final class NidoStore {
         presentedEntryKind = nil
         signalFeedback(.success)
         persist()
+        if let actionableNotice {
+            recentlyDeletedEntry = nil
+            recentlyCreatedEntry = entry
+            notice = actionableNotice
+        }
         do {
             guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
             let saved = try await api.create(entry: entry, accessToken: accessToken)
-            if let index = entries.firstIndex(where: { $0.id == entry.id }) { entries[index] = saved }
-            pendingEntryIDs.remove(entry.id)
+            if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+                entries[index] = saved
+                pendingEntryIDs.remove(entry.id)
+                if recentlyCreatedEntry?.id == entry.id {
+                    recentlyCreatedEntry = saved
+                }
+            } else {
+                try await api.delete(entryID: saved.id, accessToken: accessToken)
+            }
             isOffline = false
-            notice = "\(entry.title) guardado"
+            if actionableNotice == nil {
+                notice = "\(entry.title) guardado"
+            }
             persist()
-            if kind == .feed, defaults.bool(forKey: "feedCheckReminder"), let profile {
+            if draft.kind == .feed, defaults.bool(forKey: "feedCheckReminder"), let profile {
                 await ReminderManager.scheduleFeedCheck(babyName: profile.babyName)
             }
         } catch {
             isOffline = true
-            notice = "Guardado. Se sincronizará cuando vuelva la conexión."
+            if actionableNotice == nil {
+                notice = "Guardado. Se sincronizará cuando vuelva la conexión."
+            }
         }
     }
 
     func updateEntry(_ entry: Entry) async {
         guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
         entries[index] = entry
+        if recentlyCreatedEntry?.id == entry.id {
+            recentlyCreatedEntry = entry
+        }
         entries.sort { $0.occurredAt > $1.occurredAt }
         pendingUpdatedEntryIDs.insert(entry.id)
         editingEntry = nil
@@ -394,6 +562,9 @@ final class NidoStore {
     }
 
     func deleteEntry(_ entry: Entry) async {
+        if recentlyCreatedEntry?.id == entry.id {
+            recentlyCreatedEntry = nil
+        }
         entries.removeAll { $0.id == entry.id }
         pendingEntryIDs.remove(entry.id)
         pendingUpdatedEntryIDs.remove(entry.id)
@@ -430,6 +601,40 @@ final class NidoStore {
             notice = "Registro recuperado. Se sincronizará cuando vuelva la conexión."
         }
         signalFeedback(.success)
+        persist()
+    }
+
+    func editRecentlyCreatedEntry() {
+        guard let created = recentlyCreatedEntry,
+              let current = entries.first(where: { $0.id == created.id })
+        else { return }
+        editingEntry = current
+    }
+
+    func undoCreatedEntry() async {
+        guard let entry = recentlyCreatedEntry else { return }
+        recentlyCreatedEntry = nil
+        entries.removeAll { $0.id == entry.id }
+        let wasPendingCreation = pendingEntryIDs.remove(entry.id) != nil
+        pendingUpdatedEntryIDs.remove(entry.id)
+        if !wasPendingCreation {
+            pendingDeletionIDs.insert(entry.id)
+        }
+        notice = "Registro deshecho"
+        signalFeedback(.warning)
+        persist()
+
+        guard !wasPendingCreation else { return }
+        do {
+            guard let accessToken else {
+                throw APIError.server(status: 401, message: "Necesitas una invitación para acceder")
+            }
+            try await api.delete(entryID: entry.id, accessToken: accessToken)
+            pendingDeletionIDs.remove(entry.id)
+            isOffline = false
+        } catch {
+            isOffline = true
+        }
         persist()
     }
 
@@ -581,9 +786,20 @@ final class NidoStore {
         await refresh()
     }
 
+    func showCaregiverAccess() {
+        notice = nil
+        phase = .caregiverAccess
+    }
+
+    func showOnboarding() {
+        notice = nil
+        phase = .onboarding
+    }
+
     func dismissNotice() {
         notice = nil
         recentlyDeletedEntry = nil
+        recentlyCreatedEntry = nil
     }
 
     private func signalFeedback(_ kind: NidoFeedbackKind) {
@@ -686,6 +902,7 @@ final class NidoStore {
 enum AppTab: Hashable {
     case today
     case history
+    case more
     case trends
     case settings
 }

@@ -50,27 +50,38 @@ private struct LoadingView: View {
 private struct MainTabView: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isPresentingEntryKindMenu = false
+    @State private var quickRegistrationKind: EntryKind?
+    @State private var pendingDetailKind: EntryKind?
 
     var body: some View {
         @Bindable var store = store
         TabView(selection: $store.selectedTab) {
             NavigationStack { TodayView() }
                 .tag(AppTab.today)
-                .tabItem { Label("Hoy", systemImage: "house") }
 
             NavigationStack { HistoryView() }
                 .tag(AppTab.history)
-                .tabItem { Label("Historia", systemImage: "clock.arrow.circlepath") }
 
             NavigationStack { TrendsView() }
                 .tag(AppTab.trends)
-                .tabItem { Label("Ritmos", systemImage: "chart.bar.xaxis") }
 
             NavigationStack { SettingsView() }
                 .tag(AppTab.settings)
-                .tabItem { Label("Ajustes", systemImage: "gearshape") }
         }
+        .tabViewStyle(.page(indexDisplayMode: .never))
         .tint(NidoTheme.moss)
+        .confirmationDialog("Registrar una actividad", isPresented: $isPresentingEntryKindMenu) {
+            ForEach(EntryKind.allCases) { kind in
+                Button("Registrar \(kind.title.lowercased())") {
+                    if kind == .diaper || (kind == .feed && RegistrationQuickAction.feed(entries: store.entries, at: store.now) != nil) {
+                        quickRegistrationKind = kind
+                    } else {
+                        store.presentedEntryKind = kind
+                    }
+                }
+            }
+        }
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(45))
@@ -80,12 +91,16 @@ private struct MainTabView: View {
         }
         .task(id: NoticeDismissID(
             message: store.notice,
-            deletedEntryID: store.recentlyDeletedEntry?.id
+            deletedEntryID: store.recentlyDeletedEntry?.id,
+            createdEntryID: store.recentlyCreatedEntry?.id
         )) {
-            guard store.notice != nil else { return }
+            guard store.notice != nil,
+                  store.recentlyDeletedEntry == nil,
+                  store.recentlyCreatedEntry == nil
+            else { return }
 
             do {
-                try await Task.sleep(for: .seconds(store.recentlyDeletedEntry == nil ? 3 : 5))
+                try await Task.sleep(for: .seconds(3))
             } catch {
                 return
             }
@@ -100,6 +115,19 @@ private struct MainTabView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(item: $quickRegistrationKind, onDismiss: {
+            if let pendingDetailKind {
+                store.presentedEntryKind = pendingDetailKind
+                self.pendingDetailKind = nil
+            }
+        }) { kind in
+            QuickRegistrationSheet(kind: kind) {
+                pendingDetailKind = kind
+                quickRegistrationKind = nil
+            }
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $store.isEditingProfile) {
             ProfileEditorView()
                 .presentationDetents([.large])
@@ -110,46 +138,254 @@ private struct MainTabView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
-        .safeAreaInset(edge: .bottom, spacing: 8) {
-            if let notice = store.notice {
-                NoticeView(
-                    message: notice,
-                    isOffline: store.isOffline,
-                    canUndo: store.recentlyDeletedEntry != nil,
-                    undo: { Task { await store.undoDelete() } }
-                )
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 8) {
+                if let notice = store.notice {
+                    NoticeView(
+                        message: notice,
+                        isOffline: store.isOffline,
+                        canEdit: store.recentlyCreatedEntry != nil,
+                        canUndo: store.recentlyDeletedEntry != nil || store.recentlyCreatedEntry != nil,
+                        edit: store.editRecentlyCreatedEntry,
+                        undo: {
+                            Task {
+                                if store.recentlyCreatedEntry != nil {
+                                    await store.undoCreatedEntry()
+                                } else {
+                                    await store.undoDelete()
+                                }
+                            }
+                        },
+                        dismiss: {
+                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
+                                store.dismissNotice()
+                            }
+                        }
+                    )
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                     .onTapGesture {
-                        if store.recentlyDeletedEntry == nil {
+                        if store.recentlyDeletedEntry == nil, store.recentlyCreatedEntry == nil {
                             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
                         }
                     }
+                }
+
+                NidoBottomBar(selection: $store.selectedTab) {
+                    isPresentingEntryKindMenu = true
+                }
+                .padding(.horizontal, 8)
             }
         }
+    }
+}
+
+private struct QuickRegistrationSheet: View {
+    @Environment(NidoStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let kind: EntryKind
+    let addDetails: () -> Void
+
+    private var choice: RegistrationQuickAction.Choice? {
+        switch kind {
+        case .diaper:
+            RegistrationQuickAction.diaper(entries: store.entries, at: store.now)
+        case .feed:
+            RegistrationQuickAction.feed(entries: store.entries, at: store.now)
+        case .sleep, .health:
+            nil
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                PaperBackground()
+                Form {
+                    Section {
+                        if kind == .feed, let choice {
+                            Text(choice.summary)
+                                .font(.subheadline)
+                                .foregroundStyle(NidoTheme.secondaryInk)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if let choice {
+                            Button(choice.label) {
+                                Task { await store.addQuickEntry(choice) }
+                                dismiss()
+                            }
+                            .fontWeight(.semibold)
+                            .frame(minHeight: 44)
+                            .accessibilityHint("Guarda un registro nuevo con la hora actual")
+                        }
+                    } header: {
+                        Text("Registro rápido")
+                    } footer: {
+                        Text("Se guardará exactamente como aparece arriba.")
+                    }
+
+                    Section {
+                        Button("Añadir detalles", action: addDetails)
+                            .frame(minHeight: 44)
+                            .accessibilityHint("Abre el formulario completo de \(kind.title.lowercased())")
+                    }
+                }
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle(kind.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
+            }
+        }
+        .tint(NidoTheme.moss)
+    }
+}
+
+private struct NidoBottomBar: View {
+    @Binding var selection: AppTab
+    let registerActivity: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            navigationButton(
+                tab: .today,
+                label: "Hoy",
+                systemImage: "house",
+                selectedSystemImage: "house.fill",
+                identifier: "bottom-nav-today"
+            )
+            navigationButton(
+                tab: .history,
+                label: "Historia",
+                systemImage: "clock.arrow.circlepath",
+                selectedSystemImage: "clock.arrow.circlepath",
+                identifier: "bottom-nav-history"
+            )
+            registrationButton
+                .frame(maxWidth: .infinity)
+            navigationButton(
+                tab: .trends,
+                label: "Ritmos",
+                systemImage: "chart.bar.xaxis",
+                selectedSystemImage: "chart.bar.xaxis",
+                identifier: "bottom-nav-trends"
+            )
+            navigationButton(
+                tab: .settings,
+                label: "Ajustes",
+                systemImage: "gearshape",
+                selectedSystemImage: "gearshape.fill",
+                identifier: "bottom-nav-settings"
+            )
+        }
+        .frame(height: 62)
+        .background(.regularMaterial, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(NidoTheme.separator.opacity(0.55), lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("nido-bottom-bar")
+    }
+
+    private func navigationButton(
+        tab: AppTab,
+        label: String,
+        systemImage: String,
+        selectedSystemImage: String,
+        identifier: String
+    ) -> some View {
+        let isSelected = selection == tab
+
+        return Button {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selection = tab
+            }
+        } label: {
+            Image(systemName: isSelected ? selectedSystemImage : systemImage)
+                .font(.system(size: 23, weight: isSelected ? .semibold : .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(isSelected ? NidoTheme.moss : NidoTheme.secondaryInk)
+                .frame(width: 44, height: 44)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 56)
+        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(identifier)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var registrationButton: some View {
+        Button(action: registerActivity) {
+            ZStack {
+                Circle()
+                    .fill(NidoTheme.moss)
+                Circle()
+                    .stroke(NidoTheme.paperLight, lineWidth: 3)
+                Image(systemName: "plus")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: 52, height: 52)
+            .shadow(color: .black.opacity(0.14), radius: 8, y: 4)
+            .frame(width: 56, height: 56)
+            .contentShape(Circle())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityLabel("Registrar una actividad")
+        .accessibilityHint("Abre las opciones de registro")
+        .accessibilityIdentifier("registration-action-button")
     }
 }
 
 private struct NoticeDismissID: Equatable {
     let message: String?
     let deletedEntryID: String?
+    let createdEntryID: String?
 }
 
 private struct NoticeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let message: String
     let isOffline: Bool
+    let canEdit: Bool
     let canUndo: Bool
+    let edit: () -> Void
     let undo: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         adaptiveLayout {
             Label(message, systemImage: isOffline ? "wifi.slash" : "checkmark.circle.fill")
                 .fixedSize(horizontal: false, vertical: true)
+            if canEdit {
+                Button("Editar", action: edit)
+                    .fontWeight(.bold)
+                    .foregroundStyle(NidoTheme.moss)
+                    .frame(minHeight: 44)
+                    .accessibilityHint("Abre el registro que acabas de crear")
+            }
             if canUndo {
                 Button("Deshacer", action: undo)
                     .fontWeight(.bold)
                     .foregroundStyle(NidoTheme.moss)
+                    .frame(minHeight: 44)
+                    .accessibilityHint("Revierte la acción más reciente")
             }
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Cerrar aviso")
         }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(NidoTheme.ink)
@@ -163,6 +399,7 @@ private struct NoticeView: View {
             }
             .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
             .padding(.horizontal)
+            .accessibilityElement(children: .contain)
     }
 
     private var adaptiveLayout: AnyLayout {
