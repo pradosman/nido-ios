@@ -14,9 +14,9 @@ export async function PUT(request: Request) {
       return Response.json({ error: "Completa todos los datos" }, { status: 400 });
     }
     const db = getDb();
-    const [profile] = await db.insert(profiles).values({ id: 1, caregiverName, babyName, birthDate })
-      .onConflictDoUpdate({ target: profiles.id, set: { caregiverName, babyName, birthDate, updatedAt: new Date().toISOString() } })
-      .returning();
+    const [profile] = await db.insert(profiles).values({ householdId: authorization.caregiver.householdId, caregiverName, babyName, birthDate })
+      .onConflictDoUpdate({ target: profiles.householdId, set: { caregiverName, babyName, birthDate, updatedAt: new Date().toISOString() } })
+      .returning({ caregiverName: profiles.caregiverName, babyName: profiles.babyName, birthDate: profiles.birthDate });
     return Response.json({ profile });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo guardar el perfil";

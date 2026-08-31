@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../../db";
 import { caregivers, caregiverTokens } from "../../../../../db/schema";
 import { createAccessToken, hashAccessToken, publicCaregiverFields } from "../../auth";
@@ -22,12 +22,15 @@ export async function POST(request: Request) {
 
     const accessToken = createAccessToken();
     const accessTokenHash = await hashAccessToken(accessToken);
-    const [caregiver] = await db.update(caregivers).set({
-      status: "active",
-      inviteCode: null,
-      joinedAt: new Date().toISOString(),
-    }).where(eq(caregivers.id, invitation.id)).returning(publicCaregiverFields);
-    await db.insert(caregiverTokens).values({ caregiverId: caregiver.id, tokenHash: accessTokenHash });
+    await db.batch([
+      db.update(caregivers).set({
+        status: "active",
+        inviteCode: null,
+        joinedAt: new Date().toISOString(),
+      }).where(and(eq(caregivers.id, invitation.id), eq(caregivers.status, "pending"))),
+      db.insert(caregiverTokens).values({ caregiverId: invitation.id, tokenHash: accessTokenHash }),
+    ]);
+    const [caregiver] = await db.select(publicCaregiverFields).from(caregivers).where(eq(caregivers.id, invitation.id)).limit(1);
     return Response.json({ caregiver, accessToken });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo aceptar la invitación";
