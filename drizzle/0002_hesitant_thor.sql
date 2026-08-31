@@ -1,4 +1,4 @@
-CREATE TABLE `caregivers` (
+CREATE TABLE IF NOT EXISTS `caregivers` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`role` text DEFAULT 'caregiver' NOT NULL,
@@ -8,12 +8,12 @@ CREATE TABLE `caregivers` (
 	`joined_at` text
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `caregivers_invite_code_unique` ON `caregivers` (`invite_code`);--> statement-breakpoint
-CREATE INDEX `idx_caregivers_status` ON `caregivers` (`status`);--> statement-breakpoint
-CREATE TABLE `entry_authors` (
+CREATE UNIQUE INDEX IF NOT EXISTS `caregivers_invite_code_unique` ON `caregivers` (`invite_code`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_caregivers_status` ON `caregivers` (`status`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `entry_authors` (
 	`entry_id` text PRIMARY KEY NOT NULL,
 	`caregiver_id` text NOT NULL,
 	`caregiver_name` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `idx_entry_authors_caregiver` ON `entry_authors` (`caregiver_id`);
+CREATE INDEX IF NOT EXISTS `idx_entry_authors_caregiver` ON `entry_authors` (`caregiver_id`);

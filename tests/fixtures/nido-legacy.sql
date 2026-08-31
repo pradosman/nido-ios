@@ -1,0 +1,5 @@
+CREATE TABLE entries (id text PRIMARY KEY NOT NULL, kind text NOT NULL, title text NOT NULL, detail text DEFAULT '' NOT NULL, occurred_at integer NOT NULL, duration_minutes integer, amount_ml integer, created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL);
+CREATE TABLE profiles (id integer PRIMARY KEY DEFAULT 1 NOT NULL, caregiver_name text NOT NULL, baby_name text NOT NULL, birth_date text NOT NULL, created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL, updated_at text DEFAULT CURRENT_TIMESTAMP NOT NULL);
+CREATE TABLE caregivers (id text PRIMARY KEY NOT NULL, name text NOT NULL, role text DEFAULT 'caregiver' NOT NULL, status text DEFAULT 'pending' NOT NULL, invite_code text UNIQUE, created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL, joined_at text);
+CREATE TABLE entry_authors (entry_id text PRIMARY KEY NOT NULL, caregiver_id text NOT NULL, caregiver_name text NOT NULL);
+CREATE TABLE caregiver_tokens (caregiver_id text PRIMARY KEY NOT NULL, token_hash text UNIQUE NOT NULL, created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL);

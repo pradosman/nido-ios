@@ -1,1 +1,1 @@
-CREATE INDEX `idx_entries_occurred_at` ON `entries` (`occurred_at`);
+CREATE INDEX IF NOT EXISTS `idx_entries_occurred_at` ON `entries` (`occurred_at`);

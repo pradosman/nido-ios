@@ -4,6 +4,7 @@ import { caregivers, caregiverTokens } from "../../../db/schema";
 
 export type AuthenticatedCaregiver = {
   id: string;
+  householdId: string;
   name: string;
   role: "owner" | "caregiver";
 };
@@ -30,6 +31,7 @@ export async function requireCaregiver(request: Request, ownerOnly = false): Pro
   const tokenHash = await hashAccessToken(token);
   const [caregiver] = await getDb().select({
     id: caregivers.id,
+    householdId: caregivers.householdId,
     name: caregivers.name,
     role: caregivers.role,
   }).from(caregivers).innerJoin(caregiverTokens, eq(caregivers.id, caregiverTokens.caregiverId)).where(and(
