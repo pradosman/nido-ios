@@ -5,20 +5,8 @@ import Testing
 @Suite(.serialized)
 struct NidoAPICharacterizationTests {
     @Test
-    func statusUsesThePublicStatusEndpoint() async throws {
-        let recorder = RequestRecorder()
-        let api = makeAPI(recorder: recorder) { request in
-            response(for: request, body: #"{"configured":true}"#)
-        }
-
-        #expect(try await api.status())
-
-        let request = try #require(recorder.requests.first)
-        #expect(request.httpMethod == "GET")
-        #expect(request.url?.path == "/api/nido/status")
-        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
-        #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
-        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+    func startupAlwaysOffersCreatingAHomeOrJoiningByCodeWithoutGlobalStatus() {
+        #expect(StartupDestination.withoutCredential == .createOrJoinHome)
     }
 
     @Test
@@ -41,6 +29,73 @@ struct NidoAPICharacterizationTests {
         #expect(request.httpMethod == "GET")
         #expect(request.url?.path == "/api/nido")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer private-token")
+    }
+
+    @Test
+    func loadTraversesEveryPageWithAuthorizationAndReturnsAStableDeduplicatedSnapshot() async throws {
+        let recorder = RequestRecorder()
+        let api = makeAPI(recorder: recorder) { request in
+            switch request.url?.path {
+            case "/api/nido":
+                response(
+                    for: request,
+                    body: #"{"profile":{"caregiverName":"David","babyName":"Marco","birthDate":"2026-08-27"},"entries":[{"id":"new","kind":"feed","title":"Toma","detail":"","occurredAt":3000,"durationMinutes":null,"amountMl":null},{"id":"tie-z","kind":"feed","title":"Toma","detail":"","occurredAt":2000,"durationMinutes":null,"amountMl":null}],"nextCursor":"page-2","caregivers":[],"currentCaregiverID":"caregiver-1"}"#
+                )
+            case "/api/nido/entries":
+                response(
+                    for: request,
+                    body: #"{"entries":[{"id":"tie-z","kind":"feed","title":"Toma","detail":"","occurredAt":2000,"durationMinutes":null,"amountMl":null},{"id":"tie-a","kind":"diaper","title":"Pañal","detail":"","occurredAt":2000,"durationMinutes":null,"amountMl":null},{"id":"old","kind":"sleep","title":"Sueño","detail":"","occurredAt":1000,"durationMinutes":30,"amountMl":null}],"nextCursor":null}"#
+                )
+            default:
+                response(for: request, status: 404, body: #"{"error":"Ruta inesperada"}"#)
+            }
+        }
+
+        let result = try await api.load(accessToken: "private-token")
+
+        #expect(result.entries.map(\.id) == ["new", "tie-z", "tie-a", "old"])
+        #expect(recorder.requests.map { $0.url?.path } == ["/api/nido", "/api/nido/entries"])
+        #expect(recorder.requests.allSatisfy {
+            $0.value(forHTTPHeaderField: "Authorization") == "Bearer private-token"
+        })
+        let secondURL = try #require(recorder.requests.last?.url)
+        #expect(URLComponents(url: secondURL, resolvingAgainstBaseURL: false)?.queryItems?.contains(
+            URLQueryItem(name: "cursor", value: "page-2")
+        ) == true)
+    }
+
+    @Test
+    func loadRejectsARepeatedCursorInsteadOfLoopingForever() async throws {
+        let api = makeAPI(recorder: RequestRecorder()) { request in
+            if request.url?.path == "/api/nido" {
+                return response(
+                    for: request,
+                    body: #"{"profile":null,"entries":[],"nextCursor":"repeat","caregivers":[],"currentCaregiverID":"caregiver-1"}"#
+                )
+            }
+            return response(for: request, body: #"{"entries":[],"nextCursor":"repeat"}"#)
+        }
+
+        await #expect(throws: APIError.invalidResponse) {
+            try await api.load(accessToken: "private-token")
+        }
+    }
+
+    @Test
+    func loadReturnsNoPartialSnapshotWhenALaterPageFails() async throws {
+        let api = makeAPI(recorder: RequestRecorder()) { request in
+            if request.url?.path == "/api/nido" {
+                return response(
+                    for: request,
+                    body: #"{"profile":null,"entries":[{"id":"partial","kind":"feed","title":"Toma","detail":"","occurredAt":3000,"durationMinutes":null,"amountMl":null}],"nextCursor":"page-2","caregivers":[],"currentCaregiverID":"caregiver-1"}"#
+                )
+            }
+            return response(for: request, status: 503, body: #"{"error":"Unavailable"}"#)
+        }
+
+        await #expect(throws: APIError.server(status: 503, message: "Unavailable")) {
+            try await api.load(accessToken: "private-token")
+        }
     }
 
     @Test
@@ -132,14 +187,14 @@ struct NidoAPICharacterizationTests {
             response(for: request, status: 409, body: #"{"error":"Este espacio ya existe"}"#)
         }
         await #expect(throws: APIError.server(status: 409, message: "Este espacio ya existe")) {
-            try await serverAPI.status()
+            try await serverAPI.bootstrapCaregiver(name: "David")
         }
 
         let invalidDataAPI = makeAPI(recorder: RequestRecorder()) { request in
-            response(for: request, body: #"{"configured":"sí"}"#)
+            response(for: request, body: #"{"accessToken":42}"#)
         }
         await #expect(throws: APIError.invalidData) {
-            try await invalidDataAPI.status()
+            try await invalidDataAPI.bootstrapCaregiver(name: "David")
         }
     }
 

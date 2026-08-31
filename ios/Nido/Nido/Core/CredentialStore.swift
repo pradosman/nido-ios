@@ -2,8 +2,13 @@ import Foundation
 import Security
 
 nonisolated struct CredentialStore: Sendable {
-    private let service = "com.momentumia.nido.caregiver"
-    private let account = "access-token"
+    private let service: String
+    private let account: String
+
+    init(service: String = "com.momentumia.nido.caregiver", account: String = "access-token") {
+        self.service = service
+        self.account = account
+    }
 
     func load() -> String? {
         let query: [String: Any] = [

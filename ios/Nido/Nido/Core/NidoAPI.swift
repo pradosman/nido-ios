@@ -13,16 +13,42 @@ nonisolated struct NidoAPI: Sendable {
         self.decoder = JSONDecoder()
     }
 
-    func status() async throws -> Bool {
-        let request = request(path: "/api/nido/status", method: "GET")
-        let response: StatusResponse = try await perform(request)
-        return response.configured
-    }
-
     func load(accessToken: String) async throws -> (profile: Profile?, entries: [Entry], caregivers: [Caregiver], currentCaregiverID: String) {
         let request = request(path: "/api/nido", method: "GET", accessToken: accessToken)
         let response: LoadResponse = try await perform(request)
-        return (response.profile, response.entries, response.caregivers ?? [], response.currentCaregiverID)
+        var allEntries = response.entries
+        var cursor = response.nextCursor
+        var seenCursors: Set<String> = []
+        var pageCount = 1
+        while let currentCursor = cursor {
+            guard pageCount < 10_000, seenCursors.insert(currentCursor).inserted else {
+                throw APIError.invalidResponse
+            }
+            var components = URLComponents(
+                url: baseURL.appending(path: "/api/nido/entries"),
+                resolvingAgainstBaseURL: false
+            )
+            components?.queryItems = [
+                URLQueryItem(name: "cursor", value: currentCursor),
+                URLQueryItem(name: "limit", value: "100"),
+            ]
+            guard let url = components?.url else { throw APIError.invalidResponse }
+            var pageRequest = URLRequest(url: url)
+            configure(&pageRequest, method: "GET", accessToken: accessToken)
+            let page: EntriesPageResponse = try await perform(pageRequest)
+            allEntries.append(contentsOf: page.entries)
+            cursor = page.nextCursor
+            pageCount += 1
+        }
+        var seenEntryIDs: Set<String> = []
+        let completeEntries = allEntries
+            .filter { seenEntryIDs.insert($0.id).inserted }
+            .sorted {
+                $0.occurredAt == $1.occurredAt
+                    ? $0.id > $1.id
+                    : $0.occurredAt > $1.occurredAt
+            }
+        return (response.profile, completeEntries, response.caregivers ?? [], response.currentCaregiverID)
     }
 
     func save(profile: Profile, accessToken: String) async throws -> Profile {
@@ -134,14 +160,21 @@ nonisolated enum APIError: LocalizedError, Equatable {
 nonisolated private struct LoadResponse: Decodable {
     let profile: Profile?
     let entries: [Entry]
+    let nextCursor: String?
     let caregivers: [Caregiver]?
     let currentCaregiverID: String
 }
 
-nonisolated private struct StatusResponse: Decodable {
-    let configured: Bool
+nonisolated private struct EntriesPageResponse: Decodable {
+    let entries: [Entry]
+    let nextCursor: String?
 }
 
+nonisolated enum StartupDestination: Equatable, Sendable {
+    case createOrJoinHome
+
+    static let withoutCredential = StartupDestination.createOrJoinHome
+}
 nonisolated struct CaregiverCredential: Decodable, Sendable {
     let caregiver: Caregiver
     let accessToken: String
