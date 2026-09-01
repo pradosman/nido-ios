@@ -310,11 +310,13 @@ struct NidoCoreTests {
     }
 
     @Test
-    func caregiverCredentialDecodesThePrivateToken() throws {
-        let data = Data(#"{"caregiver":{"id":"one","name":"Ana","role":"owner","status":"active","inviteCode":null,"createdAt":null,"joinedAt":null},"accessToken":"private-token"}"#.utf8)
-        let credential = try JSONDecoder().decode(CaregiverCredential.self, from: data)
-        #expect(credential.caregiver.id == "one")
+    func sessionCredentialDecodesThePrivateTokenAndExpiry() throws {
+        let data = Data(#"{"accessToken":"private-token","expiresAt":"2030-02-01T00:00:00Z","appleUserID":"apple-user"}"#.utf8)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let credential = try decoder.decode(SessionCredential.self, from: data)
         #expect(credential.accessToken == "private-token")
+        #expect(credential.appleUserID == "apple-user")
     }
 
     @Test

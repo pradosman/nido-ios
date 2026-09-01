@@ -12,6 +12,9 @@ struct SettingsView: View {
     @State private var pendingBackup: NidoBackup?
     @State private var backupError: String?
     @State private var caregiverPendingRemoval: Caregiver?
+    @State private var isConfirmingAccountDeletion = false
+    @State private var isDeletingAccount = false
+    @State private var accountError: String?
     @AppStorage("dailySummaryReminder") private var dailySummaryReminder = false
     @AppStorage("feedCheckReminder") private var feedCheckReminder = false
 
@@ -58,7 +61,10 @@ struct SettingsView: View {
                     }) { caregiver in
                         CaregiverRow(
                             caregiver: caregiver,
-                            isCurrent: caregiver.id == store.currentCaregiver?.id
+                            isCurrent: caregiver.id == store.currentCaregiver?.id,
+                            onRemove: isOwner && caregiver.id != store.currentCaregiver?.id
+                                ? { caregiverPendingRemoval = caregiver }
+                                : nil
                         )
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if isOwner && caregiver.id != store.currentCaregiver?.id {
@@ -167,6 +173,19 @@ struct SettingsView: View {
                     Label("Acceso solo para familiares invitados", systemImage: "lock.shield.fill")
                 }
 
+                Section("Cuenta") {
+                    Button("Cerrar sesión") {
+                        Task { await store.signOut() }
+                    }
+                    Button("Eliminar mi cuenta", role: .destructive) {
+                        isConfirmingAccountDeletion = true
+                    }
+                    .disabled(isDeletingAccount)
+                    if let accountError {
+                        Text(accountError).font(.footnote).foregroundStyle(NidoTheme.error)
+                    }
+                }
+
                 Section {
                     HStack {
                         Text("Versión")
@@ -180,6 +199,7 @@ struct SettingsView: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .accessibilityIdentifier("settings-list")
         }
         .navigationTitle("Ajustes")
         .navigationBarTitleDisplayMode(.large)
@@ -222,13 +242,12 @@ struct SettingsView: View {
         } message: {
             Text("Se añadirán únicamente los registros que todavía no existan. Los actuales no se sobrescribirán.")
         }
-        .confirmationDialog(
+        .alert(
             caregiverRemovalTitle,
             isPresented: Binding(
                 get: { caregiverPendingRemoval != nil },
                 set: { if !$0 { caregiverPendingRemoval = nil } }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             if let caregiver = caregiverPendingRemoval {
                 Button(caregiver.status == .pending ? "Cancelar invitación" : "Retirar acceso", role: .destructive) {
@@ -244,10 +263,35 @@ struct SettingsView: View {
                     : "\(caregiver.name) dejará de poder consultar y registrar información en Nido.")
             }
         }
+        .alert(
+            isOwner ? "¿Eliminar permanentemente el espacio familiar?" : "¿Eliminar tu cuenta?",
+            isPresented: $isConfirmingAccountDeletion
+        ) {
+            Button("Eliminar definitivamente", role: .destructive) {
+                isDeletingAccount = true
+                accountError = nil
+                Task {
+                    defer { isDeletingAccount = false }
+                    do { try await store.deleteAccount() }
+                    catch { accountError = error.localizedDescription }
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text(isOwner
+                ? "Se eliminarán de forma permanente el perfil, todos los registros y el acceso de todos los familiares. Esta acción no se puede deshacer."
+                : "Se eliminarán tu identidad y tu acceso a este espacio familiar. Los datos compartidos permanecerán para el resto de familiares.")
+        }
         .sheet(isPresented: $isInvitingCaregiver) {
             InviteCaregiverView()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .onDisappear {
+            removeGeneratedFile(reportURL)
+            removeGeneratedFile(backupURL)
+            reportURL = nil
+            backupURL = nil
         }
     }
 
@@ -262,11 +306,17 @@ struct SettingsView: View {
             ? "¿Cancelar la invitación de \(caregiver.name)?"
             : "¿Retirar el acceso de \(caregiver.name)?"
     }
+
+    private func removeGeneratedFile(_ url: URL?) {
+        guard let url, url.isFileURL else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
 }
 
 private struct CaregiverRow: View {
     let caregiver: Caregiver
     let isCurrent: Bool
+    let onRemove: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 13) {
@@ -303,7 +353,21 @@ private struct CaregiverRow: View {
                 }
                 .accessibilityLabel("Volver a compartir la invitación de \(caregiver.name)")
             }
+            if let onRemove {
+                Button(role: .destructive, action: onRemove) {
+                    Image(systemName: "person.badge.minus")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    caregiver.status == .pending
+                        ? "Cancelar invitación de \(caregiver.name)"
+                        : "Retirar a \(caregiver.name)"
+                )
+            }
         }
+        .accessibilityIdentifier("caregiver-row-\(caregiver.id)")
     }
 }
 

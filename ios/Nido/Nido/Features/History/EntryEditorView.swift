@@ -200,6 +200,7 @@ struct EntryEditorView: View {
                     Text("Leche materna").tag("Leche materna")
                     Text("Fórmula").tag("Fórmula")
                 }
+                .accessibilityIdentifier("entry-editor-feed-content-picker")
                 NidoIntegerInput(title: "Cantidad", unit: "ml", value: $amountMl, range: 0...400, step: 10)
             }
             .onChange(of: milkType) { _, _ in usesLegacyDetail = false }

@@ -27,4 +27,9 @@ nonisolated struct LocalCache: Sendable {
         try data.write(to: fileURL, options: .atomic)
         #endif
     }
+
+    func remove() throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try FileManager.default.removeItem(at: fileURL)
+    }
 }

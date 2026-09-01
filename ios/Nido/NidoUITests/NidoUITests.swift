@@ -35,25 +35,49 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Solo el administrador del hogar puede gestionar familiares y editar el perfil. Los familiares comparten el mismo historial."].exists)
     }
 
+    func testOwnerAccountActionsRequireDestructiveConfirmationAndSignOutReturnsToAppleIdentity() {
+        launch(scenario: "caregiver-removal")
+
+        app.buttons["bottom-nav-settings"].tap()
+        let deleteAccount = app.buttons["Eliminar mi cuenta"]
+        for _ in 0..<6 where !deleteAccount.exists { app.swipeUp() }
+        XCTAssertTrue(deleteAccount.waitForExistence(timeout: 3))
+        deleteAccount.tap()
+
+        XCTAssertTrue(app.staticTexts["¿Eliminar permanentemente el espacio familiar?"].waitForExistence(timeout: 3))
+        let deletionMessage = app.staticTexts.matching(NSPredicate(
+            format: "label == %@",
+            "Se eliminarán de forma permanente el perfil, todos los registros y el acceso de todos los familiares. Esta acción no se puede deshacer."
+        )).firstMatch
+        XCTAssertTrue(deletionMessage.exists)
+        app.buttons["Cancelar"].tap()
+
+        let signOut = app.buttons["Cerrar sesión"]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 3))
+        signOut.tap()
+        XCTAssertTrue(app.staticTexts["El cuidado familiar, en privado."].waitForExistence(timeout: 5))
+    }
+
     func testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby() async throws {
         let baseURL = ProcessInfo.processInfo.environment["NIDO_UI_TEST_API_BASE_URL"] ?? "http://127.0.0.1:34200"
+        let ownerAToken = try requiredSessionToken(named: "NIDO_UI_TEST_OWNER_A_TOKEN")
+        let ownerBToken = try requiredSessionToken(named: "NIDO_UI_TEST_OWNER_B_TOKEN")
         var bootstrap = URLRequest(url: try XCTUnwrap(URL(string: baseURL + "/api/nido/caregivers/bootstrap")))
         bootstrap.httpMethod = "POST"
         bootstrap.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        bootstrap.setValue("Bearer \(ownerAToken)", forHTTPHeaderField: "Authorization")
         bootstrap.httpBody = Data(#"{"name":"Owner A","babyName":"Baby A","birthDate":"2026-01-01"}"#.utf8)
-        let (credentialData, bootstrapResponse) = try await URLSession.shared.data(for: bootstrap)
+        let (_, bootstrapResponse) = try await URLSession.shared.data(for: bootstrap)
         XCTAssertEqual((bootstrapResponse as? HTTPURLResponse)?.statusCode, 201)
-        let credential = try XCTUnwrap(JSONSerialization.jsonObject(with: credentialData) as? [String: Any])
-        let token = try XCTUnwrap(credential["accessToken"] as? String)
         var profile = URLRequest(url: try XCTUnwrap(URL(string: baseURL + "/api/nido/profile")))
         profile.httpMethod = "PUT"
         profile.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        profile.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        profile.setValue("Bearer \(ownerAToken)", forHTTPHeaderField: "Authorization")
         profile.httpBody = Data(#"{"caregiverName":"Owner A","babyName":"Baby A","birthDate":"2026-01-01"}"#.utf8)
         let (_, profileResponse) = try await URLSession.shared.data(for: profile)
         XCTAssertEqual((profileResponse as? HTTPURLResponse)?.statusCode, 200)
 
-        launch(scenario: "multi-household")
+        launch(scenario: "multi-household", accessToken: ownerBToken)
 
         XCTAssertTrue(app.staticTexts["El día a día de vuestro bebé."].waitForExistence(timeout: 5))
         app.textFields["Tu nombre"].tap()
@@ -87,14 +111,14 @@ final class NidoUITests: XCTestCase {
 
     func testRealBackendHistoryLoadsAndDisplaysAnEntryBeyondTheFirstFiveHundred() async throws {
         let baseURL = ProcessInfo.processInfo.environment["NIDO_UI_TEST_API_BASE_URL"] ?? "http://127.0.0.1:34200"
+        let token = try requiredSessionToken(named: "NIDO_UI_TEST_HISTORY_TOKEN")
         var bootstrap = URLRequest(url: try XCTUnwrap(URL(string: baseURL + "/api/nido/caregivers/bootstrap")))
         bootstrap.httpMethod = "POST"
         bootstrap.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        bootstrap.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         bootstrap.httpBody = Data(#"{"name":"History Owner","babyName":"History Baby","birthDate":"2026-01-01"}"#.utf8)
-        let (credentialData, bootstrapResponse) = try await URLSession.shared.data(for: bootstrap)
+        let (_, bootstrapResponse) = try await URLSession.shared.data(for: bootstrap)
         XCTAssertEqual((bootstrapResponse as? HTTPURLResponse)?.statusCode, 201)
-        let credential = try XCTUnwrap(JSONSerialization.jsonObject(with: credentialData) as? [String: Any])
-        let token = try XCTUnwrap(credential["accessToken"] as? String)
         var profile = URLRequest(url: try XCTUnwrap(URL(string: baseURL + "/api/nido/profile")))
         profile.httpMethod = "PUT"
         profile.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -171,14 +195,16 @@ final class NidoUITests: XCTestCase {
 
     func testRealBackendCaregiverPermissionsAndRevocation() async throws {
         let baseURL = ProcessInfo.processInfo.environment["NIDO_UI_TEST_API_BASE_URL"] ?? "http://127.0.0.1:34200"
+        let ownerToken = try requiredSessionToken(named: "NIDO_UI_TEST_PERMISSIONS_OWNER_TOKEN")
+        let caregiverToken = try requiredSessionToken(named: "NIDO_UI_TEST_PERMISSIONS_CAREGIVER_TOKEN")
         let bootstrap = try await apiRequest(
             baseURL: baseURL,
             path: "/api/nido/caregivers/bootstrap",
             method: "POST",
+            token: ownerToken,
             body: ["name": "UI Owner", "babyName": "UI Baby", "birthDate": "2026-01-01"]
         )
         XCTAssertEqual(bootstrap.status, 201)
-        let ownerToken = try XCTUnwrap(bootstrap.payload["accessToken"] as? String)
         let owner = try XCTUnwrap(bootstrap.payload["caregiver"] as? [String: Any])
         let profile = try await apiRequest(
             baseURL: baseURL,
@@ -217,10 +243,10 @@ final class NidoUITests: XCTestCase {
             baseURL: baseURL,
             path: "/api/nido/caregivers/join",
             method: "POST",
+            token: caregiverToken,
             body: ["code": inviteCode]
         )
         XCTAssertEqual(joined.status, 200)
-        let caregiverToken = try XCTUnwrap(joined.payload["accessToken"] as? String)
         let caregiver = try XCTUnwrap(joined.payload["caregiver"] as? [String: Any])
         let caregiverID = try XCTUnwrap(caregiver["id"] as? String)
 
@@ -416,7 +442,10 @@ final class NidoUITests: XCTestCase {
         feedEntry.tap()
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["Tipo"].exists)
-        XCTAssertTrue(app.buttons["Contenido"].exists)
+        let contentPicker = app.descendants(matching: .any)["entry-editor-feed-content-picker"]
+        for _ in 0..<3 where !contentPicker.isHittable { app.swipeUp() }
+        XCTAssertTrue(contentPicker.waitForExistence(timeout: 2))
+        XCTAssertTrue(contentPicker.isHittable)
         XCTAssertTrue(app.staticTexts["Fórmula"].exists)
         app.buttons["Cancelar"].tap()
 
@@ -462,10 +491,14 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "caregiver-removal")
 
         app.buttons["bottom-nav-settings"].tap()
-        let caregiver = app.staticTexts["Ana"]
+        let caregiver = app.collectionViews["settings-list"].cells.containing(
+            .staticText,
+            identifier: "caregiver-row-ui-test-caregiver-ana"
+        ).firstMatch
         XCTAssertTrue(caregiver.waitForExistence(timeout: 3))
-        caregiver.swipeLeft()
-        app.buttons["Retirar"].tap()
+        let remove = app.buttons["Retirar a Ana"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 2))
+        remove.tap()
 
         XCTAssertTrue(app.staticTexts["¿Retirar el acceso de Ana?"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Ana dejará de poder consultar y registrar información en Nido."].exists)
@@ -804,7 +837,7 @@ final class NidoUITests: XCTestCase {
 
         app.buttons["bottom-nav-history"].tap()
         XCTAssertTrue(app.staticTexts["15:24"].waitForExistence(timeout: 3))
-        app.staticTexts["Pañal"].firstMatch.tap()
+        app.buttons["history-entry-ui-test-diaper"].tap()
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
 
         let timeButton = app.buttons["15:24"]
@@ -970,6 +1003,13 @@ final class NidoUITests: XCTestCase {
             "-UIUserInterfaceStyle", "Light",
         ]
         app.launch()
+    }
+
+    private func requiredSessionToken(named name: String) throws -> String {
+        guard let token = ProcessInfo.processInfo.environment[name], !token.isEmpty else {
+            throw XCTSkip("\(name) must contain a provisioned Sign in with Apple session token.")
+        }
+        return token
     }
 
 }

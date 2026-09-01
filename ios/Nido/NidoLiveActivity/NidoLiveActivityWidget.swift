@@ -26,6 +26,7 @@ struct NidoLiveActivityWidget: Widget {
                     .foregroundStyle(moss)
             }
             .padding(16)
+            .privacySensitive()
             .activityBackgroundTint(Color(uiColor: .systemBackground))
             .activitySystemActionForegroundColor(moss)
         } dynamicIsland: { context in
@@ -33,30 +34,37 @@ struct NidoLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     Image(systemName: context.attributes.kind == "sleep" ? "moon.fill" : "figure.and.child.holdinghands")
                         .foregroundStyle(moss)
+                        .privacySensitive()
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.attributes.kind == "sleep" ? "Sueño" : "Lactancia")
                         .font(.headline)
+                        .privacySensitive()
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(timerInterval: context.attributes.startedAt...Date.distantFuture, countsDown: false)
                         .font(.caption.monospacedDigit())
+                        .privacySensitive()
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text("En curso para \(context.attributes.babyName)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .privacySensitive()
                 }
             } compactLeading: {
                 Image(systemName: context.attributes.kind == "sleep" ? "moon.fill" : "figure.and.child.holdinghands")
                     .foregroundStyle(moss)
+                    .privacySensitive()
             } compactTrailing: {
                 Text(timerInterval: context.attributes.startedAt...Date.distantFuture, countsDown: false)
                     .font(.caption2.monospacedDigit())
                     .frame(width: 42)
+                    .privacySensitive()
             } minimal: {
                 Image(systemName: context.attributes.kind == "sleep" ? "moon.fill" : "figure.and.child.holdinghands")
                     .foregroundStyle(moss)
+                    .privacySensitive()
             }
         }
     }
