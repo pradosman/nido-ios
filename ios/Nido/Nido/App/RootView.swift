@@ -9,6 +9,8 @@ struct RootView: View {
             switch store.phase {
             case .loading:
                 LoadingView()
+            case .authentication:
+                AppleSignInView()
             case .onboarding:
                 OnboardingView()
             case .caregiverAccess:

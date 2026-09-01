@@ -5,8 +5,8 @@ import Testing
 @Suite(.serialized)
 struct NidoAPICharacterizationTests {
     @Test
-    func startupAlwaysOffersCreatingAHomeOrJoiningByCodeWithoutGlobalStatus() {
-        #expect(StartupDestination.withoutCredential == .createOrJoinHome)
+    func startupRequiresAppleIdentityBeforeCreatingOrJoiningAHome() {
+        #expect(StartupDestination.withoutCredential == .signInWithApple)
     }
 
     @Test
@@ -152,49 +152,75 @@ struct NidoAPICharacterizationTests {
         let recorder = RequestRecorder()
         let api = makeAPI(recorder: recorder) { request in
             switch (request.httpMethod, request.url?.path) {
+            case ("POST", "/api/nido/auth/apple/challenge"):
+                response(for: request, status: 201, body: #"{"challengeID":"challenge-1","nonce":"raw-nonce","expiresAt":"2030-01-01T00:00:00Z"}"#)
+            case ("POST", "/api/nido/auth/apple/session"):
+                response(for: request, status: 201, body: #"{"token":"private-token","expiresAt":"2030-02-01T00:00:00Z","membership":null}"#)
             case ("POST", "/api/nido/caregivers/bootstrap"), ("POST", "/api/nido/caregivers/join"):
-                response(for: request, body: Self.credentialResponse)
+                response(for: request, status: 201, body: Self.caregiverResponse)
             case ("POST", "/api/nido/caregivers/invite"):
                 response(for: request, body: Self.caregiverResponse)
             case ("DELETE", "/api/nido/caregivers/invite"):
                 response(for: request, body: #"{"deleted":"caregiver-1"}"#)
+            case ("POST", "/api/nido/auth/logout"):
+                response(for: request, body: #"{"loggedOut":true}"#)
+            case ("DELETE", "/api/nido/auth/account"):
+                response(for: request, body: #"{"deleted":true}"#)
             default:
                 response(for: request, status: 404, body: #"{"error":"Ruta inesperada"}"#)
             }
         }
 
         let profile = Profile(caregiverName: "David", babyName: "Marco", birthDate: "2026-08-27")
-        _ = try await api.bootstrapCaregiver(name: "David", legacyProfile: profile)
+        let challenge = try await api.appleSignInChallenge()
+        let session = try await api.createAppleSession(
+            identityToken: "apple-identity-token",
+            challengeID: challenge.challengeID
+        )
+        _ = try await api.bootstrapCaregiver(name: "David", profile: profile, accessToken: session.credential.accessToken)
         _ = try await api.inviteCaregiver(name: "Ana", accessToken: "token")
-        _ = try await api.joinCaregiver(code: "ABCD-1234")
+        _ = try await api.joinCaregiver(code: "ABCD-1234", accessToken: "token")
         try await api.removeCaregiver(id: "caregiver-1", accessToken: "token")
+        try await api.logout(accessToken: "token")
+        try await api.deleteAccount(accessToken: "token")
 
         #expect(recorder.requests.map { $0.url?.path } == [
+            "/api/nido/auth/apple/challenge",
+            "/api/nido/auth/apple/session",
             "/api/nido/caregivers/bootstrap",
             "/api/nido/caregivers/invite",
             "/api/nido/caregivers/join",
             "/api/nido/caregivers/invite",
+            "/api/nido/auth/logout",
+            "/api/nido/auth/account",
         ])
-        #expect(try decodedBody(recorder.requests[0])["babyName"] as? String == "Marco")
-        #expect(try decodedBody(recorder.requests[1])["name"] as? String == "Ana")
-        #expect(try decodedBody(recorder.requests[2])["code"] as? String == "ABCD-1234")
-        #expect(recorder.requests[3].url?.query == "id=caregiver-1")
+        #expect(try decodedBody(recorder.requests[1])["identityToken"] as? String == "apple-identity-token")
+        #expect(try decodedBody(recorder.requests[1])["challengeID"] as? String == "challenge-1")
+        #expect(try decodedBody(recorder.requests[2])["babyName"] as? String == "Marco")
+        #expect(recorder.requests[2].value(forHTTPHeaderField: "Authorization") == "Bearer private-token")
+        #expect(try decodedBody(recorder.requests[3])["name"] as? String == "Ana")
+        #expect(try decodedBody(recorder.requests[4])["code"] as? String == "ABCD-1234")
+        #expect(recorder.requests[4].value(forHTTPHeaderField: "Authorization") == "Bearer token")
+        #expect(recorder.requests[5].url?.query == "id=caregiver-1")
+        #expect(recorder.requests[6].value(forHTTPHeaderField: "Authorization") == "Bearer token")
+        #expect(recorder.requests[7].value(forHTTPHeaderField: "Authorization") == "Bearer token")
     }
 
     @Test
     func serverAndDecodingFailuresBecomeStableDomainErrors() async throws {
+        let profile = Profile(caregiverName: "David", babyName: "Marco", birthDate: "2026-08-27")
         let serverAPI = makeAPI(recorder: RequestRecorder()) { request in
             response(for: request, status: 409, body: #"{"error":"Este espacio ya existe"}"#)
         }
         await #expect(throws: APIError.server(status: 409, message: "Este espacio ya existe")) {
-            try await serverAPI.bootstrapCaregiver(name: "David")
+            try await serverAPI.bootstrapCaregiver(name: "David", profile: profile, accessToken: "token")
         }
 
         let invalidDataAPI = makeAPI(recorder: RequestRecorder()) { request in
             response(for: request, body: #"{"accessToken":42}"#)
         }
         await #expect(throws: APIError.invalidData) {
-            try await invalidDataAPI.bootstrapCaregiver(name: "David")
+            try await invalidDataAPI.bootstrapCaregiver(name: "David", profile: profile, accessToken: "token")
         }
     }
 

@@ -5,7 +5,7 @@ enum PediatricReport {
         let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .distantPast
         let recent = entries.filter { $0.date >= cutoff }.sorted { $0.occurredAt > $1.occurredAt }
         let url = FileManager.default.temporaryDirectory
-            .appending(path: "Nido-\(profile.babyName)-ultimos-\(days)-dias.pdf")
+            .appending(path: "Informe-Nido-\(UUID().uuidString).pdf")
         let format = UIGraphicsPDFRendererFormat()
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 595, height: 842), format: format)
         try renderer.writePDF(to: url) { context in
@@ -38,6 +38,10 @@ enum PediatricReport {
             y += 10
             draw("Este documento resume registros introducidos por los familiares. No contiene diagnósticos ni sustituye la valoración de un profesional sanitario.", font: .systemFont(ofSize: 9), color: .secondaryLabel)
         }
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.complete],
+            ofItemAtPath: url.path
+        )
         return url
     }
 }

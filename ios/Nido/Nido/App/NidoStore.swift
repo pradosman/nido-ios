@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Observation
 import os
@@ -13,6 +14,7 @@ enum NidoFeedbackKind {
 final class NidoStore {
     enum Phase: Equatable {
         case loading
+        case authentication
         case onboarding
         case caregiverAccess
         case ready
@@ -36,12 +38,15 @@ final class NidoStore {
     var isEditingProfile = false
     var feedbackToken = 0
     var feedbackKind = NidoFeedbackKind.selection
+    var appleSignInChallenge: AppleSignInChallenge?
+    var isPreparingAppleSignIn = false
 
     private var pendingEntryIDs: Set<String> = []
     private var profileNeedsSync = false
     private var pendingUpdatedEntryIDs: Set<String> = []
     private var pendingDeletionIDs: Set<String> = []
-    private var accessToken: String?
+    private var sessionCredential: SessionCredential?
+    private var accessToken: String? { sessionCredential?.accessToken }
     private let api: NidoAPI
     private let cache: LocalCache
     private let credentialStore: CredentialStore
@@ -66,7 +71,15 @@ final class NidoStore {
         self.defaults = defaults
         self.nowProvider = now ?? { .now }
         self.hasInjectedNowProvider = now != nil
-        accessToken = initialAccessToken ?? (shouldLoadCredential ? credentialStore.load() : nil)
+        if let initialAccessToken {
+            sessionCredential = SessionCredential(
+                accessToken: initialAccessToken,
+                expiresAt: .distantFuture,
+                appleUserID: nil
+            )
+        } else if shouldLoadCredential {
+            sessionCredential = credentialStore.load()
+        }
         pendingUpdatedEntryIDs = Set(defaults.stringArray(forKey: "pendingUpdatedEntryIDs") ?? [])
         pendingDeletionIDs = Set(defaults.stringArray(forKey: "pendingDeletionIDs") ?? [])
         if let timestamp = defaults.object(forKey: "activeSleepStartedAt") as? Double {
@@ -106,7 +119,7 @@ final class NidoStore {
         pendingUpdatedEntryIDs = []
         pendingDeletionIDs = []
         profileNeedsSync = false
-        accessToken = nil
+        sessionCredential = nil
 
         guard scenario != "onboarding" else {
             phase = .onboarding
@@ -363,30 +376,17 @@ final class NidoStore {
     #endif
 
     func load() async {
-        restoreCache()
-        if accessToken == nil {
-            if let profile {
-                do {
-                    let credential = try await api.bootstrapCaregiver(name: profile.caregiverName, legacyProfile: profile)
-                    try storeCredential(credential)
-                } catch {
-                    if case APIError.server(status: 409, message: _) = error {
-                        phase = .caregiverAccess
-                        notice = "Este espacio ya existe. Pide al administrador del hogar un código de invitación."
-                    } else {
-                        phase = .onboarding
-                        isOffline = true
-                        notice = error.localizedDescription
-                    }
-                    return
-                }
-            } else {
-                phase = .onboarding
-                isOffline = false
-                return
-            }
+        guard let credential = sessionCredential, !credential.isExpired(at: now) else {
+            await invalidateSession(message: nil)
+            return
         }
-        guard let token = accessToken else { phase = .caregiverAccess; return }
+        if let appleUserID = credential.appleUserID,
+           await appleCredentialState(for: appleUserID) != .authorized {
+            await invalidateSession(message: "Tu acceso con Apple ya no está autorizado.")
+            return
+        }
+        restoreCache()
+        let token = credential.accessToken
         do {
             try await synchronizePendingChanges()
             let remote = try await api.load(accessToken: token)
@@ -404,12 +404,14 @@ final class NidoStore {
             isOffline = false
             persist()
         } catch {
-            if case APIError.server(status: 401, message: _) = error {
-                credentialStore.delete()
-                accessToken = nil
-                currentCaregiver = nil
-                phase = .caregiverAccess
-                notice = "Vuelve a introducir una invitación para acceder."
+            if isUnauthorized(error) {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
+            if case APIError.server(status: 403, message: _) = error {
+                await clearHouseholdData()
+                phase = .onboarding
+                isOffline = false
                 return
             }
             isOffline = true
@@ -441,11 +443,16 @@ final class NidoStore {
 
     func saveProfile(_ value: Profile) async {
         do {
-            if accessToken == nil {
-                let credential = try await api.bootstrapCaregiver(name: value.caregiverName, legacyProfile: value)
-                try storeCredential(credential)
-            }
             guard let accessToken else { throw APIError.invalidResponse }
+            if currentCaregiver == nil {
+                let caregiver = try await api.bootstrapCaregiver(
+                    name: value.caregiverName,
+                    profile: value,
+                    accessToken: accessToken
+                )
+                caregivers = [caregiver]
+                selectCaregiver(caregiver)
+            }
             profile = try await api.save(profile: value, accessToken: accessToken)
             profileNeedsSync = false
             isOffline = false
@@ -454,9 +461,13 @@ final class NidoStore {
             signalFeedback(.success)
             persist()
         } catch {
+            if isUnauthorized(error) {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
             notice = error.localizedDescription
-            if accessToken == nil {
+            if currentCaregiver == nil {
                 phase = .onboarding
             } else {
                 profile = value
@@ -503,7 +514,7 @@ final class NidoStore {
             notice = actionableNotice
         }
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
+            guard let accessToken else { throw APIError.missingCredential }
             let saved = try await api.create(entry: entry, accessToken: accessToken)
             if let index = entries.firstIndex(where: { $0.id == entry.id }) {
                 entries[index] = saved
@@ -523,6 +534,10 @@ final class NidoStore {
                 await ReminderManager.scheduleFeedCheck(babyName: profile.babyName)
             }
         } catch {
+            if SessionFailurePolicy.disposition(for: error, during: .create) == .invalidateSession {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
             if actionableNotice == nil {
                 notice = "Guardado. Se sincronizará cuando vuelva la conexión."
@@ -541,7 +556,7 @@ final class NidoStore {
         editingEntry = nil
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
+            guard let accessToken else { throw APIError.missingCredential }
             let saved = try await api.update(entry: entry, accessToken: accessToken)
             if let savedIndex = entries.firstIndex(where: { $0.id == entry.id }),
                entries[savedIndex] == entry {
@@ -554,6 +569,10 @@ final class NidoStore {
             isOffline = false
             notice = "Registro actualizado"
         } catch {
+            if SessionFailurePolicy.disposition(for: error, during: .update) == .invalidateSession {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
             notice = "Cambio guardado. Se sincronizará cuando vuelva la conexión."
         }
@@ -574,10 +593,14 @@ final class NidoStore {
         signalFeedback(.warning)
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
+            guard let accessToken else { throw APIError.missingCredential }
             try await api.delete(entryID: entry.id, accessToken: accessToken)
             pendingDeletionIDs.remove(entry.id)
         } catch {
+            if SessionFailurePolicy.disposition(for: error, during: .delete) == .invalidateSession {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
         }
         persist()
@@ -592,11 +615,15 @@ final class NidoStore {
         pendingEntryIDs.insert(entry.id)
         persist()
         do {
-            guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
+            guard let accessToken else { throw APIError.missingCredential }
             _ = try await api.create(entry: entry, accessToken: accessToken)
             pendingEntryIDs.remove(entry.id)
             notice = "Registro recuperado"
         } catch {
+            if SessionFailurePolicy.disposition(for: error, during: .create) == .invalidateSession {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
             notice = "Registro recuperado. Se sincronizará cuando vuelva la conexión."
         }
@@ -627,12 +654,16 @@ final class NidoStore {
         guard !wasPendingCreation else { return }
         do {
             guard let accessToken else {
-                throw APIError.server(status: 401, message: "Necesitas una invitación para acceder")
+                throw APIError.missingCredential
             }
             try await api.delete(entryID: entry.id, accessToken: accessToken)
             pendingDeletionIDs.remove(entry.id)
             isOffline = false
         } catch {
+            if SessionFailurePolicy.disposition(for: error, during: .delete) == .invalidateSession {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
         }
         persist()
@@ -645,7 +676,14 @@ final class NidoStore {
         }
         if currentCaregiver?.role == .owner, let backupProfile = backup.profile {
             do { profile = try await api.save(profile: backupProfile, accessToken: accessToken) }
-            catch { notice = error.localizedDescription; return }
+            catch {
+                if isUnauthorized(error) {
+                    await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                } else {
+                    notice = error.localizedDescription
+                }
+                return
+            }
         }
 
         let existingIDs = Set(entries.map(\.id))
@@ -663,6 +701,10 @@ final class NidoStore {
             isOffline = false
             notice = missing.isEmpty ? "La copia no contiene registros nuevos" : "Copia restaurada · \(missing.count) registros"
         } catch {
+            if isUnauthorized(error) {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             isOffline = true
             notice = "Copia restaurada. Se sincronizará cuando vuelva la conexión."
         }
@@ -751,14 +793,76 @@ final class NidoStore {
         await load()
     }
 
+    func prepareAppleSignIn() async {
+        isPreparingAppleSignIn = true
+        defer { isPreparingAppleSignIn = false }
+        do {
+            appleSignInChallenge = try await api.appleSignInChallenge()
+            notice = nil
+        } catch {
+            appleSignInChallenge = nil
+            notice = error.localizedDescription
+        }
+    }
+
+    func completeAppleSignIn(identityToken: Data, appleUserID: String) async throws {
+        guard let challenge = appleSignInChallenge, challenge.expiresAt > now,
+              let token = String(data: identityToken, encoding: .utf8), !token.isEmpty
+        else { throw APIError.invalidData }
+        let session = try await api.createAppleSession(
+            identityToken: token,
+            challengeID: challenge.challengeID
+        )
+        await clearHouseholdData()
+        let credential = SessionCredential(
+            accessToken: session.credential.accessToken,
+            expiresAt: session.credential.expiresAt,
+            appleUserID: appleUserID
+        )
+        try credentialStore.save(credential)
+        sessionCredential = credential
+        appleSignInChallenge = nil
+        if session.hasMembership {
+            await load()
+        } else {
+            phase = .onboarding
+            isOffline = false
+        }
+    }
+
+    func signOut() async {
+        if let accessToken {
+            try? await api.logout(accessToken: accessToken)
+        }
+        await invalidateSession(message: nil)
+    }
+
+    func deleteAccount() async throws {
+        guard let accessToken else { throw APIError.invalidResponse }
+        do {
+            try await api.deleteAccount(accessToken: accessToken)
+            await invalidateSession(message: nil)
+        } catch {
+            if isUnauthorized(error) {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+            }
+            throw error
+        }
+    }
+
     func inviteCaregiver(name: String) async throws -> Caregiver {
         guard let accessToken else { throw APIError.server(status: 401, message: "Necesitas una invitación para acceder") }
-        let invitation = try await api.inviteCaregiver(name: name.trimmingCharacters(in: .whitespacesAndNewlines), accessToken: accessToken)
-        caregivers.removeAll { $0.id == invitation.id }
-        caregivers.append(invitation)
-        notice = "Invitación creada"
-        signalFeedback(.success)
-        return invitation
+        do {
+            let invitation = try await api.inviteCaregiver(name: name.trimmingCharacters(in: .whitespacesAndNewlines), accessToken: accessToken)
+            caregivers.removeAll { $0.id == invitation.id }
+            caregivers.append(invitation)
+            notice = "Invitación creada"
+            signalFeedback(.success)
+            return invitation
+        } catch {
+            if isUnauthorized(error) { await invalidateSession(message: "Vuelve a iniciar sesión para acceder.") }
+            throw error
+        }
     }
 
     func removeCaregiver(_ caregiver: Caregiver) async {
@@ -769,21 +873,28 @@ final class NidoStore {
             notice = caregiver.status == .pending ? "Invitación cancelada" : "Acceso retirado"
             signalFeedback(.warning)
         } catch {
+            if isUnauthorized(error) {
+                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
+                return
+            }
             notice = error.localizedDescription
         }
     }
 
     func joinCaregiver(code: String) async throws {
-        let credential = try await api.joinCaregiver(code: code)
-        try storeCredential(credential)
-        let caregiver = credential.caregiver
-        caregivers.removeAll { $0.id == caregiver.id }
-        caregivers.append(caregiver)
-        selectCaregiver(caregiver)
-        phase = .ready
-        notice = "Ya puedes consultar y registrar la información de \(profile?.babyName ?? "Nido")"
-        signalFeedback(.success)
-        await refresh()
+        guard let accessToken else { throw APIError.server(status: 401, message: "Vuelve a iniciar sesión para acceder") }
+        do {
+            let caregiver = try await api.joinCaregiver(code: code, accessToken: accessToken)
+            caregivers.removeAll { $0.id == caregiver.id }
+            caregivers.append(caregiver)
+            selectCaregiver(caregiver)
+            notice = "Ya puedes consultar y registrar la información de Nido"
+            signalFeedback(.success)
+            await refresh()
+        } catch {
+            if isUnauthorized(error) { await invalidateSession(message: "Vuelve a iniciar sesión para acceder.") }
+            throw error
+        }
     }
 
     func showCaregiverAccess() {
@@ -884,12 +995,52 @@ final class NidoStore {
         )
     }
 
-    private func storeCredential(_ credential: CaregiverCredential) throws {
-        try credentialStore.save(credential.accessToken)
-        accessToken = credential.accessToken
-        caregivers.removeAll { $0.id == credential.caregiver.id }
-        caregivers.append(credential.caregiver)
-        selectCaregiver(credential.caregiver)
+    private func appleCredentialState(for userID: String) async -> ASAuthorizationAppleIDProvider.CredentialState {
+        await withCheckedContinuation { continuation in
+            ASAuthorizationAppleIDProvider().getCredentialState(forUserID: userID) { state, _ in
+                continuation.resume(returning: state)
+            }
+        }
+    }
+
+    private func isUnauthorized(_ error: Error) -> Bool {
+        if case APIError.server(status: 401, message: _) = error { return true }
+        return false
+    }
+
+    private func invalidateSession(message: String?) async {
+        credentialStore.delete()
+        sessionCredential = nil
+        await clearHouseholdData()
+        phase = .authentication
+        notice = message
+        isOffline = false
+    }
+
+    private func clearHouseholdData() async {
+        profile = nil
+        entries = []
+        caregivers = []
+        currentCaregiver = nil
+        activeSleepStartedAt = nil
+        activeFeedStartedAt = nil
+        activeFeedSide = nil
+        pendingEntryIDs = []
+        pendingUpdatedEntryIDs = []
+        pendingDeletionIDs = []
+        profileNeedsSync = false
+        recentlyDeletedEntry = nil
+        recentlyCreatedEntry = nil
+        editingEntry = nil
+        defaults.removeObject(forKey: caregiverIDKey)
+        defaults.removeObject(forKey: "pendingUpdatedEntryIDs")
+        defaults.removeObject(forKey: "pendingDeletionIDs")
+        defaults.removeObject(forKey: "activeSleepStartedAt")
+        defaults.removeObject(forKey: "activeFeedStartedAt")
+        defaults.removeObject(forKey: "activeFeedSide")
+        try? cache.remove()
+        updateWidgets()
+        await NidoLiveActivity.endAll()
     }
 
     private func selectCaregiver(_ caregiver: Caregiver) {

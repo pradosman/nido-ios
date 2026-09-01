@@ -11,6 +11,7 @@ nonisolated struct NidoAPI: Sendable {
         self.session = session
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
+        self.decoder.dateDecodingStrategy = .iso8601
     }
 
     func load(accessToken: String) async throws -> (profile: Profile?, entries: [Entry], caregivers: [Caregiver], currentCaregiverID: String) {
@@ -81,14 +82,33 @@ nonisolated struct NidoAPI: Sendable {
         let _: DeleteResponse = try await perform(request)
     }
 
-    func bootstrapCaregiver(name: String, legacyProfile: Profile? = nil) async throws -> CaregiverCredential {
-        var request = request(path: "/api/nido/caregivers/bootstrap", method: "POST")
+    func appleSignInChallenge() async throws -> AppleSignInChallenge {
+        let request = request(path: "/api/nido/auth/apple/challenge", method: "POST")
+        return try await perform(request)
+    }
+
+    func createAppleSession(identityToken: String, challengeID: String) async throws -> AppleSession {
+        var request = request(path: "/api/nido/auth/apple/session", method: "POST")
+        request.httpBody = try encoder.encode(AppleSessionRequest(
+            identityToken: identityToken,
+            challengeID: challengeID
+        ))
+        let response: AppleSessionResponse = try await perform(request)
+        return AppleSession(
+            credential: SessionCredential(accessToken: response.token, expiresAt: response.expiresAt, appleUserID: nil),
+            hasMembership: response.membership != nil
+        )
+    }
+
+    func bootstrapCaregiver(name: String, profile: Profile, accessToken: String) async throws -> Caregiver {
+        var request = request(path: "/api/nido/caregivers/bootstrap", method: "POST", accessToken: accessToken)
         request.httpBody = try encoder.encode(BootstrapCaregiverRequest(
             name: name,
-            babyName: legacyProfile?.babyName,
-            birthDate: legacyProfile?.birthDate
+            babyName: profile.babyName,
+            birthDate: profile.birthDate
         ))
-        return try await perform(request)
+        let response: CaregiverResponse = try await perform(request)
+        return response.caregiver
     }
 
     func inviteCaregiver(name: String, accessToken: String) async throws -> Caregiver {
@@ -107,10 +127,21 @@ nonisolated struct NidoAPI: Sendable {
         let _: DeleteResponse = try await perform(request)
     }
 
-    func joinCaregiver(code: String) async throws -> CaregiverCredential {
-        var request = request(path: "/api/nido/caregivers/join", method: "POST")
+    func joinCaregiver(code: String, accessToken: String) async throws -> Caregiver {
+        var request = request(path: "/api/nido/caregivers/join", method: "POST", accessToken: accessToken)
         request.httpBody = try encoder.encode(CaregiverCodeRequest(code: code))
-        return try await perform(request)
+        let response: CaregiverResponse = try await perform(request)
+        return response.caregiver
+    }
+
+    func logout(accessToken: String) async throws {
+        let request = request(path: "/api/nido/auth/logout", method: "POST", accessToken: accessToken)
+        let _: LoggedOutResponse = try await perform(request)
+    }
+
+    func deleteAccount(accessToken: String) async throws {
+        let request = request(path: "/api/nido/auth/account", method: "DELETE", accessToken: accessToken)
+        let _: AccountDeletedResponse = try await perform(request)
     }
 
     private func request(path: String, method: String, accessToken: String? = nil) -> URLRequest {
@@ -146,14 +177,39 @@ nonisolated struct NidoAPI: Sendable {
 nonisolated enum APIError: LocalizedError, Equatable {
     case invalidResponse
     case invalidData
+    case missingCredential
     case server(status: Int, message: String)
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse: "No se ha podido completar la operación."
         case .invalidData: "No se han podido leer los datos."
+        case .missingCredential: "No hay una sesión local disponible."
         case .server(_, let message): message
         }
+    }
+}
+
+nonisolated enum PendingMutationKind: CaseIterable, Sendable {
+    case create
+    case update
+    case delete
+}
+
+nonisolated enum SessionFailureDisposition: Equatable, Sendable {
+    case queueOffline
+    case invalidateSession
+}
+
+nonisolated enum SessionFailurePolicy {
+    static func disposition(
+        for error: any Error,
+        during _: PendingMutationKind
+    ) -> SessionFailureDisposition {
+        guard case APIError.server(status: 401, message: _) = error else {
+            return .queueOffline
+        }
+        return .invalidateSession
     }
 }
 
@@ -171,13 +227,25 @@ nonisolated private struct EntriesPageResponse: Decodable {
 }
 
 nonisolated enum StartupDestination: Equatable, Sendable {
-    case createOrJoinHome
+    case signInWithApple
 
-    static let withoutCredential = StartupDestination.createOrJoinHome
+    static let withoutCredential = StartupDestination.signInWithApple
 }
-nonisolated struct CaregiverCredential: Decodable, Sendable {
-    let caregiver: Caregiver
-    let accessToken: String
+nonisolated private struct AppleSessionRequest: Encodable {
+    let identityToken: String
+    let challengeID: String
+}
+
+nonisolated private struct AppleSessionResponse: Decodable {
+    let token: String
+    let expiresAt: Date
+    let membership: AppleSessionMembership?
+}
+
+nonisolated private struct AppleSessionMembership: Decodable {
+    let caregiverID: String
+    let householdID: String
+    let role: String
 }
 
 nonisolated private struct ProfileResponse: Decodable {
@@ -194,6 +262,14 @@ nonisolated private struct CaregiverResponse: Decodable {
 
 nonisolated private struct DeleteResponse: Decodable {
     let deleted: String
+}
+
+nonisolated private struct LoggedOutResponse: Decodable {
+    let loggedOut: Bool
+}
+
+nonisolated private struct AccountDeletedResponse: Decodable {
+    let deleted: Bool
 }
 
 nonisolated private struct CaregiverNameRequest: Encodable {

@@ -74,5 +74,15 @@ enum NidoLiveActivity {
         }
         logger.notice("Live Activity ended for \(kind, privacy: .public)")
     }
+
+    static func endAll() async {
+        for activity in Activity<NidoActivityAttributes>.activities {
+            await activity.end(
+                ActivityContent(state: .init(isActive: false), staleDate: nil),
+                dismissalPolicy: .immediate
+            )
+        }
+        logger.notice("All Live Activities ended")
+    }
 }
 #endif
