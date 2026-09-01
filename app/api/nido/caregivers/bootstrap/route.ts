@@ -1,64 +1,51 @@
 import { eq } from "drizzle-orm";
-import { getDb } from "../../../../../db";
-import { caregivers, caregiverTokens, households, profiles } from "../../../../../db/schema";
-import { createAccessToken, hashAccessToken, publicCaregiverFields } from "../../auth";
+import { getDb } from "../../../../../db/index.ts";
+import { caregivers, households, profiles, users } from "../../../../../db/schema.ts";
+import { publicCaregiverFields, requireSession } from "../../auth.ts";
+import { bodyErrorResponse, boundedString, readJsonObject, recentBirthDate } from "../../validation.ts";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { name?: string; babyName?: string; birthDate?: string };
-    const name = body.name?.trim() ?? "";
-    if (!name) return Response.json({ error: "Indica tu nombre" }, { status: 400 });
-
+    const authorization = await requireSession(request);
+    if (authorization.response) return authorization.response;
     const db = getDb();
-    const accessToken = createAccessToken();
-    const accessTokenHash = await hashAccessToken(accessToken);
-    const legacyHouseholdId = "00000000-0000-4000-8000-000000000001";
-    const [existing] = await db.select().from(caregivers).where(eq(caregivers.householdId, legacyHouseholdId)).limit(1);
-    if (existing) {
-      const [existingToken] = await db.select({ caregiverId: caregiverTokens.caregiverId }).from(caregiverTokens)
-        .where(eq(caregiverTokens.caregiverId, existing.id)).limit(1);
-      const [profile] = await db.select({ babyName: profiles.babyName, birthDate: profiles.birthDate }).from(profiles)
-        .where(eq(profiles.householdId, legacyHouseholdId)).limit(1);
-      const ownerMatches = existing.name.localeCompare(name, "es", { sensitivity: "base" }) === 0;
-      const babyMatches = Boolean(profile && body.babyName && body.birthDate
-        && profile.babyName.localeCompare(body.babyName.trim(), "es", { sensitivity: "base" }) === 0
-        && profile.birthDate === body.birthDate);
-      if (!existingToken && ownerMatches && babyMatches) {
-        await db.insert(caregiverTokens).values({ caregiverId: existing.id, tokenHash: accessTokenHash });
-        const [claimed] = await db.select(publicCaregiverFields).from(caregivers).where(eq(caregivers.id, existing.id)).limit(1);
-        return Response.json({ caregiver: claimed, accessToken });
-      }
+    const body = await readJsonObject(request, 2_048);
+    const name = boundedString(body?.name, 80);
+    const babyName = boundedString(body?.babyName, 80);
+    const birthDate = recentBirthDate(body?.birthDate);
+    if (!name || !babyName || !birthDate) {
+      return Response.json({ error: "Invalid household profile" }, { status: 400 });
     }
 
-    const now = new Date().toISOString();
     const householdId = crypto.randomUUID();
     const caregiverId = crypto.randomUUID();
-    const babyName = body.babyName?.trim() ?? "";
-    const birthDate = body.birthDate ?? "";
-    const householdInsert = db.insert(households).values({ id: householdId });
-    const caregiverInsert = db.insert(caregivers).values({
-      id: caregiverId,
-      householdId,
-      name,
-      role: "owner",
-      status: "active",
-      joinedAt: now,
+    const caregiver = await db.transaction(async tx => {
+      const [lockedUser] = await tx.select({ id: users.id }).from(users)
+        .where(eq(users.id, authorization.session.userId)).limit(1).for("update");
+      if (!lockedUser) throw new Error("Authenticated user no longer exists");
+      const [membership] = await tx.select({ id: caregivers.id }).from(caregivers)
+        .where(eq(caregivers.userId, authorization.session.userId)).limit(1).for("update");
+      if (membership) return null;
+      await tx.insert(households).values({ id: householdId });
+      await tx.insert(caregivers).values({
+        id: caregiverId,
+        householdId,
+        userId: authorization.session.userId,
+        name,
+        role: "owner",
+        status: "active",
+        joinedAt: new Date(),
+      });
+      await tx.insert(profiles).values({ householdId, caregiverName: name, babyName, birthDate });
+      const [created] = await tx.select(publicCaregiverFields).from(caregivers)
+        .where(eq(caregivers.id, caregiverId)).limit(1);
+      return created;
     });
-    const tokenInsert = db.insert(caregiverTokens).values({ caregiverId, tokenHash: accessTokenHash });
-    if (babyName && /^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-      await db.batch([
-        householdInsert,
-        caregiverInsert,
-        tokenInsert,
-        db.insert(profiles).values({ householdId, caregiverName: name, babyName, birthDate }),
-      ]);
-    } else {
-      await db.batch([householdInsert, caregiverInsert, tokenInsert]);
-    }
-    const [caregiver] = await db.select(publicCaregiverFields).from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
-    return Response.json({ caregiver, accessToken }, { status: 201 });
+    if (!caregiver) return Response.json({ error: "The account already belongs to a household" }, { status: 409 });
+    return Response.json({ caregiver }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo crear el administrador del hogar";
-    return Response.json({ error: message }, { status: 500 });
+    const bodyResponse = bodyErrorResponse(error);
+    if (bodyResponse) return bodyResponse;
+    return Response.json({ error: "Unable to create the household" }, { status: 500 });
   }
 }

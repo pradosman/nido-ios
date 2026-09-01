@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("Drizzle migration SQL, journal entries, and snapshots stay aligned", async () => {
-  const migrationFiles = (await readdir("drizzle"))
+test("PostgreSQL migration SQL, journal entries, and snapshots stay aligned", async () => {
+  const migrationFiles = (await readdir("drizzle-pg"))
     .filter(file => /^\d{4}_.+\.sql$/.test(file))
     .sort();
-  const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+  const journal = JSON.parse(await readFile("drizzle-pg/meta/_journal.json", "utf8"));
   const snapshotFiles = new Set(
-    (await readdir("drizzle/meta")).filter(file => /^\d{4}_snapshot\.json$/.test(file)),
+    (await readdir("drizzle-pg/meta")).filter(file => /^\d{4}_snapshot\.json$/.test(file)),
   );
 
   assert.deepEqual(
@@ -21,4 +21,7 @@ test("Drizzle migration SQL, journal entries, and snapshots stay aligned", async
     [...snapshotFiles].sort(),
     "every journal entry must have its indexed Drizzle snapshot",
   );
+  assert.equal(journal.dialect, "postgresql");
+  const sql = await Promise.all(migrationFiles.map(file => readFile(`drizzle-pg/${file}`, "utf8")));
+  assert.ok(sql.every(source => !/PRAGMA|sqlite_master|CREATE TRIGGER IF NOT EXISTS/i.test(source)));
 });

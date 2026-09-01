@@ -6,47 +6,56 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
-    "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
-    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "local": "npm run db:migrate:local && npm run dev",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local --persist-to .wrangler/state --config wrangler.vps.jsonc",
+    "dev": "vinext dev",
+    "build": "vinext build && npm run build:migrate",
+    "build:migrate": "esbuild db/migrate.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/migrate.mjs",
+    "start": "node dist/standalone/server.js",
+    "local": "npm run db:migrate && npm run dev",
+    "db:migrate": "node --experimental-strip-types db/migrate.ts",
     "vps:run": "sh deploy/entrypoint.sh",
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate --config drizzle.pg.config.ts"
   },
   "dependencies": {
-    "drizzle-orm": "0.45.2",
-    "lucide-react": "^0.468.0",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "reicon-react": "^1.2.0"
+    "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.10",
+    "postgres": "^3.4.9",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
+    "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "9.39.4",
     "@next/eslint-plugin-next": "16.2.6",
-    "@openai/sites-vite-plugin": "0.1.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.2",
-    "@vitejs/plugin-rsc": "0.5.26",
+    "@vitejs/plugin-rsc": "^0.5.34",
     "drizzle-kit": "0.31.10",
+    "esbuild": "^0.28.1",
     "eslint": "9.39.4",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "16.4.0",
-    "react-server-dom-webpack": "19.2.6",
+    "react-server-dom-webpack": "^19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",
-    "vinext": "1.0.0-beta.2",
-    "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "vinext": "^1.0.0-beta.8",
+    "vite": "^8.2.2"
   },
-  "type": "module"
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
+  },
+  "type": "module",
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true
+  }
 }
