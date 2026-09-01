@@ -1,12 +1,31 @@
 .git
+.atl
 .codegraph
+.DS_Store
 .next
+.npm-cache
 .vinext
 .wrangler
 dist
+docs
+drizzle-legacy-sqlite
 ios
 node_modules
 outputs
+prototypes
+tests
+tmp
 work
 .env*
 npm-debug.log*
+deploy/secrets/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/id_rsa*
+Dockerfile 2
+compose.vps 2.yml
+db/index 2.ts
+db/schema 2.ts
+deploy/entrypoint 2.sh

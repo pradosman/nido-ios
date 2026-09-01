@@ -41,6 +41,8 @@ yarn-error.log*
 /outputs/
 /work/
 /.vps-data/
+/deploy/secrets/*
+!/deploy/secrets/*.example
 
 # Xcode / SwiftPM
 **/.build/

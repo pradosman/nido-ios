@@ -1,50 +1,60 @@
-# Nido para iPhone: local y VPS
+# Nido para iPhone en un VPS
 
-Nido es una app nativa para iPhone. La interfaz web está retirada y `/` responde con `404`; el servicio conserva y sincroniza los datos entre familiares mediante la API. En el VPS utiliza una base SQLite persistente dentro de un volumen Docker.
+Nido es una app nativa para iPhone. El VPS ejecuta únicamente la API con Vinext en modo standalone y guarda los datos en PostgreSQL. La ruta `/` responde con `404`; la superficie pública prevista es `/api`.
 
-## Arranque local
+## Desarrollo local
 
-Necesitas Node.js 22.13 o posterior.
+Necesitas Node.js 22.13 o posterior y una instancia PostgreSQL accesible.
 
 ```bash
 npm install
+export DATABASE_URL='postgres://nido:contraseña@127.0.0.1:5432/nido'
+export NIDO_APPLE_AUDIENCE='com.example.nido'
+export NIDO_AUTH_BUCKET_SECRET='un-secreto-aleatorio-de-al-menos-32-caracteres'
 npm run local
 ```
 
-Cada arranque verifica el esquema de forma segura y, si hace falta, crea la base local dentro de `.wrangler/state`. Comprueba el servicio con:
+Comprueba el servicio con:
 
 ```bash
 curl http://localhost:3000/api/nido/status
 ```
 
-El estado público indica las capacidades disponibles:
+Para usarlo desde el Simulator, configura `NIDO_API_BASE_URL` en el target `Nido`. En un iPhone físico usa la dirección LAN del equipo que ejecuta la API, no `127.0.0.1`.
 
-```json
-{"canCreateHousehold":true,"canJoinWithInvitation":true}
-```
-
-Para usarlo desde el Simulator, configura `NIDO_API_BASE_URL` en el target `Nido` con la dirección local del servicio. En un iPhone físico usa la IP local del Mac, no `127.0.0.1`.
-
-Para comprobar una compilación de producción:
+## Verificación
 
 ```bash
 npm test
+npm run lint
 ```
+
+`npm test` genera el servidor standalone, compila el ejecutor de migraciones y ejecuta los contratos automatizados. Las pruebas de base de datos utilizan PGlite con el esquema PostgreSQL real; no necesitan una base externa.
+
+### Límite de migración de datos
+
+Este despliegue PostgreSQL se aprobó exclusivamente para la instalación **pre-user**, sin datos reales que conservar. **NO incluye ni realiza ninguna migración de datos desde D1**. Si una instalación contiene datos en D1, no debe desplegarse este cambio hasta preparar y validar un plan separado de exportación, transformación e importación. Nunca se deben abandonar datos existentes de forma silenciosa.
 
 ## Despliegue en Dokploy
 
-Requisitos: un registro DNS `A` de `nido.momentumia.com` apuntando al VPS y una clave SSH de sólo lectura con acceso al repositorio privado.
+### 1. Preparar secretos
 
-1. Crea un servicio de tipo **Docker Compose** en Dokploy.
-2. Selecciona el proveedor **Git** y configura:
+No uses los valores de los archivos `.example`. Genera valores nuevos y guárdalos sin salto de línea final:
 
-   | Campo | Valor |
-   |---|---|
-   | Repository URL | `git@github.com:pradosman/nido-ios.git` |
-   | Branch | `main` |
-   | Compose Path | `./compose.vps.yml` |
+```bash
+mkdir -p deploy/secrets
+openssl rand -base64 36 | tr -d '=+/' | cut -c1-40 > deploy/secrets/postgres_password
+openssl rand -hex 32 > deploy/secrets/auth_bucket_secret
+chmod 600 deploy/secrets/postgres_password deploy/secrets/auth_bucket_secret
+```
 
-3. En **Domains**, añade el dominio limitándolo a la API:
+Los secretos reales están excluidos de Git. El password de PostgreSQL admite únicamente caracteres seguros para URL porque el contenedor construye `DATABASE_URL` sin imprimirlo.
+
+### 2. Configurar Dokploy
+
+1. Crea un servicio **Docker Compose** con `./compose.vps.yml`.
+2. Define `NIDO_APPLE_AUDIENCE` con el identificador de la app que acepta Sign in with Apple.
+3. Añade el dominio limitándolo a la API:
 
    | Campo | Valor |
    |---|---|
@@ -53,47 +63,58 @@ Requisitos: un registro DNS `A` de `nido.momentumia.com` apuntando al VPS y una 
    | Service | `nido` |
    | Container Port | `3000` |
    | HTTPS | Activado |
-   | Certificate | Let's Encrypt |
    | Strip Path | Desactivado |
 
-4. Guarda y pulsa **Deploy**. Dokploy conecta Traefik al puerto interno `3000`; el Compose no publica ningún puerto directamente en el host.
-5. Comprueba la API:
+4. Despliega. Compose espera a PostgreSQL, ejecuta las migraciones una vez y después inicia la API como usuario sin privilegios.
 
-   ```bash
-   curl https://nido.momentumia.com/api/nido/status
-   ```
+El servicio de PostgreSQL solo pertenece a la red interna y no publica puertos en el host. No añadas autenticación básica delante de `/api`: la app usa sus propias sesiones bearer.
 
-Al usar `/api` como ruta pública, Traefik expone únicamente la API. `/api/nido/status` es público; las API de datos del hogar requieren `Authorization: Bearer <credencial>`. La app guarda esa credencial en el Keychain del iPhone. No añadas `basic_auth` delante de la API: impediría que la app nativa sincronizase.
-
-## Operaciones habituales
-
-| Acción | Comando |
-|---|---|
-| Ver estado | Dokploy → Deployments |
-| Ver registros | Dokploy → Logs |
-| Actualizar | Dokploy → Redeploy |
-| Detener | Dokploy → Stop |
-| Verificar | `curl https://nido.momentumia.com/api/nido/status` |
-
-## Datos y copias de seguridad
-
-Los datos viven en el volumen `nido-data` y sobreviven a reconstrucciones y reinicios. `docker compose down` no los elimina; evita `docker compose down -v` salvo que quieras borrar todo.
-
-Copia de seguridad:
+### 3. Comprobar el despliegue
 
 ```bash
-docker compose -p nido-nido-wuwhrr -f compose.vps.yml exec -T nido \
-  sh -c 'tar -czf - -C /data .' > "nido-backup-$(date +%F).tar.gz"
+curl https://nido.momentumia.com/api/nido/status
+curl --fail https://nido.momentumia.com/ && exit 1 || true
 ```
 
-El nombre de proyecto puede variar; Dokploy lo muestra al principio de cada despliegue. También puedes programar la copia del volumen `nido-data` desde **Volume Backups**. Guarda las copias fuera del VPS. Antes de restaurar, detén Nido y conserva una copia del volumen actual.
+La primera petición debe responder correctamente. La segunda debe recibir `404`.
 
-## Comprobación final
+## Copias de seguridad y restauración
 
-- `/` responde con `404` y no sirve una interfaz web.
-- `/api/nido/status` responde con `canCreateHousehold` y `canJoinWithInvitation`.
-- Las API de datos del hogar rechazan peticiones sin credencial bearer.
-- La aplicación de iPhone abre y permite crear un registro.
-- Un segundo iPhone puede unirse con una invitación y ve la misma información.
-- El contenedor figura como `healthy`.
-- El registro sigue presente después de `docker compose restart nido`.
+Los datos viven en el volumen `postgres-data`. El volumen sobrevive a reconstrucciones y reinicios; `docker compose down -v` lo elimina de forma irreversible.
+
+### Crear una copia cifrada
+
+Instala [`age`](https://age-encryption.org/), conserva la identidad privada fuera del VPS y ejecuta:
+
+```bash
+NIDO_AGE_RECIPIENT='age1...' \
+  bash deploy/backup-postgres.sh "nido-$(date +%F-%H%M).dump.age"
+```
+
+El script transmite `pg_dump` directamente a `age`: no deja una copia en texto claro. Transfiere el archivo cifrado a almacenamiento fuera del VPS y aplica una política de retención.
+
+### Restaurar
+
+La restauración reemplaza por completo la base actual. Conserva antes una copia reciente y detén cualquier proceso externo que escriba en la API.
+
+```bash
+NIDO_AGE_IDENTITY='/ruta/fuera-del-repositorio/keys.txt' \
+NIDO_RESTORE_CONFIRMED='restore-nido' \
+  bash deploy/restore-postgres.sh nido-2026-09-01-1200.dump.age
+```
+
+El script valida primero el archivo, detiene la API, recrea la base, restaura, aplica migraciones y vuelve a iniciar el servicio.
+
+Si la restauración falla después de detener Nido, el script termina sin reiniciar la API. No reinicies la API manualmente contra una base incompleta: conserva los registros, corrige la causa, vuelve a ejecutar la restauración desde una copia verificada y comprueba `/api/nido/status` antes de iniciar `nido`.
+
+Una copia no está verificada solo porque existe. Programa periódicamente una restauración de prueba en un entorno aislado, comprueba `/api/nido/status` y valida datos representativos antes de considerar recuperable la copia.
+
+## Lista operativa
+
+- `/` responde con `404`.
+- `/api/nido/status` responde sin credenciales.
+- Las rutas privadas rechazan peticiones sin bearer válido.
+- Los servicios `postgres` y `nido` figuran como saludables.
+- PostgreSQL no publica ningún puerto en el host.
+- Existe una copia reciente, cifrada, verificada y almacenada fuera del VPS.
+- La aplicación de iPhone puede crear y sincronizar un registro.
