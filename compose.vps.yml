@@ -1,28 +1,92 @@
+x-app-image: &app-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+
+x-database-environment: &database-environment
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: nido
+  POSTGRES_DB: nido
+  POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+
 services:
+  postgres:
+    image: postgres:17.10-bookworm@sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f
+    user: "postgres"
+    restart: unless-stopped
+    environment:
+      <<: *database-environment
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nido -d nido"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  migrate:
+    <<: *app-image
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      <<: *database-environment
+    secrets:
+      - postgres_password
+    networks:
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
   nido:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *app-image
     restart: unless-stopped
     init: true
     environment:
+      <<: *database-environment
       NODE_ENV: production
-      NIDO_DATA_DIR: /data
-      NIDO_PORT: "3000"
+      HOST: 0.0.0.0
+      PORT: "3000"
+      NIDO_APPLE_AUDIENCE: ${NIDO_APPLE_AUDIENCE:?NIDO_APPLE_AUDIENCE is required}
+      NIDO_AUTH_BUCKET_SECRET_FILE: /run/secrets/auth_bucket_secret
+    secrets:
+      - postgres_password
+      - auth_bucket_secret
     expose:
       - "3000"
-    volumes:
-      - nido-data:/data
+    networks:
+      - application
+      - database
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3000/api/nido/status').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/nido/status').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
-      start_period: 60s
+      start_period: 20s
       retries: 3
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
     stop_grace_period: 20s
     security_opt:
       - no-new-privileges:true
@@ -32,5 +96,16 @@ services:
         max-size: "10m"
         max-file: "3"
 
+networks:
+  application:
+  database:
+    internal: true
+
 volumes:
-  nido-data:
+  postgres-data:
+
+secrets:
+  postgres_password:
+    file: ./deploy/secrets/postgres_password
+  auth_bucket_secret:
+    file: ./deploy/secrets/auth_bucket_secret
