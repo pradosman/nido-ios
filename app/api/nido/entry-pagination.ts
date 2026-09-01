@@ -1,6 +1,6 @@
 import { and, desc, eq, lt, or } from "drizzle-orm";
-import { getDb } from "../../../db";
-import { entries, entryAuthors } from "../../../db/schema";
+import { getDb } from "../../../db/index.ts";
+import { entries, entryAuthors } from "../../../db/schema.ts";
 
 export const DEFAULT_ENTRY_PAGE_SIZE = 100;
 export const MAX_ENTRY_PAGE_SIZE = 200;

@@ -1,8 +1,8 @@
 import { and, eq, ne } from "drizzle-orm";
-import { getDb } from "../../../db";
-import { caregivers, profiles } from "../../../db/schema";
-import { publicCaregiverFields, requireCaregiver } from "./auth";
-import { DEFAULT_ENTRY_PAGE_SIZE, loadEntryPage } from "./entry-pagination";
+import { getDb } from "../../../db/index.ts";
+import { caregivers, profiles } from "../../../db/schema.ts";
+import { publicCaregiverFields, requireCaregiver } from "./auth.ts";
+import { DEFAULT_ENTRY_PAGE_SIZE, loadEntryPage } from "./entry-pagination.ts";
 
 export async function GET(request: Request) {
   try {
@@ -21,9 +21,7 @@ export async function GET(request: Request) {
       ne(caregivers.status, "removed"),
       authorization.caregiver.role === "owner" ? undefined : eq(caregivers.status, "active"),
     )).orderBy(caregivers.createdAt);
-    const family = authorization.caregiver.role === "owner"
-      ? familyRows
-      : familyRows.map(caregiver => ({ ...caregiver, inviteCode: null }));
+    const family = familyRows.map(caregiver => ({ ...caregiver, inviteCode: null }));
     return Response.json({
       profile: profile ?? null,
       entries: activity.entries,
@@ -31,8 +29,7 @@ export async function GET(request: Request) {
       caregivers: family,
       currentCaregiverID: authorization.caregiver.id,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudieron cargar los datos";
-    return Response.json({ error: message }, { status: 500 });
+  } catch {
+    return Response.json({ error: "Unable to load household data" }, { status: 500 });
   }
 }
