@@ -50,7 +50,6 @@ export function createAppleIdentityVerifier(options: AppleVerifierOptions) {
       || typeof payload.exp !== "number"
       || issuedAt > currentSeconds + 30
       || currentSeconds - issuedAt > maxTokenAgeSeconds
-      || payload.exp > currentSeconds + maxTokenAgeSeconds
     ) {
       throw new Error("Invalid Apple identity claims");
     }

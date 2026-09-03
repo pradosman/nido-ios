@@ -41,6 +41,15 @@ test("Apple verifier accepts a locally signed token with the exact identity cont
   assert.deepEqual(await verify(appleToken(), nonce), { subject: "001234.stable-apple-subject" });
 });
 
+test("Apple verifier accepts a fresh signed token with provider-controlled future expiration", async () => {
+  const verify = await verifier();
+  const expiration = Math.floor(now.getTime() / 1000) + 3_600;
+  assert.deepEqual(
+    await verify(appleToken({ exp: expiration }), nonce),
+    { subject: "001234.stable-apple-subject" },
+  );
+});
+
 test("Apple verifier rejects untrusted identity, algorithm, nonce, and token age", async () => {
   const verify = await verifier();
   const invalidTokens = [
@@ -50,7 +59,6 @@ test("Apple verifier rejects untrusted identity, algorithm, nonce, and token age
     appleToken({ sub: "" }),
     appleToken({ nonce: "0".repeat(64) }),
     appleToken({ iat: Math.floor(now.getTime() / 1000) - 601 }),
-    appleToken({ exp: Math.floor(now.getTime() / 1000) + 601 }),
     appleToken({}, { alg: "HS256" }),
   ];
   for (const token of invalidTokens) {
