@@ -106,6 +106,6 @@ volumes:
 
 secrets:
   postgres_password:
-    file: ./deploy/secrets/postgres_password
+    environment: NIDO_POSTGRES_PASSWORD
   auth_bucket_secret:
-    file: ./deploy/secrets/auth_bucket_secret
+    environment: NIDO_AUTH_BUCKET_SECRET
