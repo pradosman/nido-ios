@@ -61,6 +61,20 @@ test("PostgreSQL domains, health, migration locking, and explicit database user 
   assert.match(compose, /postgres:\s*[\s\S]*?user:\s*["']?postgres["']?/);
 });
 
+test("Dokploy supplies Compose secrets from protected environment variables", async () => {
+  const [compose, readme] = await Promise.all([
+    readFile("compose.vps.yml", "utf8"),
+    readFile("README.md", "utf8"),
+  ]);
+
+  assert.match(compose, /postgres_password:\s*\n\s+environment:\s*NIDO_POSTGRES_PASSWORD/);
+  assert.match(compose, /auth_bucket_secret:\s*\n\s+environment:\s*NIDO_AUTH_BUCKET_SECRET/);
+  assert.doesNotMatch(compose, /file:\s*\.\/deploy\/secrets\//);
+  assert.match(readme, /NIDO_POSTGRES_PASSWORD/);
+  assert.match(readme, /NIDO_AUTH_BUCKET_SECRET/);
+  assert.match(readme, /NIDO_APPLE_AUDIENCE/);
+});
+
 test("deployment documentation states the no-migration boundary and failed-restore recovery", async () => {
   const readme = await readFile("README.md", "utf8");
   assert.match(readme, /pre-user/i);

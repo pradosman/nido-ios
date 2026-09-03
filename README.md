@@ -39,21 +39,20 @@ Este despliegue PostgreSQL se aprobó exclusivamente para la instalación **pre-
 
 ### 1. Preparar secretos
 
-No uses los valores de los archivos `.example`. Genera valores nuevos y guárdalos sin salto de línea final:
+Configura estas variables protegidas en Dokploy; Docker Compose las materializa como archivos dentro de `/run/secrets` sin guardarlas en el checkout del repositorio:
 
 ```bash
-mkdir -p deploy/secrets
-openssl rand -base64 36 | tr -d '=+/' | cut -c1-40 > deploy/secrets/postgres_password
-openssl rand -hex 32 > deploy/secrets/auth_bucket_secret
-chmod 600 deploy/secrets/postgres_password deploy/secrets/auth_bucket_secret
+NIDO_POSTGRES_PASSWORD=<contraseña-aleatoria-segura-para-url>
+NIDO_AUTH_BUCKET_SECRET=<secreto-aleatorio-de-al-menos-32-caracteres>
+NIDO_APPLE_AUDIENCE=com.momentumia.nido
 ```
 
-Los secretos reales están excluidos de Git. El password de PostgreSQL admite únicamente caracteres seguros para URL porque el contenedor construye `DATABASE_URL` sin imprimirlo.
+No copies estos valores al repositorio ni a los archivos `.example`. El password de PostgreSQL admite únicamente caracteres seguros para URL porque el contenedor construye `DATABASE_URL` sin imprimirlo. Si el volumen `postgres-data` ya fue inicializado, reutiliza su contraseña original: cambiar únicamente la variable no cambia la contraseña almacenada por PostgreSQL.
 
 ### 2. Configurar Dokploy
 
 1. Crea un servicio **Docker Compose** con `./compose.vps.yml`.
-2. Define `NIDO_APPLE_AUDIENCE` con el identificador de la app que acepta Sign in with Apple.
+2. Define `NIDO_POSTGRES_PASSWORD`, `NIDO_AUTH_BUCKET_SECRET` y `NIDO_APPLE_AUDIENCE` como variables protegidas del servicio Compose. Para esta app, la audiencia es `com.momentumia.nido`.
 3. Añade el dominio limitándolo a la API:
 
    | Campo | Valor |
