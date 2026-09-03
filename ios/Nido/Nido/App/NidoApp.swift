@@ -5,6 +5,7 @@ struct NidoApp: App {
     @State private var store: NidoStore
     @Environment(\.scenePhase) private var scenePhase
     private let shouldLoadOnLaunch: Bool
+    private let uiTestScenario: String?
 
     init() {
         #if DEBUG
@@ -21,18 +22,35 @@ struct NidoApp: App {
                     .appending(path: runID, directoryHint: .isDirectory)
                     .appending(path: "snapshot.json")
                 let credentialStore = CredentialStore(service: "com.momentumia.nido.uitests.\(runID)")
+                let initialAccessToken = ProcessInfo.processInfo.environment["NIDO_UI_TEST_ACCESS_TOKEN"]
+                let cache = LocalCache(fileURL: cacheURL)
+                let eventHub = RegistrationMutationEventHub()
+                let registrationService = NidoRegistrationServices.make(
+                    api: NidoAPI(baseURL: baseURL),
+                    cache: cache,
+                    credentialStore: credentialStore,
+                    stateDefaults: defaults,
+                    legacyDefaults: defaults,
+                    stateStore: RegistrationStateFileStore(
+                        fileURL: cacheURL.deletingLastPathComponent().appending(path: "registration-state.json")
+                    ),
+                    eventHub: eventHub,
+                    credentialOverride: initialAccessToken.map {
+                        SessionCredential(accessToken: $0, expiresAt: .now.addingTimeInterval(3_600), appleUserID: nil)
+                    }
+                )
                 let store = NidoStore(
                     api: NidoAPI(baseURL: baseURL),
-                    cache: LocalCache(fileURL: cacheURL),
                     credentialStore: credentialStore,
                     defaults: defaults,
                     shouldLoadCredential: false,
-                    initialAccessToken: scenario == "multi-household" || scenario == "history-pagination" || scenario == "caregiver-permissions"
-                        ? ProcessInfo.processInfo.environment["NIDO_UI_TEST_ACCESS_TOKEN"]
-                        : nil
+                    initialAccessToken: initialAccessToken,
+                    registrationService: registrationService,
+                    registrationEventHub: eventHub
                 )
                 _store = State(initialValue: store)
                 shouldLoadOnLaunch = true
+                uiTestScenario = nil
                 return
             }
             let referenceNow: Date
@@ -56,20 +74,41 @@ struct NidoApp: App {
                 .appending(path: "NidoUITests", directoryHint: .isDirectory)
                 .appending(path: runID, directoryHint: .isDirectory)
                 .appending(path: "snapshot.json")
-            let store = NidoStore(
-                cache: LocalCache(fileURL: cacheURL),
-                defaults: defaults,
-                now: { referenceNow }
+            let cache = LocalCache(fileURL: cacheURL)
+            let localCredential = SessionCredential(
+                accessToken: "local-ui-test-session",
+                expiresAt: referenceNow.addingTimeInterval(86_400),
+                appleUserID: nil
             )
-            store.prepareForUITesting(scenario: scenario)
+            let eventHub = RegistrationMutationEventHub()
+            let registrationService = NidoRegistrationServices.make(
+                cache: cache,
+                stateDefaults: defaults,
+                legacyDefaults: defaults,
+                stateStore: RegistrationStateFileStore(
+                    fileURL: cacheURL.deletingLastPathComponent().appending(path: "registration-state.json")
+                ),
+                eventHub: eventHub,
+                credentialOverride: localCredential,
+                now: { referenceNow },
+                createEntry: { _, _ in throw URLError(.notConnectedToInternet) }
+            )
+            let store = NidoStore(
+                defaults: defaults,
+                now: { referenceNow },
+                registrationService: registrationService,
+                registrationEventHub: eventHub
+            )
             _store = State(initialValue: store)
             shouldLoadOnLaunch = false
+            uiTestScenario = scenario
             return
         }
         #endif
         let store = NidoStore()
         _store = State(initialValue: store)
         shouldLoadOnLaunch = true
+        uiTestScenario = nil
     }
 
     var body: some Scene {
@@ -78,6 +117,10 @@ struct NidoApp: App {
                 .environment(store)
                 .modifier(UITestDynamicTypeOverride())
                 .task {
+                    if let uiTestScenario {
+                        await store.prepareForUITesting(scenario: uiTestScenario)
+                        return
+                    }
                     guard shouldLoadOnLaunch else { return }
                     await store.load()
                 }

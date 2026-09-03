@@ -6,7 +6,7 @@ import XCTest
 
 @MainActor
 final class CircularTimelineSnapshotTests: XCTestCase {
-    func testCircularTimelineDial() throws {
+    func testCircularTimelineDial() async throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Madrid"))
         let now = try XCTUnwrap(calendar.date(from: DateComponents(
@@ -22,13 +22,30 @@ final class CircularTimelineSnapshotTests: XCTestCase {
         let cacheURL = FileManager.default.temporaryDirectory
             .appending(path: "NidoSnapshotTests", directoryHint: .isDirectory)
             .appending(path: "circular-timeline.json")
+        let cache = LocalCache(fileURL: cacheURL)
+        let eventHub = RegistrationMutationEventHub()
+        let registrationService = NidoRegistrationServices.make(
+            cache: cache,
+            stateDefaults: defaults,
+            legacyDefaults: defaults,
+            stateStore: RegistrationStateFileStore(
+                fileURL: cacheURL.deletingLastPathComponent().appending(path: "registration-state.json")
+            ),
+            eventHub: eventHub,
+            credentialOverride: SessionCredential(
+                accessToken: "snapshot-test-session",
+                expiresAt: now.addingTimeInterval(3_600),
+                appleUserID: nil
+            )
+        )
         let store = NidoStore(
-            cache: LocalCache(fileURL: cacheURL),
             defaults: defaults,
             now: { now },
-            shouldLoadCredential: false
+            shouldLoadCredential: false,
+            registrationService: registrationService,
+            registrationEventHub: eventHub
         )
-        store.prepareForUITesting(scenario: "circular-timeline")
+        await store.prepareForUITesting(scenario: "circular-timeline")
         let day = CircularTimeline.day(
             on: now,
             entries: store.entries,

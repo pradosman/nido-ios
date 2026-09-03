@@ -11,7 +11,7 @@ enum NidoFeedbackKind {
 }
 
 @Observable
-final class NidoStore {
+final class NidoStore: RegistrationMutationEventReceiver {
     enum Phase: Equatable {
         case loading
         case authentication
@@ -46,11 +46,13 @@ final class NidoStore {
     private var pendingUpdatedEntryIDs: Set<String> = []
     private var pendingDeletionIDs: Set<String> = []
     private var sessionCredential: SessionCredential?
+    private var pendingActionableNotice: String?
     private var accessToken: String? { sessionCredential?.accessToken }
     private let api: NidoAPI
-    private let cache: LocalCache
     private let credentialStore: CredentialStore
     private let defaults: UserDefaults
+    private let registrationService: RegistrationMutationService
+    private let registrationEventHub: RegistrationMutationEventHub
     private let nowProvider: () -> Date
     private let hasInjectedNowProvider: Bool
     private let logger = Logger(subsystem: "com.momentumia.nido", category: "store")
@@ -58,17 +60,19 @@ final class NidoStore {
 
     init(
         api: NidoAPI = NidoAPI(baseURL: AppConfiguration.apiBaseURL),
-        cache: LocalCache = LocalCache(),
         credentialStore: CredentialStore = CredentialStore(),
         defaults: UserDefaults = .standard,
         now: (() -> Date)? = nil,
         shouldLoadCredential: Bool = true,
-        initialAccessToken: String? = nil
+        initialAccessToken: String? = nil,
+        registrationService: RegistrationMutationService = NidoRegistrationServices.shared,
+        registrationEventHub: RegistrationMutationEventHub = NidoRegistrationServices.eventHub
     ) {
         self.api = api
-        self.cache = cache
         self.credentialStore = credentialStore
         self.defaults = defaults
+        self.registrationService = registrationService
+        self.registrationEventHub = registrationEventHub
         self.nowProvider = now ?? { .now }
         self.hasInjectedNowProvider = now != nil
         if let initialAccessToken {
@@ -82,13 +86,11 @@ final class NidoStore {
         }
         pendingUpdatedEntryIDs = Set(defaults.stringArray(forKey: "pendingUpdatedEntryIDs") ?? [])
         pendingDeletionIDs = Set(defaults.stringArray(forKey: "pendingDeletionIDs") ?? [])
-        if let timestamp = defaults.object(forKey: "activeSleepStartedAt") as? Double {
-            activeSleepStartedAt = Date(timeIntervalSince1970: timestamp)
-        }
         if let timestamp = defaults.object(forKey: "activeFeedStartedAt") as? Double {
             activeFeedStartedAt = Date(timeIntervalSince1970: timestamp)
             activeFeedSide = defaults.string(forKey: "activeFeedSide").flatMap(BreastSide.init(rawValue:)) ?? .left
         }
+        registrationEventHub.attach(self)
     }
 
     var now: Date { nowProvider() }
@@ -98,7 +100,7 @@ final class NidoStore {
     }
 
     #if DEBUG
-    func prepareForUITesting(scenario: String) {
+    func prepareForUITesting(scenario: String) async {
         phase = .loading
         profile = nil
         entries = []
@@ -308,6 +310,7 @@ final class NidoStore {
                     )
                 }
                 phase = .ready
+                _ = await persist()
                 return
             }
             func fixtureEntry(
@@ -372,6 +375,7 @@ final class NidoStore {
             )]
         }
         phase = .ready
+        _ = await persist()
     }
     #endif
 
@@ -385,7 +389,7 @@ final class NidoStore {
             await invalidateSession(message: "Tu acceso con Apple ya no está autorizado.")
             return
         }
-        restoreCache()
+        await restoreCache()
         let token = credential.accessToken
         do {
             try await synchronizePendingChanges()
@@ -402,7 +406,7 @@ final class NidoStore {
                 selectCaregiver(authenticated)
             }
             isOffline = false
-            persist()
+            _ = await persist()
         } catch {
             if isUnauthorized(error) {
                 await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
@@ -459,7 +463,7 @@ final class NidoStore {
             phase = .ready
             notice = "Perfil guardado"
             signalFeedback(.success)
-            persist()
+            _ = await persist()
         } catch {
             if isUnauthorized(error) {
                 await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
@@ -473,7 +477,7 @@ final class NidoStore {
                 profile = value
                 profileNeedsSync = true
                 phase = currentCaregiver == nil ? .caregiverAccess : .ready
-                persist()
+                _ = await persist()
             }
         }
     }
@@ -498,50 +502,43 @@ final class NidoStore {
     }
 
     private func addEntry(draft: RegistrationDraft, actionableNotice: String? = nil) async {
-        let entry = draft.makeEntry(
-            id: UUID().uuidString,
+        pendingActionableNotice = actionableNotice
+        defer { pendingActionableNotice = nil }
+        let result = await registrationService.create(
+            draft: draft,
             caregiverID: currentCaregiver?.id,
             caregiverName: currentCaregiver?.name
         )
-        entries.insert(entry, at: 0)
-        pendingEntryIDs.insert(entry.id)
+        if result.outcome == .authenticationRequired { return }
+        entries = result.snapshot.entries.sorted { $0.occurredAt > $1.occurredAt }
+        pendingEntryIDs = result.snapshot.pendingEntryIDs
+        activeSleepStartedAt = result.activeSleepStartedAt
         presentedEntryKind = nil
         signalFeedback(.success)
-        persist()
-        if let actionableNotice {
+        if let actionableNotice, let entry = result.entry {
             recentlyDeletedEntry = nil
             recentlyCreatedEntry = entry
             notice = actionableNotice
         }
-        do {
-            guard let accessToken else { throw APIError.missingCredential }
-            let saved = try await api.create(entry: entry, accessToken: accessToken)
-            if let index = entries.firstIndex(where: { $0.id == entry.id }) {
-                entries[index] = saved
-                pendingEntryIDs.remove(entry.id)
-                if recentlyCreatedEntry?.id == entry.id {
-                    recentlyCreatedEntry = saved
-                }
-            } else {
-                try await api.delete(entryID: saved.id, accessToken: accessToken)
-            }
+        switch result.outcome {
+        case .registered, .sleepFinished:
             isOffline = false
-            if actionableNotice == nil {
+            if actionableNotice == nil, let entry = result.entry {
                 notice = "\(entry.title) guardado"
             }
-            persist()
             if draft.kind == .feed, defaults.bool(forKey: "feedCheckReminder"), let profile {
                 await ReminderManager.scheduleFeedCheck(babyName: profile.babyName)
             }
-        } catch {
-            if SessionFailurePolicy.disposition(for: error, during: .create) == .invalidateSession {
-                await invalidateSession(message: "Vuelve a iniciar sesión para acceder.")
-                return
-            }
+        case .queued:
             isOffline = true
             if actionableNotice == nil {
                 notice = "Guardado. Se sincronizará cuando vuelva la conexión."
             }
+        case .storageUnavailable:
+            notice = result.dialog
+            signalFeedback(.error)
+        case .noReusableFeed, .sleepStarted, .sleepAlreadyActive, .noActiveSleep, .authenticationRequired:
+            break
         }
     }
 
@@ -554,7 +551,7 @@ final class NidoStore {
         entries.sort { $0.occurredAt > $1.occurredAt }
         pendingUpdatedEntryIDs.insert(entry.id)
         editingEntry = nil
-        persist()
+        guard await persist() else { return }
         do {
             guard let accessToken else { throw APIError.missingCredential }
             let saved = try await api.update(entry: entry, accessToken: accessToken)
@@ -577,7 +574,7 @@ final class NidoStore {
             notice = "Cambio guardado. Se sincronizará cuando vuelva la conexión."
         }
         signalFeedback(.success)
-        persist()
+        _ = await persist()
     }
 
     func deleteEntry(_ entry: Entry) async {
@@ -591,7 +588,7 @@ final class NidoStore {
         recentlyDeletedEntry = entry
         notice = "Registro eliminado"
         signalFeedback(.warning)
-        persist()
+        guard await persist(removingEntryIDs: [entry.id]) else { return }
         do {
             guard let accessToken else { throw APIError.missingCredential }
             try await api.delete(entryID: entry.id, accessToken: accessToken)
@@ -603,7 +600,7 @@ final class NidoStore {
             }
             isOffline = true
         }
-        persist()
+        _ = await persist(removingEntryIDs: [entry.id])
     }
 
     func undoDelete() async {
@@ -613,7 +610,7 @@ final class NidoStore {
         entries.insert(entry, at: 0)
         entries.sort { $0.occurredAt > $1.occurredAt }
         pendingEntryIDs.insert(entry.id)
-        persist()
+        guard await persist() else { return }
         do {
             guard let accessToken else { throw APIError.missingCredential }
             _ = try await api.create(entry: entry, accessToken: accessToken)
@@ -628,7 +625,7 @@ final class NidoStore {
             notice = "Registro recuperado. Se sincronizará cuando vuelva la conexión."
         }
         signalFeedback(.success)
-        persist()
+        _ = await persist()
     }
 
     func editRecentlyCreatedEntry() {
@@ -649,7 +646,7 @@ final class NidoStore {
         }
         notice = "Registro deshecho"
         signalFeedback(.warning)
-        persist()
+        guard await persist(removingEntryIDs: [entry.id]) else { return }
 
         guard !wasPendingCreation else { return }
         do {
@@ -666,7 +663,7 @@ final class NidoStore {
             }
             isOffline = true
         }
-        persist()
+        _ = await persist(removingEntryIDs: [entry.id])
     }
 
     func restoreBackup(_ backup: NidoBackup) async {
@@ -695,7 +692,7 @@ final class NidoStore {
             pendingEntryIDs.insert(entry.id)
         }
         entries.sort { $0.occurredAt > $1.occurredAt }
-        persist()
+        guard await persist() else { return }
         do {
             try await synchronizePendingChanges()
             isOffline = false
@@ -709,43 +706,38 @@ final class NidoStore {
             notice = "Copia restaurada. Se sincronizará cuando vuelva la conexión."
         }
         signalFeedback(.success)
-        persist()
+        _ = await persist()
     }
 
     func toggleSleep() async {
-        if let start = activeSleepStartedAt {
-            let interval = SleepInterval(start: start, end: .now)
-            activeSleepStartedAt = nil
-            defaults.removeObject(forKey: "activeSleepStartedAt")
-            await addEntry(
-                kind: .sleep,
-                detail: interval.detail(note: ""),
-                date: interval.end,
-                durationMinutes: interval.durationMinutes,
-                amountMl: nil
+        if activeSleepStartedAt != nil {
+            let result = await registrationService.finishSleep(
+                caregiverID: currentCaregiver?.id,
+                caregiverName: currentCaregiver?.name
             )
+            await applySleepResult(result)
             await NidoLiveActivity.end(kind: "sleep")
         } else {
-            let startedAt = Date.now
-            activeSleepStartedAt = startedAt
-            defaults.set(startedAt.timeIntervalSince1970, forKey: "activeSleepStartedAt")
-            _ = NidoLiveActivity.start(
-                kind: "sleep",
-                babyName: profile?.babyName ?? "Bebé",
-                startedAt: startedAt
-            )
-            notice = "Sueño iniciado"
-            signalFeedback(.selection)
-            updateWidgets()
+            let result = await registrationService.startSleep()
+            await applySleepResult(result)
+            if result.outcome == .sleepStarted, let startedAt = result.activeSleepStartedAt {
+                _ = NidoLiveActivity.start(
+                    kind: "sleep",
+                    babyName: profile?.babyName ?? "Bebé",
+                    startedAt: startedAt
+                )
+            }
         }
     }
 
     func updateActiveSleepStart(_ startedAt: Date) async {
         guard activeSleepStartedAt != nil else { return }
 
-        let correctedStart = min(startedAt, .now)
+        guard let correctedStart = try? await registrationService.updateSleepStart(startedAt) else {
+            notice = RegistrationMutationResult.dialog(for: .storageUnavailable, category: .sleep)
+            return
+        }
         activeSleepStartedAt = correctedStart
-        defaults.set(correctedStart.timeIntervalSince1970, forKey: "activeSleepStartedAt")
         await NidoLiveActivity.reconcile(
             sleepStartedAt: correctedStart,
             feedStartedAt: activeFeedStartedAt,
@@ -913,18 +905,70 @@ final class NidoStore {
         recentlyCreatedEntry = nil
     }
 
+    func registrationServiceDidCommit(_ commit: RegistrationLocalCommit) {
+        profile = commit.snapshot.profile
+        entries = commit.snapshot.entries.sorted { $0.occurredAt > $1.occurredAt }
+        pendingEntryIDs = commit.snapshot.pendingEntryIDs
+        activeSleepStartedAt = commit.activeSleepStartedAt
+        if let actionableNotice = pendingActionableNotice, let entry = commit.entry {
+            recentlyDeletedEntry = nil
+            recentlyCreatedEntry = entry
+            notice = actionableNotice
+            signalFeedback(.success)
+        }
+        updateWidgets()
+    }
+
+    func registrationServiceDidInvalidate() {
+        sessionCredential = nil
+        clearInMemoryHouseholdData()
+        phase = .authentication
+        notice = "Vuelve a iniciar sesión para acceder."
+        isOffline = false
+    }
+
+    private func applySleepResult(_ result: RegistrationMutationResult) async {
+        if result.outcome == .authenticationRequired { return }
+        entries = result.snapshot.entries.sorted { $0.occurredAt > $1.occurredAt }
+        pendingEntryIDs = result.snapshot.pendingEntryIDs
+        activeSleepStartedAt = result.activeSleepStartedAt
+        switch result.outcome {
+        case .sleepStarted:
+            notice = "Sueño iniciado"
+            signalFeedback(.selection)
+        case .sleepAlreadyActive:
+            notice = "Ya hay un sueño en curso"
+        case .sleepFinished:
+            isOffline = false
+            notice = "Sueño guardado"
+            signalFeedback(.success)
+        case .queued:
+            isOffline = true
+            notice = "Guardado. Se sincronizará cuando vuelva la conexión."
+            signalFeedback(.success)
+        case .noActiveSleep:
+            notice = "No hay un sueño activo"
+        case .storageUnavailable:
+            notice = result.dialog
+            signalFeedback(.error)
+        case .registered, .noReusableFeed, .authenticationRequired:
+            break
+        }
+    }
+
     private func signalFeedback(_ kind: NidoFeedbackKind) {
         feedbackKind = kind
         feedbackToken += 1
     }
 
-    private func restoreCache() {
+    private func restoreCache() async {
         do {
-            let snapshot = try cache.load()
+            let (snapshot, sleepStartedAt) = try await registrationService.snapshot()
             profile = snapshot.profile
             entries = snapshot.entries.sorted { $0.occurredAt > $1.occurredAt }
             pendingEntryIDs = snapshot.pendingEntryIDs
             profileNeedsSync = snapshot.profileNeedsSync
+            activeSleepStartedAt = sleepStartedAt
         } catch {
             logger.error("Cache could not be read: \(error.localizedDescription, privacy: .private(mask: .hash))")
         }
@@ -967,23 +1011,31 @@ final class NidoStore {
             try await api.delete(entryID: id, accessToken: accessToken)
             pendingDeletionIDs.remove(id)
         }
-        persist()
+        _ = await persist()
     }
 
-    private func persist() {
+    @discardableResult
+    private func persist(removingEntryIDs: Set<String> = []) async -> Bool {
         defaults.set(Array(pendingUpdatedEntryIDs), forKey: "pendingUpdatedEntryIDs")
         defaults.set(Array(pendingDeletionIDs), forKey: "pendingDeletionIDs")
         do {
-            try cache.save(NidoSnapshot(
+            let saved = try await registrationService.saveAppSnapshot(NidoSnapshot(
                 profile: profile,
                 entries: entries,
                 pendingEntryIDs: pendingEntryIDs,
                 profileNeedsSync: profileNeedsSync
-            ))
+            ), removingEntryIDs: removingEntryIDs)
+            profile = saved.profile
+            entries = saved.entries
+            pendingEntryIDs = saved.pendingEntryIDs
         } catch {
             logger.error("Cache could not be saved: \(error.localizedDescription, privacy: .private(mask: .hash))")
+            notice = RegistrationMutationResult.dialog(for: .storageUnavailable)
+            signalFeedback(.error)
+            return false
         }
         updateWidgets()
+        return true
     }
 
     private func updateWidgets() {
@@ -1011,13 +1063,20 @@ final class NidoStore {
     private func invalidateSession(message: String?) async {
         credentialStore.delete()
         sessionCredential = nil
-        await clearHouseholdData()
+        await registrationService.clearPrivateData()
         phase = .authentication
         notice = message
         isOffline = false
     }
 
     private func clearHouseholdData() async {
+        await registrationService.clearPersistentHouseholdData()
+        clearInMemoryHouseholdData()
+        updateWidgets()
+        await NidoLiveActivity.endAll()
+    }
+
+    private func clearInMemoryHouseholdData() {
         profile = nil
         entries = []
         caregivers = []
@@ -1038,9 +1097,6 @@ final class NidoStore {
         defaults.removeObject(forKey: "activeSleepStartedAt")
         defaults.removeObject(forKey: "activeFeedStartedAt")
         defaults.removeObject(forKey: "activeFeedSide")
-        try? cache.remove()
-        updateWidgets()
-        await NidoLiveActivity.endAll()
     }
 
     private func selectCaregiver(_ caregiver: Caregiver) {
@@ -1059,5 +1115,5 @@ enum AppTab: Hashable {
 }
 
 enum AppConfiguration {
-    static let apiBaseURL = URL(string: "https://nido.momentumia.com")!
+    nonisolated static let apiBaseURL = URL(string: "https://nido.momentumia.com")!
 }
