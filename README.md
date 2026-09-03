@@ -39,7 +39,7 @@ Este despliegue PostgreSQL se aprobó exclusivamente para la instalación **pre-
 
 ### 1. Preparar secretos
 
-Configura estas variables protegidas en Dokploy; Docker Compose las materializa como archivos dentro de `/run/secrets` sin guardarlas en el checkout del repositorio:
+Configura estas variables protegidas en Dokploy. Se inyectan directamente en los contenedores para conservar `read_only: true` sin depender de archivos dentro del checkout del repositorio:
 
 ```bash
 NIDO_POSTGRES_PASSWORD=<contraseña-aleatoria-segura-para-url>

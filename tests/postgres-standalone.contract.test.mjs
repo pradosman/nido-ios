@@ -71,7 +71,11 @@ test("production deployment is a standalone Node server backed by private Postgr
   assert.match(compose, /internal:\s*true/);
   assert.match(compose, /condition:\s*service_completed_successfully/);
   assert.doesNotMatch(compose, /postgres:[\s\S]*ports:/);
-  assert.match(compose, /secrets:/);
+  assert.match(compose, /POSTGRES_PASSWORD:\s*\$\{NIDO_POSTGRES_PASSWORD:\?[^}]+\}/);
+  assert.match(compose, /NIDO_AUTH_BUCKET_SECRET:\s*\$\{NIDO_AUTH_BUCKET_SECRET:\?[^}]+\}/);
+  assert.doesNotMatch(compose, /^secrets:/m);
+  assert.match(compose, /migrate:[\s\S]*?read_only:\s*true/);
+  assert.match(compose, /nido:[\s\S]*?read_only:\s*true/);
   assert.match(gitignore, /deploy\/secrets\/\*/);
 });
 

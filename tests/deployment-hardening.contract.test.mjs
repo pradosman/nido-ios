@@ -61,15 +61,19 @@ test("PostgreSQL domains, health, migration locking, and explicit database user 
   assert.match(compose, /postgres:\s*[\s\S]*?user:\s*["']?postgres["']?/);
 });
 
-test("Dokploy supplies Compose secrets from protected environment variables", async () => {
-  const [compose, readme] = await Promise.all([
+test("Dokploy injects protected variables without Compose secret copies in read-only services", async () => {
+  const [compose, entrypoint, readme] = await Promise.all([
     readFile("compose.vps.yml", "utf8"),
+    readFile("deploy/entrypoint.sh", "utf8"),
     readFile("README.md", "utf8"),
   ]);
 
-  assert.match(compose, /postgres_password:\s*\n\s+environment:\s*NIDO_POSTGRES_PASSWORD/);
-  assert.match(compose, /auth_bucket_secret:\s*\n\s+environment:\s*NIDO_AUTH_BUCKET_SECRET/);
-  assert.doesNotMatch(compose, /file:\s*\.\/deploy\/secrets\//);
+  assert.match(compose, /POSTGRES_PASSWORD:\s*\$\{NIDO_POSTGRES_PASSWORD:\?[^}]+\}/);
+  assert.match(compose, /NIDO_AUTH_BUCKET_SECRET:\s*\$\{NIDO_AUTH_BUCKET_SECRET:\?[^}]+\}/);
+  assert.doesNotMatch(compose, /^secrets:/m);
+  assert.doesNotMatch(compose, /^\s+secrets:/m);
+  assert.match(entrypoint, /POSTGRES_PASSWORD/);
+  assert.match(entrypoint, /NIDO_AUTH_BUCKET_SECRET/);
   assert.match(readme, /NIDO_POSTGRES_PASSWORD/);
   assert.match(readme, /NIDO_AUTH_BUCKET_SECRET/);
   assert.match(readme, /NIDO_APPLE_AUDIENCE/);

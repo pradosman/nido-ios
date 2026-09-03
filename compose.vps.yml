@@ -8,7 +8,7 @@ x-database-environment: &database-environment
   POSTGRES_PORT: "5432"
   POSTGRES_USER: nido
   POSTGRES_DB: nido
-  POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+  POSTGRES_PASSWORD: ${NIDO_POSTGRES_PASSWORD:?NIDO_POSTGRES_PASSWORD is required}
 
 services:
   postgres:
@@ -17,8 +17,6 @@ services:
     restart: unless-stopped
     environment:
       <<: *database-environment
-    secrets:
-      - postgres_password
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -43,8 +41,6 @@ services:
     restart: "no"
     environment:
       <<: *database-environment
-    secrets:
-      - postgres_password
     networks:
       - database
     depends_on:
@@ -66,10 +62,7 @@ services:
       HOST: 0.0.0.0
       PORT: "3000"
       NIDO_APPLE_AUDIENCE: ${NIDO_APPLE_AUDIENCE:?NIDO_APPLE_AUDIENCE is required}
-      NIDO_AUTH_BUCKET_SECRET_FILE: /run/secrets/auth_bucket_secret
-    secrets:
-      - postgres_password
-      - auth_bucket_secret
+      NIDO_AUTH_BUCKET_SECRET: ${NIDO_AUTH_BUCKET_SECRET:?NIDO_AUTH_BUCKET_SECRET is required}
     expose:
       - "3000"
     networks:
@@ -103,9 +96,3 @@ networks:
 
 volumes:
   postgres-data:
-
-secrets:
-  postgres_password:
-    environment: NIDO_POSTGRES_PASSWORD
-  auth_bucket_secret:
-    environment: NIDO_AUTH_BUCKET_SECRET
