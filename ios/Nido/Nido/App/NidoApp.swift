@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 
 @main
@@ -8,6 +9,7 @@ struct NidoApp: App {
     private let uiTestScenario: String?
 
     init() {
+        NidoRegistrationShortcuts.updateAppShortcutParameters()
         #if DEBUG
         if let scenario = ProcessInfo.processInfo.environment["NIDO_UI_TEST_SCENARIO"] {
             let runID = ProcessInfo.processInfo.environment["NIDO_UI_TEST_RUN_ID"] ?? UUID().uuidString

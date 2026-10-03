@@ -139,7 +139,10 @@ struct NidoRegistrationShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: RegisterDiaperIntent(),
-            phrases: ["Registra un pañal con \(.applicationName)"],
+            phrases: [
+                "Registra un pañal con \(.applicationName)",
+                "Registra un pañal en \(.applicationName)",
+            ],
             shortTitle: "Registrar pañal",
             systemImageName: "drop.fill"
         )
@@ -147,20 +150,28 @@ struct NidoRegistrationShortcuts: AppShortcutsProvider {
             intent: RepeatFeedIntent(),
             phrases: [
                 "Repite la última toma con \(.applicationName)",
+                "Repite la última toma en \(.applicationName)",
                 "Registra una toma con \(.applicationName)",
+                "Registra una toma en \(.applicationName)",
             ],
             shortTitle: "Repetir toma",
             systemImageName: "waterbottle.fill"
         )
         AppShortcut(
             intent: StartSleepIntent(),
-            phrases: ["Inicia el sueño con \(.applicationName)"],
+            phrases: [
+                "Inicia el sueño con \(.applicationName)",
+                "Inicia el sueño en \(.applicationName)",
+            ],
             shortTitle: "Iniciar sueño",
             systemImageName: "moon.fill"
         )
         AppShortcut(
             intent: FinishSleepIntent(),
-            phrases: ["Termina el sueño con \(.applicationName)"],
+            phrases: [
+                "Termina el sueño con \(.applicationName)",
+                "Termina el sueño en \(.applicationName)",
+            ],
             shortTitle: "Terminar sueño",
             systemImageName: "moon.zzz.fill"
         )

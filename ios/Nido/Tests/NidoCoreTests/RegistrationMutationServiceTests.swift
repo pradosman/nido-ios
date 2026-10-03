@@ -333,6 +333,10 @@ struct AppIntentsRegistrationContractTests {
             .deletingLastPathComponent()
             .appending(path: "Nido/App/NidoRegistrationIntents.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let appSource = try String(
+            contentsOf: sourceURL.deletingLastPathComponent().appending(path: "NidoApp.swift"),
+            encoding: .utf8
+        )
 
         for intent in ["RegisterDiaperIntent", "RepeatFeedIntent", "StartSleepIntent", "FinishSleepIntent"] {
             #expect(source.contains("struct \(intent): AppIntent"))
@@ -341,10 +345,19 @@ struct AppIntentsRegistrationContractTests {
         for phrase in ["Registra un pañal", "Repite la última toma", "Inicia el sueño", "Termina el sueño"] {
             #expect(source.contains(phrase))
         }
+        for phrase in [
+            "Registra un pañal en \\(.applicationName)",
+            "Repite la última toma en \\(.applicationName)",
+            "Inicia el sueño en \\(.applicationName)",
+            "Termina el sueño en \\(.applicationName)",
+        ] {
+            #expect(source.contains(phrase))
+        }
         #expect(source.components(separatedBy: "\\(.applicationName)").count - 1 >= 4)
         #expect(source.components(separatedBy: "authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication").count - 1 == 4)
         #expect(!source.contains("NIDO_UI_TEST_ACCESS_TOKEN"))
         #expect(!source.contains("ProcessInfo.processInfo.environment"))
+        #expect(appSource.contains("NidoRegistrationShortcuts.updateAppShortcutParameters()"))
     }
 
     @Test
