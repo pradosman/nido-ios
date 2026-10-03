@@ -119,10 +119,12 @@ struct NidoApp: App {
                 .environment(store)
                 .modifier(UITestDynamicTypeOverride())
                 .task {
+                    #if DEBUG
                     if let uiTestScenario {
                         await store.prepareForUITesting(scenario: uiTestScenario)
                         return
                     }
+                    #endif
                     guard shouldLoadOnLaunch else { return }
                     await store.load()
                 }
