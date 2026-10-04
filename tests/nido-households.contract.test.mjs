@@ -121,6 +121,24 @@ test("an invitation joins through the iPhone's grouped code representation", asy
   });
 });
 
+test("an updated client can submit the canonical raw invitation code", async () => {
+  await withRouteDatabase(async ({ client, request }) => {
+    const owner = await createHousehold(request, client, "A");
+    const invitation = await request("/api/nido/caregivers/invite", {
+      method: "POST", token: owner.token, body: { name: "Raw Code Member" },
+    });
+    assert.equal(invitation.status, 201);
+
+    const rawCode = invitation.payload.invitation.code.replaceAll("-", "");
+    const member = await seedSession(client);
+    const joined = await request("/api/nido/caregivers/join", {
+      method: "POST", token: member.token, body: { code: rawCode },
+    });
+
+    assert.equal(joined.status, 200);
+  });
+});
+
 test("a previously issued Base64URL invitation keeps its exact value", async () => {
   await withRouteDatabase(async ({ client, request }) => {
     const owner = await createHousehold(request, client, "A");
