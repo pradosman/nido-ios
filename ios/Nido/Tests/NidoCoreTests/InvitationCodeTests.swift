@@ -24,4 +24,10 @@ struct InvitationCodeTests {
         #expect(InvitationCode.parse("ABCD-EFGH-JK2") == nil)
         #expect(InvitationCode.parse("aBcdEFgh_IJklMNopQRstUV") == nil)
     }
+
+    @Test
+    func rejectsUnicodeThatUppercasesIntoAnAllowedASCIICharacter() {
+        #expect(InvitationCode.parse("ſBCDEFGHJK23") == nil)
+        #expect(InvitationCode.parse("ſBCD-EFGH-JK23") == nil)
+    }
 }

@@ -6,14 +6,16 @@ enum InvitationCode: Equatable {
     private static let legacyCodeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 
     static func parse(_ input: String) -> InvitationCode? {
-        let groups = input.split(separator: "-", omittingEmptySubsequences: false)
-        if groups.count == 3, groups.allSatisfy({ $0.count == 4 }) {
-            let value = groups.joined().uppercased()
-            if isNewCode(value) { return .new(value) }
-        }
-        let uppercaseInput = input.uppercased()
-        if isNewCode(uppercaseInput) {
-            return .new(uppercaseInput)
+        if input.utf8.allSatisfy({ $0 < 128 }) {
+            let groups = input.split(separator: "-", omittingEmptySubsequences: false)
+            if groups.count == 3, groups.allSatisfy({ $0.count == 4 }) {
+                let value = groups.joined().uppercased()
+                if isNewCode(value) { return .new(value) }
+            }
+            let uppercaseInput = input.uppercased()
+            if isNewCode(uppercaseInput) {
+                return .new(uppercaseInput)
+            }
         }
         if input.count == 22, input.allSatisfy({ legacyCodeAlphabet.contains($0) }) {
             return .legacy(input)
