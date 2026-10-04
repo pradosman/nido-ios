@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 
 import {
   createHousehold,
@@ -96,6 +97,49 @@ test("an invitation can be claimed only once under concurrent requests", async (
       (SELECT COUNT(*)::int FROM caregivers WHERE status = 'active' AND role = 'caregiver') AS active_members,
       (SELECT failed_attempts FROM invitations LIMIT 1) AS failed_attempts`);
     assert.deepEqual(state.rows, [{ claims: 1, active_members: 1, failed_attempts: 1 }]);
+  });
+});
+
+test("an invitation joins through the iPhone's grouped code representation", async () => {
+  await withRouteDatabase(async ({ client, request }) => {
+    const owner = await createHousehold(request, client, "A");
+    const invitation = await request("/api/nido/caregivers/invite", {
+      method: "POST", token: owner.token, body: { name: "iPhone Member" },
+    });
+    assert.equal(invitation.status, 201);
+
+    const groupedCodePattern = /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/;
+    const submittedCode = invitation.payload.invitation.code;
+    assert.match(submittedCode, groupedCodePattern);
+    assert.equal(invitation.payload.caregiver.inviteCode, submittedCode);
+    const member = await seedSession(client);
+    const joined = await request("/api/nido/caregivers/join", {
+      method: "POST", token: member.token, body: { code: submittedCode },
+    });
+
+    assert.equal(joined.status, 200);
+  });
+});
+
+test("a previously issued Base64URL invitation keeps its exact value", async () => {
+  await withRouteDatabase(async ({ client, request }) => {
+    const owner = await createHousehold(request, client, "A");
+    const invitation = await request("/api/nido/caregivers/invite", {
+      method: "POST", token: owner.token, body: { name: "Legacy Member" },
+    });
+    const legacyCode = "aBcdEFgh_IJklMNopQRstU";
+    const codeHash = createHash("sha256").update(legacyCode).digest("hex");
+    await client.query("UPDATE invitations SET code_hash = $1 WHERE caregiver_id = $2", [
+      codeHash,
+      invitation.payload.caregiver.id,
+    ]);
+
+    const member = await seedSession(client);
+    const joined = await request("/api/nido/caregivers/join", {
+      method: "POST", token: member.token, body: { code: legacyCode },
+    });
+
+    assert.equal(joined.status, 200);
   });
 });
 

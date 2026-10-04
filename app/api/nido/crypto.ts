@@ -6,6 +6,13 @@ export function randomSecret(byteLength: number) {
     .replaceAll("=", "");
 }
 
+const INVITATION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function randomInvitationCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, byte => INVITATION_CODE_ALPHABET[byte % INVITATION_CODE_ALPHABET.length]).join("");
+}
+
 export async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");

@@ -7,8 +7,8 @@ struct CaregiverAccessView: View {
     @State private var errorMessage: String?
     @FocusState private var isCodeFocused: Bool
 
-    private var cleanCode: String {
-        code.uppercased().filter { $0.isLetter || $0.isNumber }
+    private var parsedCode: InvitationCode? {
+        InvitationCode.parse(code)
     }
 
     var body: some View {
@@ -37,20 +37,9 @@ struct CaregiverAccessView: View {
                             .foregroundStyle(NidoTheme.secondaryInk)
                         TextField("XXXX-XXXX-XXXX", text: $code)
                             .font(.system(.title2, design: .monospaced, weight: .semibold))
-                            .textInputAutocapitalization(.characters)
+                            .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .focused($isCodeFocused)
-                            .onChange(of: code) { _, value in
-                                let characters = value.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(12)
-                                let raw = String(characters)
-                                if raw.count > 8 {
-                                    code = "\(raw.prefix(4))-\(raw.dropFirst(4).prefix(4))-\(raw.dropFirst(8))"
-                                } else if raw.count > 4 {
-                                    code = "\(raw.prefix(4))-\(raw.dropFirst(4))"
-                                } else {
-                                    code = raw
-                                }
-                            }
                     }
                     .padding(18)
                     .paperCard(cornerRadius: 18)
@@ -63,13 +52,14 @@ struct CaregiverAccessView: View {
                     }
 
                     Button {
+                        guard let parsedCode else { return }
                         isCodeFocused = false
                         isJoining = true
                         errorMessage = nil
                         Task {
                             do {
                                 store.dismissNotice()
-                                try await store.joinCaregiver(code: code)
+                                try await store.joinCaregiver(code: parsedCode.submissionValue)
                             } catch {
                                 errorMessage = error.localizedDescription
                                 isJoining = false
@@ -88,8 +78,8 @@ struct CaregiverAccessView: View {
                         .background(NidoTheme.moss, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                     .buttonStyle(PressScaleButtonStyle())
-                    .disabled((cleanCode.count != 8 && cleanCode.count != 12) || isJoining)
-                    .opacity(cleanCode.count == 8 || cleanCode.count == 12 ? 1 : 0.55)
+                    .disabled(parsedCode == nil || isJoining)
+                    .opacity(parsedCode == nil ? 0.55 : 1)
                     .padding(.top, 22)
 
                     Button("Crear un espacio familiar") {
