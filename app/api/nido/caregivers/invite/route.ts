@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../../db/index.ts";
 import { caregivers, invitations, users } from "../../../../../db/schema.ts";
 import { requireMembership } from "../../auth.ts";
-import { randomSecret, sha256 } from "../../crypto.ts";
+import { randomInvitationCode, sha256 } from "../../crypto.ts";
 import { bodyErrorResponse, boundedString, readJsonObject } from "../../validation.ts";
 
 const INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     if (!name) return Response.json({ error: "Invalid family member name" }, { status: 400 });
     const db = getDb();
     const caregiverId = crypto.randomUUID();
-    const code = randomSecret(16);
+    const canonicalCode = randomInvitationCode();
+    const code = `${canonicalCode.slice(0, 4)}-${canonicalCode.slice(4, 8)}-${canonicalCode.slice(8, 12)}`;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITATION_LIFETIME_MS);
     const caregiver = await db.transaction(async tx => {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
       await tx.insert(invitations).values({
         id: crypto.randomUUID(),
         caregiverId,
-        codeHash: await sha256(code),
+        codeHash: await sha256(canonicalCode),
         expiresAt,
         createdAt: now,
       });

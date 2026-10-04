@@ -143,7 +143,7 @@ test("owner deletion cascades the household and every related identity", async (
     });
     const code = invitation.payload.invitation.code;
     const stored = (await client.query("SELECT code_hash FROM invitations")).rows[0].code_hash;
-    assert.equal(stored, createHash("sha256").update(code).digest("hex"));
+    assert.equal(stored, createHash("sha256").update(code.replaceAll("-", "")).digest("hex"));
     assert.notEqual(stored, code);
     const member = await seedSession(client);
     assert.equal((await request("/api/nido/caregivers/join", {
