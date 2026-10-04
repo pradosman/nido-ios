@@ -22,5 +22,8 @@ Before this fix, the server returned a 22-character Base64URL secret. The iPhone
 ## Tasks
 - [x] IC-1 (delegated direct; multi-file producer/consumer contract): A 12-character code is displayed as `XXXX-XXXX-XXXX`; the server hashes its ungrouped canonical form and accepts grouped or raw entry. Updated iPhone input preserves exact 22-character legacy Base64URL codes and rejects Unicode lookalikes before uppercasing. RED: HTTP join returned 404 instead of 200, the display-format contract rejected an ungrouped response, the initial Swift parser test could not compile, and the Unicode lookalike tests failed before correction. GREEN: focused HTTP 9/9; focused Swift 4/4; full Swift 114/114; npm 38 passed, 5 skipped; UI 33 passed, 3 credential-dependent skips; Release simulator build and `git diff --check` passed. Independent correction verification passed focused HTTP/Swift and diff hygiene. Route: delegated direct because the backend/iOS contract and tests required multiple non-trivial files. Work-unit commits: `e7b5b5b`, `34117d7`. RDD assessment: high risk, review due; native preflight refused the attempted untracked-selection submission before starting, so no native review outcome exists.
 
+## Closure
+On 2026-10-04, the user explicitly authorized closing this candidate locally without the pending native review. No native approval or receipt exists. This candidate-scoped decision does not disable RDD for future changes.
+
 ## Next step
-Resolve the native review preflight selection or obtain an explicit decision to continue without a native review. Then stop before push or VPS deployment; neither is authorized.
+The local fix is closed. Push, VPS deployment, and iPhone installation remain separate follow-ups and are not authorized by this decision.
