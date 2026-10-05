@@ -56,7 +56,10 @@ nonisolated enum CircularTimeline {
         var ringDiameter: CGFloat { trackRadius * 2 }
         var centerInnerDiameter: CGFloat { max(0, diaperRadius * 2 - trackStroke) }
         var centerSafetyInset: CGFloat { Self.clamp(side * 6 / 350, minimum: 4, maximum: 7) }
-        var centerContentDiameter: CGFloat { max(0, centerInnerDiameter - centerSafetyInset * 2) }
+        var centerContentDiameter: CGFloat {
+            let clearRadius = max(0, diaperRadius - diaperVisualDiameter / 2 - centerSafetyInset)
+            return clearRadius * sqrt(2)
+        }
         var centerDurationFontSize: CGFloat { centerContentDiameter * 0.31 }
 
         init(side requestedSide: CGFloat) {

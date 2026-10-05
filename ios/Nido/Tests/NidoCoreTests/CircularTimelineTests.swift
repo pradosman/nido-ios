@@ -404,8 +404,18 @@ struct CircularTimelineTests {
 
         #expect(geometry.centerInnerDiameter == 116)
         #expect(geometry.centerSafetyInset == 6)
-        #expect(geometry.centerContentDiameter == 104)
-        #expect(abs(geometry.centerDurationFontSize - 32.24) < 0.01)
+        #expect(abs(geometry.centerContentDiameter - 52 * sqrt(2)) < 0.01)
+        #expect(abs(geometry.centerDurationFontSize - geometry.centerContentDiameter * 0.31) < 0.01)
+    }
+
+    @Test(arguments: [CGFloat(280), 320, 350, 390])
+    func centerSummarySquareClearsEveryDiaperMarker(side: CGFloat) {
+        let geometry = CircularTimeline.Geometry(side: side)
+        let halfSide = geometry.centerContentDiameter / 2
+        let farthestCorner = hypot(halfSide, halfSide)
+        let markerInnerEdge = geometry.diaperRadius - geometry.diaperVisualDiameter / 2
+
+        #expect(farthestCorner + geometry.centerSafetyInset <= markerInnerEdge + 0.001)
     }
 
     private func entry(id: String, kind: EntryKind, date: Date, duration: Int? = nil) -> Entry {

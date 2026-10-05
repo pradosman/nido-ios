@@ -544,7 +544,7 @@ private struct DashboardCenterSummary: View {
 
     var body: some View {
         ZStack {
-            VStack(spacing: 5) {
+            VStack(spacing: 1) {
                 Text(CircularTimeline.dashboardDurationLabel(day.totalSleepSeconds))
                     .font(.system(size: geometry.centerDurationFontSize, weight: .bold, design: .rounded))
                     .foregroundStyle(NidoTheme.sleep)
@@ -557,15 +557,18 @@ private struct DashboardCenterSummary: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(NidoTheme.sleep)
 
-                Rectangle()
-                    .fill(NidoTheme.sleep.opacity(0.16))
-                    .frame(height: 1)
+                if geometry.centerContentDiameter >= 60 {
+                    Rectangle()
+                        .fill(NidoTheme.sleep.opacity(0.16))
+                        .frame(height: 1)
 
-                Text("\(feedCountLabel) · \(diaperCountLabel)")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(NidoTheme.secondaryInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    Text("\(feedCountLabel)\n\(diaperCountLabel)")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                }
             }
             .frame(width: geometry.centerContentDiameter)
             .accessibilityHidden(true)

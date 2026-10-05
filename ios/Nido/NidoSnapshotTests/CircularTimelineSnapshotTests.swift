@@ -57,7 +57,6 @@ final class CircularTimelineSnapshotTests: XCTestCase {
             selectedEntryID: .constant(nil),
             expandedClusterID: .constant(nil)
         )
-        .frame(width: 350, height: 350)
         .environment(store)
         .environment(\.locale, Locale(identifier: "es_ES"))
         .environment(\.dynamicTypeSize, .large)
@@ -77,6 +76,16 @@ final class CircularTimelineSnapshotTests: XCTestCase {
                 traits: traits
             ),
             named: "circular-timeline-350pt-light-es"
+        )
+        assertSnapshot(
+            of: view,
+            as: .image(
+                precision: 0.99,
+                perceptualPrecision: 0.98,
+                layout: .fixed(width: 280, height: 280),
+                traits: traits
+            ),
+            named: "circular-timeline-280pt-light-es"
         )
     }
 }
