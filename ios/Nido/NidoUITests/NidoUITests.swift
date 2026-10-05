@@ -27,7 +27,7 @@ final class NidoUITests: XCTestCase {
     func testSettingsUsesFamilyTerminologyAndAdministratorPolicy() {
         launch(scenario: "caregiver-removal")
 
-        app.buttons["bottom-nav-settings"].tap()
+        app.tabBars.buttons["Ajustes"].tap()
         XCTAssertTrue(app.staticTexts["Familiares"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Invitar familiar"].exists)
         XCTAssertTrue(app.staticTexts["Administrador del hogar"].exists)
@@ -38,7 +38,7 @@ final class NidoUITests: XCTestCase {
     func testOwnerAccountActionsRequireDestructiveConfirmationAndSignOutReturnsToAppleIdentity() {
         launch(scenario: "caregiver-removal")
 
-        app.buttons["bottom-nav-settings"].tap()
+        app.tabBars.buttons["Ajustes"].tap()
         let deleteAccount = app.buttons["Eliminar mi cuenta"]
         for _ in 0..<6 where !deleteAccount.exists { app.swipeUp() }
         XCTAssertTrue(deleteAccount.waitForExistence(timeout: 3))
@@ -98,7 +98,7 @@ final class NidoUITests: XCTestCase {
             object: quickDiaper
         )
         await fulfillment(of: [quickRegistrationDismissed], timeout: 5)
-        let history = app.buttons["bottom-nav-history"]
+        let history = app.tabBars.buttons["Historia"]
         let historyHittable = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == true AND hittable == true"),
             object: history
@@ -179,7 +179,7 @@ final class NidoUITests: XCTestCase {
         let heading = app.staticTexts["timeline-day-heading"]
         XCTAssertTrue(heading.waitForExistence(timeout: 12))
         XCTAssertTrue(heading.label.contains("History Baby"))
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 5))
         app.buttons["history-day-picker"].tap()
         XCTAssertTrue(app.navigationBars["Elegir día"].waitForExistence(timeout: 3))
@@ -252,7 +252,7 @@ final class NidoUITests: XCTestCase {
 
         launch(scenario: "caregiver-permissions", accessToken: caregiverToken)
         XCTAssertTrue(app.staticTexts["Hoy con UI Baby"].waitForExistence(timeout: 8))
-        app.buttons["bottom-nav-settings"].tap()
+        app.tabBars.buttons["Ajustes"].tap()
         let profileButton = app.buttons["settings-profile-button"]
         XCTAssertTrue(profileButton.waitForExistence(timeout: 5))
         XCTAssertFalse(profileButton.isEnabled)
@@ -272,7 +272,7 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(restoreBackup.exists)
         XCTAssertTrue(app.buttons["Preparar copia de seguridad"].exists)
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 5))
         let ownerEntry = app.buttons["history-entry-\(entryID)"]
         XCTAssertTrue(ownerEntry.waitForExistence(timeout: 5))
@@ -306,7 +306,7 @@ final class NidoUITests: XCTestCase {
         let caregiverAccessHeading = app.staticTexts["Únete al espacio familiar."]
         XCTAssertTrue(caregiverAccessHeading.waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["XXXX-XXXX-XXXX"].exists)
-        XCTAssertFalse(app.buttons["bottom-nav-history"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Historia"].exists)
         XCTAssertEqual(owner["role"] as? String, "owner")
     }
 
@@ -314,18 +314,18 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "ready")
 
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["bottom-nav-history"].exists)
-        XCTAssertTrue(app.buttons["bottom-nav-trends"].exists)
-        XCTAssertTrue(app.buttons["bottom-nav-settings"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Historia"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ritmos"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ajustes"].exists)
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
     }
 
     func testSettingsShowsBundleVersionBuildAndOptionalGitRevision() {
         launch(scenario: "ready")
 
-        app.buttons["bottom-nav-settings"].tap()
+        app.tabBars.buttons["Ajustes"].tap()
         let versionValue = app.staticTexts["app-version-value"]
         for _ in 0..<4 where !versionValue.exists {
             app.swipeUp()
@@ -340,85 +340,43 @@ final class NidoUITests: XCTestCase {
         )
     }
 
-    func testBottomBarUsesFiveEqualSlotsWithoutVisibleLabels() {
+    func testPrimaryNavigationUsesLabeledTabsAndSeparateRegistrationAction() {
         launch(scenario: "ready")
 
-        let items = [
-            (identifier: "bottom-nav-today", label: "Hoy"),
-            (identifier: "bottom-nav-history", label: "Historia"),
-            (identifier: "registration-action-button", label: "Registrar una actividad"),
-            (identifier: "bottom-nav-trends", label: "Ritmos"),
-            (identifier: "bottom-nav-settings", label: "Ajustes"),
-        ]
-        let controls = items.map { app.buttons[$0.identifier] }
-        for (item, control) in zip(items, controls) {
-            XCTAssertTrue(control.waitForExistence(timeout: 3), "Missing bottom bar control: \(control)")
-            XCTAssertEqual(control.label, item.label)
-        }
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 3))
+        XCTAssertEqual(Set(tabBar.buttons.allElementsBoundByIndex.map(\.label)), ["Hoy", "Historia", "Ritmos", "Ajustes"])
+        let registrationButton = app.buttons["registration-action-button"]
+        XCTAssertTrue(registrationButton.exists)
+        XCTAssertEqual(registrationButton.label, "Registrar una actividad")
+        XCTAssertFalse(tabBar.buttons["registration-action-button"].exists)
+        XCTAssertFalse(tabBar.buttons["Registrar una actividad"].exists)
 
-        let adjacentSpacing = zip(controls, controls.dropFirst()).map {
-            $1.frame.midX - $0.frame.midX
-        }
-        let horizontalSpread = adjacentSpacing.max()! - adjacentSpacing.min()!
-        XCTAssertLessThanOrEqual(
-            horizontalSpread,
-            1.5,
-            "Bottom bar adjacent center spacing differs by \(horizontalSpread) pt: \(adjacentSpacing)"
-        )
-
-        let verticalCenters = controls.map { $0.frame.midY }
-        let verticalSpread = verticalCenters.max()! - verticalCenters.min()!
-        XCTAssertLessThanOrEqual(
-            verticalSpread,
-            1.5,
-            "Bottom bar control center Y coordinates differ by \(verticalSpread) pt: \(verticalCenters)"
-        )
-
-        let bottomBar = app.otherElements["nido-bottom-bar"]
-        XCTAssertTrue(bottomBar.exists)
-        for control in controls {
-            XCTAssertTrue(bottomBar.frame.contains(control.frame), "Bottom bar must contain \(control.label)")
-        }
-        for item in items {
-            XCTAssertFalse(
-                bottomBar.descendants(matching: .staticText)[item.label].exists,
-                "Bottom bar label must not be visually rendered: \(item.label)"
-            )
-        }
-
-        let registrationButton = controls[2]
-        XCTAssertGreaterThanOrEqual(registrationButton.frame.width, 56)
-        XCTAssertGreaterThanOrEqual(registrationButton.frame.height, 56)
-        controls[1].tap()
+        tabBar.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
         registrationButton.tap()
         XCTAssertTrue(app.buttons["Registrar sueño"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.navigationBars["Historia"].exists)
-        XCTAssertTrue(controls[1].isSelected)
+        XCTAssertTrue(tabBar.buttons["Historia"].isSelected)
     }
 
-    func testMoreTabPresentsRegistrationChoicesWithoutChangingTheSelectedTab() {
+    func testSeparateRegistrationActionPreservesSelectedTab() {
         launch(scenario: "ready")
 
-        let tabBar = app.otherElements["nido-bottom-bar"]
-        let history = app.buttons["bottom-nav-history"]
+        let tabBar = app.tabBars.firstMatch
+        let history = app.tabBars.buttons["Historia"]
         let registrationButton = app.buttons["registration-action-button"]
-        let trends = app.buttons["bottom-nav-trends"]
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 3))
         XCTAssertTrue(history.waitForExistence(timeout: 3))
         XCTAssertTrue(registrationButton.waitForExistence(timeout: 3))
-        XCTAssertTrue(trends.exists)
-        XCTAssertLessThan(history.frame.midX, registrationButton.frame.midX)
-        XCTAssertLessThan(registrationButton.frame.midX, trends.frame.midX)
-        XCTAssertGreaterThanOrEqual(registrationButton.frame.width, 56)
-        XCTAssertGreaterThanOrEqual(registrationButton.frame.height, 56)
+        XCTAssertTrue(registrationButton.isHittable)
         XCTAssertEqual(registrationButton.label, "Registrar una actividad")
         let tabBarButtonLabels = Set(tabBar.buttons.allElementsBoundByIndex.map(\.label))
         XCTAssertEqual(
             tabBarButtonLabels,
-            ["Hoy", "Historia", "Registrar una actividad", "Ritmos", "Ajustes"]
+            ["Hoy", "Historia", "Ritmos", "Ajustes"]
         )
-        XCTAssertFalse(tabBar.buttons["Más"].exists)
-        XCTAssertFalse(app.staticTexts["Más"].exists)
+        XCTAssertFalse(tabBar.buttons["Registrar una actividad"].exists)
 
         history.tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
@@ -434,7 +392,7 @@ final class NidoUITests: XCTestCase {
     func testSemanticEditorsExposeTheStoredActivityFields() {
         launch(scenario: "semantic-edit")
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
 
         let feedEntry = app.descendants(matching: .any)["history-entry-ui-test-semantic-feed"]
@@ -466,9 +424,9 @@ final class NidoUITests: XCTestCase {
 
         let undo = app.buttons["Deshacer"]
         XCTAssertTrue(undo.waitForExistence(timeout: 3))
-        let bottomBar = app.otherElements["nido-bottom-bar"]
-        XCTAssertTrue(bottomBar.exists)
-        XCTAssertLessThan(undo.frame.maxY, bottomBar.frame.minY)
+        let registrationButton = app.buttons["registration-action-button"]
+        XCTAssertTrue(registrationButton.exists)
+        XCTAssertLessThan(undo.frame.maxY, registrationButton.frame.minY)
         sleep(6)
         XCTAssertTrue(undo.exists)
         XCTAssertTrue(app.buttons["Cerrar aviso"].exists)
@@ -490,7 +448,7 @@ final class NidoUITests: XCTestCase {
     func testCaregiverRemovalRequiresExplicitConfirmation() {
         launch(scenario: "caregiver-removal")
 
-        app.buttons["bottom-nav-settings"].tap()
+        app.tabBars.buttons["Ajustes"].tap()
         let caregiver = app.collectionViews["settings-list"].cells.containing(
             .staticText,
             identifier: "caregiver-row-ui-test-caregiver-ana"
@@ -762,7 +720,7 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "circular-timeline")
 
         let dial = app.otherElements["timeline-circular-dial"]
-        let tabBar = app.otherElements["nido-bottom-bar"]
+        let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
         XCTAssertTrue(tabBar.exists)
         XCTAssertLessThanOrEqual(dial.frame.maxY, tabBar.frame.minY - 16)
@@ -775,7 +733,7 @@ final class NidoUITests: XCTestCase {
         )
 
         let dial = app.otherElements["timeline-circular-dial"]
-        let tabBar = app.otherElements["nido-bottom-bar"]
+        let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
         XCTAssertTrue(tabBar.exists)
         XCTAssertLessThan(dial.frame.minY, tabBar.frame.minY)
@@ -784,7 +742,7 @@ final class NidoUITests: XCTestCase {
     func testHistoryFormatsDurationAsHoursAndMinutes() {
         launch(scenario: "timeline-duration")
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["1 h 15 min"].exists)
         XCTAssertFalse(app.staticTexts["75 min"].exists)
@@ -793,7 +751,7 @@ final class NidoUITests: XCTestCase {
     func testHistoryDayPickerAndDailyRingsControlTheSelectedDay() {
         launch(scenario: "history-calendar")
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         let dayPicker = app.buttons["history-day-picker"]
         XCTAssertTrue(dayPicker.waitForExistence(timeout: 3))
         XCTAssertTrue(dayPicker.label.contains("viernes, 28 de agosto"))
@@ -821,7 +779,7 @@ final class NidoUITests: XCTestCase {
     func testPediatricReportCanBePreparedFromDurationEntry() {
         launch(scenario: "timeline-duration")
 
-        app.buttons["bottom-nav-settings"].tap()
+        app.tabBars.buttons["Ajustes"].tap()
         let prepareReport = app.buttons["Preparar informe de 30 días"]
         for _ in 0..<3 where !prepareReport.exists {
             app.swipeUp()
@@ -835,7 +793,7 @@ final class NidoUITests: XCTestCase {
     func testEditingADiaperUpdatesItsTimelineTime() {
         launch(scenario: "diaper-edit")
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["15:24"].waitForExistence(timeout: 3))
         app.buttons["history-entry-ui-test-diaper"].tap()
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
@@ -898,7 +856,7 @@ final class NidoUITests: XCTestCase {
         let undo = app.buttons["Deshacer"]
         XCTAssertTrue(undo.exists)
 
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
         let diaperDetails = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pis y caca'"))
         XCTAssertEqual(diaperDetails.count, 2)
@@ -932,7 +890,7 @@ final class NidoUITests: XCTestCase {
 
         XCTAssertTrue(undo.waitForExistence(timeout: 2))
         undo.tap()
-        app.buttons["bottom-nav-history"].tap()
+        app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["history-entry-ui-test-latest-feed"].exists)
         XCTAssertEqual(

@@ -59,19 +59,22 @@ private struct MainTabView: View {
     var body: some View {
         @Bindable var store = store
         TabView(selection: $store.selectedTab) {
-            NavigationStack { TodayView() }
+            tabScreen { TodayView() }
+                .tabItem { Label("Hoy", systemImage: "house.fill") }
                 .tag(AppTab.today)
 
-            NavigationStack { HistoryView() }
+            tabScreen { HistoryView() }
+                .tabItem { Label("Historia", systemImage: "clock.arrow.circlepath") }
                 .tag(AppTab.history)
 
-            NavigationStack { TrendsView() }
+            tabScreen { TrendsView() }
+                .tabItem { Label("Ritmos", systemImage: "chart.bar.xaxis") }
                 .tag(AppTab.trends)
 
-            NavigationStack { SettingsView() }
+            tabScreen { SettingsView() }
+                .tabItem { Label("Ajustes", systemImage: "gearshape.fill") }
                 .tag(AppTab.settings)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
         .tint(NidoTheme.moss)
         .confirmationDialog("Registrar una actividad", isPresented: $isPresentingEntryKindMenu) {
             ForEach(EntryKind.allCases) { kind in
@@ -140,44 +143,65 @@ private struct MainTabView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 8) {
-                if let notice = store.notice {
-                    NoticeView(
-                        message: notice,
-                        isOffline: store.isOffline,
-                        canEdit: store.recentlyCreatedEntry != nil,
-                        canUndo: store.recentlyDeletedEntry != nil || store.recentlyCreatedEntry != nil,
-                        edit: store.editRecentlyCreatedEntry,
-                        undo: {
-                            Task {
-                                if store.recentlyCreatedEntry != nil {
-                                    await store.undoCreatedEntry()
-                                } else {
-                                    await store.undoDelete()
-                                }
-                            }
-                        },
-                        dismiss: {
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
-                                store.dismissNotice()
-                            }
-                        }
-                    )
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                    .onTapGesture {
-                        if store.recentlyDeletedEntry == nil, store.recentlyCreatedEntry == nil {
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
-                        }
-                    }
-                }
+    }
 
-                NidoBottomBar(selection: $store.selectedTab) {
-                    isPresentingEntryKindMenu = true
-                }
-                .padding(.horizontal, 8)
+    private func tabScreen<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                content()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                bottomActionArea
             }
         }
+    }
+
+    private var bottomActionArea: some View {
+        VStack(spacing: 8) {
+            if let notice = store.notice {
+                NoticeView(
+                    message: notice,
+                    isOffline: store.isOffline,
+                    canEdit: store.recentlyCreatedEntry != nil,
+                    canUndo: store.recentlyDeletedEntry != nil || store.recentlyCreatedEntry != nil,
+                    edit: store.editRecentlyCreatedEntry,
+                    undo: {
+                        Task {
+                            if store.recentlyCreatedEntry != nil {
+                                await store.undoCreatedEntry()
+                            } else {
+                                await store.undoDelete()
+                            }
+                        }
+                    },
+                    dismiss: {
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
+                            store.dismissNotice()
+                        }
+                    }
+                )
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .onTapGesture {
+                    if store.recentlyDeletedEntry == nil, store.recentlyCreatedEntry == nil {
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
+                    }
+                }
+            }
+
+            Button {
+                isPresentingEntryKindMenu = true
+            } label: {
+                Label("Registrar una actividad", systemImage: "plus.circle.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .foregroundStyle(.white)
+                    .background(NidoTheme.moss, in: Capsule())
+            }
+            .buttonStyle(PressScaleButtonStyle())
+            .accessibilityHint("Abre las opciones de registro")
+            .accessibilityIdentifier("registration-action-button")
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 8)
     }
 }
 
@@ -242,110 +266,6 @@ private struct QuickRegistrationSheet: View {
             }
         }
         .tint(NidoTheme.moss)
-    }
-}
-
-private struct NidoBottomBar: View {
-    @Binding var selection: AppTab
-    let registerActivity: () -> Void
-
-    var body: some View {
-        HStack(spacing: 0) {
-            navigationButton(
-                tab: .today,
-                label: "Hoy",
-                systemImage: "house",
-                selectedSystemImage: "house.fill",
-                identifier: "bottom-nav-today"
-            )
-            navigationButton(
-                tab: .history,
-                label: "Historia",
-                systemImage: "clock.arrow.circlepath",
-                selectedSystemImage: "clock.arrow.circlepath",
-                identifier: "bottom-nav-history"
-            )
-            registrationButton
-                .frame(maxWidth: .infinity)
-            navigationButton(
-                tab: .trends,
-                label: "Ritmos",
-                systemImage: "chart.bar.xaxis",
-                selectedSystemImage: "chart.bar.xaxis",
-                identifier: "bottom-nav-trends"
-            )
-            navigationButton(
-                tab: .settings,
-                label: "Ajustes",
-                systemImage: "gearshape",
-                selectedSystemImage: "gearshape.fill",
-                identifier: "bottom-nav-settings"
-            )
-        }
-        .frame(height: 62)
-        .background(.regularMaterial, in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(NidoTheme.separator.opacity(0.55), lineWidth: 0.5)
-        }
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("nido-bottom-bar")
-    }
-
-    private func navigationButton(
-        tab: AppTab,
-        label: String,
-        systemImage: String,
-        selectedSystemImage: String,
-        identifier: String
-    ) -> some View {
-        let isSelected = selection == tab
-
-        return Button {
-            var transaction = Transaction(animation: nil)
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                selection = tab
-            }
-        } label: {
-            Image(systemName: isSelected ? selectedSystemImage : systemImage)
-                .font(.system(size: 23, weight: isSelected ? .semibold : .medium))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(isSelected ? NidoTheme.moss : NidoTheme.secondaryInk)
-                .frame(width: 44, height: 44)
-                .accessibilityHidden(true)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56)
-        .contentShape(Rectangle())
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityIdentifier(identifier)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private var registrationButton: some View {
-        Button(action: registerActivity) {
-            ZStack {
-                Circle()
-                    .fill(NidoTheme.moss)
-                Circle()
-                    .stroke(NidoTheme.paperLight, lineWidth: 3)
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .accessibilityHidden(true)
-            }
-            .frame(width: 52, height: 52)
-            .shadow(color: .black.opacity(0.14), radius: 8, y: 4)
-            .frame(width: 56, height: 56)
-            .contentShape(Circle())
-        }
-        .buttonStyle(PressScaleButtonStyle())
-        .accessibilityLabel("Registrar una actividad")
-        .accessibilityHint("Abre las opciones de registro")
-        .accessibilityIdentifier("registration-action-button")
     }
 }
 
