@@ -59,7 +59,7 @@ struct NidoLiveActivityWidget: Widget {
             } compactTrailing: {
                 Text(timerInterval: context.attributes.startedAt...Date.distantFuture, countsDown: false)
                     .font(.caption2.monospacedDigit())
-                    .frame(width: 42)
+                    .frame(width: 70)
                     .privacySensitive()
             } minimal: {
                 Image(systemName: context.attributes.kind == "sleep" ? "moon.fill" : "figure.and.child.holdinghands")

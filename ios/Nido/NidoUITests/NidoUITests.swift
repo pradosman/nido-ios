@@ -582,6 +582,11 @@ final class NidoUITests: XCTestCase {
         XCTAssertLessThan(sleepCard.frame.maxY, dial.frame.minY)
     }
 
+    func testTenHourSleepActivityFixtureLoads() {
+        launch(scenario: "live-activity-ten-hour-sleep")
+        XCTAssertTrue(app.staticTexts["timeline-day-heading"].waitForExistence(timeout: 5))
+    }
+
     func testSleepActionsMeetTheMinimumTouchTarget() {
         launch(scenario: "circular-timeline")
 

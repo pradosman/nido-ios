@@ -122,6 +122,14 @@ struct NidoApp: App {
                     #if DEBUG
                     if let uiTestScenario {
                         await store.prepareForUITesting(scenario: uiTestScenario)
+                        if uiTestScenario == "live-activity-ten-hour-sleep" {
+                            await NidoLiveActivity.endAll()
+                            NidoLiveActivity.start(
+                                kind: "sleep",
+                                babyName: "Test",
+                                startedAt: .now.addingTimeInterval(-10 * 60 * 60)
+                            )
+                        }
                         return
                     }
                     #endif
