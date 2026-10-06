@@ -802,6 +802,35 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.buttons["history-week-day-2026-08-26"].isSelected)
     }
 
+    func testHistoryWeekDaysHaveComfortableTargetsOnCompactIPhone() {
+        launch(scenario: "history-calendar")
+
+        app.tabBars.buttons["Historia"].tap()
+        let strip = app.scrollViews["history-week-strip"]
+        XCTAssertTrue(strip.waitForExistence(timeout: 3))
+        let dates = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@", "history-week-day-"
+        )).allElementsBoundByIndex.map(\.identifier).sorted()
+        XCTAssertEqual(dates.count, 7)
+        XCTAssertTrue(app.buttons[dates[0]].exists)
+        for identifier in dates.dropFirst() {
+            let day = app.buttons[identifier]
+            XCTAssertTrue(day.waitForExistence(timeout: 3), "Missing day: \(identifier)")
+            XCTAssertGreaterThanOrEqual(day.frame.width, 44, "Narrow target: \(identifier)")
+            XCTAssertGreaterThanOrEqual(day.frame.height, 44, "Short target: \(identifier)")
+        }
+
+        app.buttons[dates[5]].tap()
+        XCTAssertTrue(app.buttons[dates[5]].isSelected)
+        let oldestDay = app.buttons[dates[0]]
+        XCTAssertGreaterThanOrEqual(oldestDay.frame.width, 44)
+        oldestDay.tap()
+        XCTAssertTrue(oldestDay.isSelected)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@", "history-week-day-"
+        )).count, 7)
+    }
+
     func testPediatricReportCanBePreparedFromDurationEntry() {
         launch(scenario: "timeline-duration")
 

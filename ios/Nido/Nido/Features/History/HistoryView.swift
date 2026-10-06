@@ -85,42 +85,48 @@ struct HistoryView: View {
     }
 
     private var weekStrip: some View {
-        HStack(alignment: .top, spacing: 4) {
-            ForEach(HistoryPresentation.sevenDayDates(around: selection, through: today, calendar: calendar), id: \.self) { date in
-                let isSelected = calendar.isDate(date, inSameDayAs: selection)
-                let daySummary = HistoryPresentation.summary(on: date, entries: store.entries, now: store.now, calendar: calendar)
-                Button { select(date) } label: {
-                    VStack(spacing: 7) {
-                        Text(date.formatted(.dateTime.weekday(.narrow)))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(NidoTheme.secondaryInk)
-                        CompactHistoryRings(summary: daySummary, size: 35, lineWidth: 4)
-                            .overlay {
-                                Text(date.formatted(.dateTime.day()))
-                                    .font(.caption2.weight(.bold).monospacedDigit())
-                                    .foregroundStyle(NidoTheme.ink)
-                            }
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.caption2)
-                            .foregroundStyle(isSelected ? NidoTheme.moss : .clear)
-                            .accessibilityHidden(true)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 4) {
+                ForEach(HistoryPresentation.sevenDayDates(around: selection, through: today, calendar: calendar), id: \.self) { date in
+                    let isSelected = calendar.isDate(date, inSameDayAs: selection)
+                    let daySummary = HistoryPresentation.summary(on: date, entries: store.entries, now: store.now, calendar: calendar)
+                    Button { select(date) } label: {
+                        VStack(spacing: 7) {
+                            Text(date.formatted(.dateTime.weekday(.narrow)))
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(NidoTheme.secondaryInk)
+                            CompactHistoryRings(summary: daySummary, size: 35, lineWidth: 4)
+                                .overlay {
+                                    Text(date.formatted(.dateTime.day()))
+                                        .font(.caption2.weight(.bold).monospacedDigit())
+                                        .foregroundStyle(NidoTheme.ink)
+                                }
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.caption2)
+                                .foregroundStyle(isSelected ? NidoTheme.moss : .clear)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minWidth: 44)
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                        .background(isSelected ? NidoTheme.moss.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                .stroke(isSelected ? NidoTheme.moss : .clear, lineWidth: 1.5)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(isSelected ? NidoTheme.moss.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(isSelected ? NidoTheme.moss : .clear, lineWidth: 1.5)
-                    }
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 44)
+                    .accessibilityLabel(dayAccessibilityLabel(date, summary: daySummary, isSelected: isSelected))
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier("history-week-day-\(dateIdentifier(date))")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(dayAccessibilityLabel(date, summary: daySummary, isSelected: isSelected))
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityIdentifier("history-week-day-\(dateIdentifier(date))")
             }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 7)
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 7)
+        .defaultScrollAnchor(.trailing)
+        .accessibilityIdentifier("history-week-strip")
         .paperCard(cornerRadius: 20)
     }
 
