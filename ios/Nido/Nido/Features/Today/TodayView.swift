@@ -257,18 +257,31 @@ private struct LatestTimelineEvents: View {
     @ViewBuilder
     private func latestCard(for lane: TimelineLane) -> some View {
         if let item = latestItem(for: lane.kind) {
-            Button {
-                selectedEntryID = item.entry.id
-            } label: {
-                cardContent(lane: lane, detail: timeLabel(for: item), hasEntry: true)
+            ZStack(alignment: .topTrailing) {
+                Button {
+                    selectedEntryID = item.entry.id
+                } label: {
+                    cardContent(lane: lane, detail: timeLabel(for: item), hasEntry: true)
+                }
+                .buttonStyle(PressScaleButtonStyle())
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in onEdit(item.entry) }
+                )
+                .accessibilityLabel("\(lane.title), último registro, \(timeLabel(for: item))")
+                .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
+
+                Button { onEdit(item.entry) } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Editar \(lane.title)")
+                .accessibilityIdentifier("timeline-edit-latest-\(lane.kind.rawValue)")
             }
-            .buttonStyle(PressScaleButtonStyle())
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.5)
-                    .onEnded { _ in onEdit(item.entry) }
-            )
-            .accessibilityLabel("\(lane.title), último registro, \(timeLabel(for: item))")
-            .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
         } else {
             cardContent(lane: lane, detail: "Sin registros", hasEntry: false)
                 .accessibilityElement(children: .combine)
@@ -363,19 +376,33 @@ private struct DayTimelineActivity: View {
                         .padding(.horizontal, 14)
                 } else {
                     ForEach(items) { item in
-                        Button {
-                            selectedEntryID = item.entry.id
-                        } label: {
-                            activityRow(item)
+                        HStack(spacing: 0) {
+                            Button {
+                                selectedEntryID = item.entry.id
+                            } label: {
+                                activityRow(item)
+                            }
+                            .buttonStyle(.plain)
+                            .simultaneousGesture(
+                                LongPressGesture(minimumDuration: 0.5)
+                                    .onEnded { _ in onEdit(item.entry) }
+                            )
+                            .accessibilityLabel(activityAccessibilityLabel(item))
+                            .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
+                            .accessibilityIdentifier("timeline-activity-\(item.entry.id)")
+
+                            Button { onEdit(item.entry) } label: {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(NidoTheme.secondaryInk)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Editar \(item.entry.title)")
+                            .accessibilityIdentifier("timeline-edit-activity-\(item.entry.id)")
+                            .padding(.trailing, 8)
                         }
-                        .buttonStyle(.plain)
-                        .simultaneousGesture(
-                            LongPressGesture(minimumDuration: 0.5)
-                                .onEnded { _ in onEdit(item.entry) }
-                        )
-                        .accessibilityLabel(activityAccessibilityLabel(item))
-                        .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
-                        .accessibilityIdentifier("timeline-activity-\(item.entry.id)")
 
                         if item.id != items.last?.id {
                             Divider().padding(.leading, 58)
