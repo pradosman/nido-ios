@@ -7,6 +7,29 @@ import XCTest
 @MainActor
 final class CircularTimelineSnapshotTests: XCTestCase {
     func testCircularTimelineDial() async throws {
+        try await assertDialSnapshots(
+            dynamicTypeSize: .large,
+            contentSizeCategory: .large,
+            suffix: "light-es",
+            testName: "testCircularTimelineDial"
+        )
+    }
+
+    func testCircularTimelineDialAtLargestStandardText() async throws {
+        try await assertDialSnapshots(
+            dynamicTypeSize: .xxxLarge,
+            contentSizeCategory: .extraExtraExtraLarge,
+            suffix: "xxxl-light-es",
+            testName: "testCircularTimelineDialAtLargestStandardText"
+        )
+    }
+
+    private func assertDialSnapshots(
+        dynamicTypeSize: DynamicTypeSize,
+        contentSizeCategory: UIContentSizeCategory,
+        suffix: String,
+        testName: String
+    ) async throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Madrid"))
         let now = try XCTUnwrap(calendar.date(from: DateComponents(
@@ -59,11 +82,11 @@ final class CircularTimelineSnapshotTests: XCTestCase {
         )
         .environment(store)
         .environment(\.locale, Locale(identifier: "es_ES"))
-        .environment(\.dynamicTypeSize, .large)
+        .environment(\.dynamicTypeSize, dynamicTypeSize)
         .preferredColorScheme(.light)
         let traits = UITraitCollection(mutations: { traits in
             traits.userInterfaceStyle = .light
-            traits.preferredContentSizeCategory = .large
+            traits.preferredContentSizeCategory = contentSizeCategory
             traits.displayScale = 3
         })
 
@@ -75,7 +98,8 @@ final class CircularTimelineSnapshotTests: XCTestCase {
                 layout: .fixed(width: 350, height: 350),
                 traits: traits
             ),
-            named: "circular-timeline-350pt-light-es"
+            named: "circular-timeline-350pt-\(suffix)",
+            testName: testName
         )
         assertSnapshot(
             of: view,
@@ -85,7 +109,8 @@ final class CircularTimelineSnapshotTests: XCTestCase {
                 layout: .fixed(width: 280, height: 280),
                 traits: traits
             ),
-            named: "circular-timeline-280pt-light-es"
+            named: "circular-timeline-280pt-\(suffix)",
+            testName: testName
         )
     }
 }

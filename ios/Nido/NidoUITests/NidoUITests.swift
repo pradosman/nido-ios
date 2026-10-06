@@ -514,25 +514,32 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
     }
 
-    func testTodayLatestCardAndActivityRowExposeEditButtons() {
+    func testTodayActivityRowExposesEditButton() {
         launch(scenario: "timeline-duration")
 
         XCTAssertTrue(app.staticTexts["Actividad de hoy"].waitForExistence(timeout: 3))
-        let latestEdit = app.buttons["timeline-edit-latest-sleep"]
-        for _ in 0..<4 where !latestEdit.exists { app.swipeUp() }
-        XCTAssertTrue(latestEdit.exists)
-        XCTAssertEqual(latestEdit.label, "Editar Sueño")
-        scrollToHittable(latestEdit)
-        latestEdit.tap()
-        XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
-        app.buttons["Cancelar"].tap()
-
         let activityEdit = app.buttons["timeline-edit-activity-ui-test-sleep"]
         XCTAssertTrue(activityEdit.exists)
         XCTAssertEqual(activityEdit.label, "Editar Sueño")
+        XCTAssertGreaterThanOrEqual(activityEdit.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(activityEdit.frame.height, 44)
         scrollToHittable(activityEdit)
         activityEdit.tap()
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
+    }
+
+    func testTodayHasOneFullEditableActivityListBelowTheDial() {
+        launch(scenario: "circular-timeline")
+
+        let dial = app.otherElements["timeline-circular-dial"]
+        let activityList = app.otherElements["timeline-day-activity-list"]
+        XCTAssertTrue(dial.waitForExistence(timeout: 3))
+        XCTAssertTrue(activityList.exists)
+        XCTAssertFalse(app.otherElements["timeline-latest-events"].exists)
+        XCTAssertFalse(app.staticTexts["Últimos registros"].exists)
+        XCTAssertTrue(activityList.label.contains("17 registros"))
+        XCTAssertTrue(app.buttons["timeline-activity-ui-test-sleep"].exists)
+        XCTAssertTrue(app.buttons["timeline-edit-activity-ui-test-sleep"].exists)
     }
 
     func testCircularTimelineKeepsSleepInteractionInDayActivityList() {
@@ -679,9 +686,7 @@ final class NidoUITests: XCTestCase {
         }
         XCTAssertFalse(summary.label.contains("Cuidados"))
 
-        let latestEvents = app.otherElements["timeline-latest-events"]
-        XCTAssertTrue(latestEvents.exists)
-        XCTAssertTrue(latestEvents.label.contains("Últimos registros"))
+        XCTAssertFalse(app.otherElements["timeline-latest-events"].exists)
 
         let activityList = app.otherElements["timeline-day-activity-list"]
         XCTAssertTrue(activityList.exists)

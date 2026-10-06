@@ -554,7 +554,7 @@ private struct DashboardCenterSummary: View {
                     .allowsTightening(true)
 
                 Text("Sueño")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(NidoTheme.sleep)
 
                 if geometry.centerContentDiameter >= 60 {
@@ -563,7 +563,7 @@ private struct DashboardCenterSummary: View {
                         .frame(height: 1)
 
                     Text("\(feedCountLabel)\n\(diaperCountLabel)")
-                        .font(.caption2.weight(.medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(NidoTheme.secondaryInk)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)

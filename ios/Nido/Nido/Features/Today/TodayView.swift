@@ -78,12 +78,6 @@ struct TodayView: View {
             storyHeader
         }
         dayPager
-        LatestTimelineEvents(
-            day: selectedTimelineDay,
-            selectedEntryID: $selectedEntryID,
-            onEdit: { store.editingEntry = $0 }
-        )
-        .padding(.top, 18)
         DayTimelineActivity(
             day: selectedTimelineDay,
             isToday: isTodaySelected,
@@ -220,121 +214,6 @@ struct TodayView: View {
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0)) {
             selectedDay = destination
         }
-    }
-}
-
-private struct LatestTimelineEvents: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    let day: CircularTimeline.Day
-    @Binding var selectedEntryID: String?
-    let onEdit: (Entry) -> Void
-
-    private var columns: [GridItem] {
-        if dynamicTypeSize.isAccessibilitySize {
-            return [GridItem(.flexible())]
-        }
-        return Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Últimos registros")
-                .font(.system(.headline, design: .serif, weight: .semibold))
-                .foregroundStyle(NidoTheme.ink)
-
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(TimelineLane.allCases) { lane in
-                    latestCard(for: lane)
-                }
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(latestEventsLabel)
-        .accessibilityIdentifier("timeline-latest-events")
-    }
-
-    @ViewBuilder
-    private func latestCard(for lane: TimelineLane) -> some View {
-        if let item = latestItem(for: lane.kind) {
-            ZStack(alignment: .topTrailing) {
-                Button {
-                    selectedEntryID = item.entry.id
-                } label: {
-                    cardContent(lane: lane, detail: timeLabel(for: item), hasEntry: true)
-                }
-                .buttonStyle(PressScaleButtonStyle())
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.5)
-                        .onEnded { _ in onEdit(item.entry) }
-                )
-                .accessibilityLabel("\(lane.title), último registro, \(timeLabel(for: item))")
-                .accessibilityHint("Toca para seleccionar. Mantén pulsado para editar.")
-
-                Button { onEdit(item.entry) } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Editar \(lane.title)")
-                .accessibilityIdentifier("timeline-edit-latest-\(lane.kind.rawValue)")
-            }
-        } else {
-            cardContent(lane: lane, detail: "Sin registros", hasEntry: false)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(lane.title), sin registros")
-        }
-    }
-
-    private func cardContent(lane: TimelineLane, detail: String, hasEntry: Bool) -> some View {
-        VStack(spacing: 5) {
-            Image(systemName: lane.kind.symbolName)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(NidoTheme.color(for: lane.kind).opacity(hasEntry ? 1 : 0.5))
-            Text(detail)
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(NidoTheme.secondaryInk)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .minimumScaleFactor(0.75)
-        }
-        .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 64 : 76)
-        .padding(.horizontal, 4)
-        .background(NidoTheme.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(NidoTheme.separator.opacity(0.45), lineWidth: 0.5)
-        }
-    }
-
-    private var latestEventsLabel: String {
-        let summaries = TimelineLane.allCases.map { lane in
-            guard let item = latestItem(for: lane.kind) else { return "\(lane.title), sin registros" }
-            return "\(lane.title), \(timeLabel(for: item))"
-        }
-        return "Últimos registros. \(summaries.joined(separator: ". "))"
-    }
-
-    private func latestItem(for kind: EntryKind) -> CircularTimeline.Item? {
-        day.items
-            .filter { $0.entry.kind == kind }
-            .max { $0.startMinute < $1.startMinute }
-    }
-
-    private func timeLabel(for item: CircularTimeline.Item) -> String {
-        if item.presentation == .sleepSegment {
-            return "\(clockLabel(item.startMinute))–\(clockLabel(item.endMinute))"
-        }
-        return clockLabel(item.startMinute)
-    }
-
-    private func clockLabel(_ minute: Int) -> String {
-        let normalized = min(max(minute, 0), 1_440)
-        if normalized == 1_440 { return "24:00" }
-        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
     }
 }
 
