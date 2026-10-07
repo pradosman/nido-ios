@@ -78,8 +78,15 @@ final class NidoUITests: XCTestCase {
         let importBackup = app.buttons["Restaurar desde un archivo"]
         XCTAssertTrue(importBackup.waitForExistence(timeout: 5))
         importBackup.tap()
-        let browse = app.buttons["Explorar"]
-        if browse.exists { browse.tap() }
+        let localFilesTitle = app.staticTexts["En mi iPhone"]
+        if !localFilesTitle.waitForExistence(timeout: 5) {
+            let browse = app.buttons.matching(NSPredicate(
+                format: "label == %@ AND identifier != %@", "Explorar", "BackButton"
+            )).firstMatch
+            XCTAssertTrue(browse.waitForExistence(timeout: 5))
+            browse.tap()
+        }
+        XCTAssertTrue(localFilesTitle.waitForExistence(timeout: 5))
         let backupFile = app.cells.matching(NSPredicate(format: "label BEGINSWITH 'Copia-Nido-'" )).firstMatch
         XCTAssertTrue(backupFile.waitForExistence(timeout: 5))
         backupFile.tap()
@@ -92,9 +99,34 @@ final class NidoUITests: XCTestCase {
         cancel.tap()
         XCTAssertFalse(restore.exists)
 
+        let pickerCancel = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"].buttons["Cancelar"]
+        if pickerCancel.waitForExistence(timeout: 2) {
+            pickerCancel.tap()
+            let pickerDismissed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"),
+                object: pickerCancel
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [pickerDismissed], timeout: 5), .completed)
+        }
         app.tabBars.buttons["Historia"].tap()
-        XCTAssertTrue(app.buttons["history-entry-ui-test-latest-diaper"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["history-entry-ui-test-older-diaper"].exists)
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 5))
+        let latestDiaper = app.buttons["history-entry-ui-test-latest-diaper"]
+        for _ in 0..<4 where !latestDiaper.exists { app.swipeUp() }
+        XCTAssertTrue(latestDiaper.waitForExistence(timeout: 5))
+        let olderDiaper = app.buttons["history-entry-ui-test-older-diaper"]
+        for _ in 0..<3 where !olderDiaper.exists { app.swipeUp() }
+        if !olderDiaper.exists {
+            let dayPicker = app.buttons["history-day-picker"]
+            for _ in 0..<4 where !dayPicker.isHittable { app.swipeDown() }
+            let dayWithOlderDiaper = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                "history-week-day-", "1 pañales"
+            )).firstMatch
+            XCTAssertTrue(dayWithOlderDiaper.waitForExistence(timeout: 5))
+            dayWithOlderDiaper.tap()
+            for _ in 0..<3 where !olderDiaper.exists { app.swipeUp() }
+        }
+        XCTAssertTrue(olderDiaper.waitForExistence(timeout: 5))
     }
 
     func testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby() async throws {
@@ -446,16 +478,41 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Fórmula"].exists)
         app.buttons["Cancelar"].tap()
 
-        app.descendants(matching: .any)["history-entry-ui-test-semantic-diaper"].tap()
+        let feedEditorDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.navigationBars["Editar registro"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [feedEditorDismissed], timeout: 5), .completed)
+        let diaperEntry = app.descendants(matching: .any)["history-entry-ui-test-semantic-diaper"]
+        for _ in 0..<3 where !diaperEntry.exists { app.swipeUp() }
+        XCTAssertTrue(diaperEntry.waitForExistence(timeout: 5))
+        XCTAssertTrue(diaperEntry.isHittable)
+        diaperEntry.tap()
         XCTAssertTrue(app.staticTexts["¿Qué había en el pañal?"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["Pis"].isSelected)
         XCTAssertTrue(app.buttons["Caca"].isSelected)
         app.buttons["Cancelar"].tap()
 
-        app.descendants(matching: .any)["history-entry-ui-test-semantic-care"].tap()
+        let diaperEditorDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.navigationBars["Editar registro"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [diaperEditorDismissed], timeout: 5), .completed)
+        let careEntry = app.descendants(matching: .any)["history-entry-ui-test-semantic-care"]
+        for _ in 0..<3 where !careEntry.exists { app.swipeDown() }
+        XCTAssertTrue(careEntry.waitForExistence(timeout: 5))
+        XCTAssertTrue(careEntry.isHittable)
+        careEntry.tap()
         XCTAssertTrue(app.staticTexts["¿Qué quieres registrar?"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["Temperatura"].isSelected)
-        XCTAssertTrue(app.staticTexts["Medición"].exists)
+        let careForm = app.collectionViews.firstMatch
+        XCTAssertTrue(careForm.exists)
+        let measurement = app.staticTexts["Medición"]
+        for _ in 0..<4 where !measurement.exists {
+            careForm.swipeUp()
+        }
+        XCTAssertTrue(measurement.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Medición, 37,2 °C"].exists)
     }
 
     func testActionableUndoRemainsAvailableUntilDismissedOrUsed() {
@@ -480,7 +537,10 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(dial.exists)
         XCTAssertLessThan(feed.frame.maxY, dial.frame.minY)
 
-        dial.swipeRight()
+        let previousDay = app.buttons["Día anterior"]
+        XCTAssertTrue(previousDay.waitForExistence(timeout: 3))
+        previousDay.tap()
+        XCTAssertTrue(app.buttons["Volver a hoy"].waitForExistence(timeout: 3))
         XCTAssertFalse(feed.exists)
     }
 
@@ -1002,7 +1062,20 @@ final class NidoUITests: XCTestCase {
         undo.tap()
         app.tabBars.buttons["Historia"].tap()
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["history-entry-ui-test-latest-feed"].exists)
+        let originalFeed = app.buttons["history-entry-ui-test-latest-feed"]
+        for _ in 0..<3 where !originalFeed.exists { app.swipeUp() }
+        if !originalFeed.exists {
+            let dayPicker = app.buttons["history-day-picker"]
+            for _ in 0..<4 where !dayPicker.isHittable { app.swipeDown() }
+            let dayWithOriginalFeed = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                "history-week-day-", "1 tomas"
+            )).firstMatch
+            XCTAssertTrue(dayWithOriginalFeed.waitForExistence(timeout: 5))
+            dayWithOriginalFeed.tap()
+            for _ in 0..<3 where !originalFeed.exists { app.swipeUp() }
+        }
+        XCTAssertTrue(originalFeed.waitForExistence(timeout: 5))
         XCTAssertEqual(
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'history-entry-'" )).count,
             1
