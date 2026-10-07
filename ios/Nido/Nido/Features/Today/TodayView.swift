@@ -36,15 +36,20 @@ struct TodayView: View {
     }
 
     var body: some View {
-        ZStack {
-            PaperBackground()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    prioritizedContent
+        GeometryReader { viewport in
+            // Use the available viewport, but preserve multiline layouts for accessibility text sizes.
+            let compactHeight = viewport.size.height < 560 && !dynamicTypeSize.isAccessibilitySize
+            ZStack {
+                PaperBackground()
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        prioritizedContent(compactHeight: compactHeight)
+                    }
+                    .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
+                .padding(.top, compactHeight ? -12 : 0)
+                .refreshable { await store.refresh() }
             }
-            .refreshable { await store.refresh() }
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -66,18 +71,23 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private var prioritizedContent: some View {
-        pageHeader
-        SleepCard()
-            .padding(.top, 12)
+    private func prioritizedContent(compactHeight: Bool) -> some View {
+        let storyFollowsDial = compactHeight || store.activeSleepStartedAt != nil
+        pageHeader(compactHeight: compactHeight)
+        SleepCard(compactHeight: compactHeight)
+            .padding(.top, compactHeight ? 0 : 12)
         if isTodaySelected, store.activeFeedStartedAt != nil {
             ActiveFeedCard()
                 .padding(.top, 10)
         }
-        if !dynamicTypeSize.isAccessibilitySize {
+        if !dynamicTypeSize.isAccessibilitySize && !storyFollowsDial {
             storyHeader
         }
-        dayPager
+        dayPager(compactHeight: compactHeight)
+        if !dynamicTypeSize.isAccessibilitySize && storyFollowsDial {
+            storyHeader
+                .padding(.top, 52)
+        }
         DayTimelineActivity(
             day: selectedTimelineDay,
             isToday: isTodaySelected,
@@ -89,19 +99,43 @@ struct TodayView: View {
         Color.clear.frame(height: 28)
     }
 
-    private var pageHeader: some View {
+    private func pageHeader(compactHeight: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(isTodaySelected ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)) : "El día de \(profile.babyName)")
-                .font(.system(.subheadline, design: .serif, weight: .medium))
-                .italic()
-                .foregroundStyle(NidoTheme.secondaryInk)
-                .textCase(.lowercase)
-            Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                .nidoTitle(.hero)
-                .lineLimit(2)
-                .accessibilityIdentifier("timeline-day-heading")
+            if compactHeight {
+                HStack(spacing: 0) {
+                    Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.day().month(.abbreviated)))
+                        .nidoTitle(.screen)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .accessibilityLabel(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                        .accessibilityIdentifier("timeline-day-heading")
+
+                    Spacer(minLength: 4)
+                    dayNavigationButton(offset: -1)
+                    dayNavigationButton(offset: 1)
+                    if !isTodaySelected {
+                        Button(action: returnToToday) {
+                            Image(systemName: "arrow.uturn.forward")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Volver a hoy")
+                        .accessibilityIdentifier("timeline-return-today")
+                        .foregroundStyle(NidoTheme.moss)
+                    }
+                }
+            } else {
+                Text(isTodaySelected ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)) : "El día de \(profile.babyName)")
+                    .font(.system(.subheadline, design: .serif, weight: .medium))
+                    .italic()
+                    .foregroundStyle(NidoTheme.secondaryInk)
+                    .textCase(.lowercase)
+                Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                    .nidoTitle(.hero)
+                    .lineLimit(2)
+                    .accessibilityIdentifier("timeline-day-heading")
+            }
         }
-        .padding(.top, 10)
+        .padding(.top, compactHeight ? 0 : 10)
     }
 
     private var storyHeader: some View {
@@ -114,13 +148,15 @@ struct TodayView: View {
                 .fill(NidoTheme.secondaryInk.opacity(0.24))
                 .frame(height: 0.5)
         }
-        .padding(.top, 18)
+        .padding(.top, 16)
         .padding(.bottom, 8)
     }
 
-    private var dayPager: some View {
-        VStack(spacing: 4) {
-            dayControls
+    private func dayPager(compactHeight: Bool) -> some View {
+        VStack(spacing: compactHeight ? 0 : 4) {
+            if !compactHeight {
+                dayControls
+            }
             TabView(selection: $selectedDay) {
                 ForEach(dayDates, id: \.self) { date in
                     TimelineView(.everyMinute) { context in
@@ -146,16 +182,7 @@ struct TodayView: View {
     private var dayControls: some View {
         VStack(spacing: 0) {
             HStack {
-                Button {
-                    moveDay(by: -1)
-                } label: {
-                    Label("Día anterior", systemImage: "chevron.left")
-                        .labelStyle(.iconOnly)
-                        .frame(width: 44, height: 44)
-                }
-                .disabled(dayDates.first == selectedDay)
-                .accessibilityLabel("Día anterior")
-                .opacity(dayDates.first == selectedDay ? 0.28 : 1)
+                dayNavigationButton(offset: -1)
 
                 Spacer()
                 Text(isTodaySelected ? "Hoy" : selectedDay.formatted(.dateTime.day().month(.wide)))
@@ -163,16 +190,7 @@ struct TodayView: View {
                     .foregroundStyle(NidoTheme.secondaryInk)
                 Spacer()
 
-                Button {
-                    moveDay(by: 1)
-                } label: {
-                    Label("Día siguiente", systemImage: "chevron.right")
-                        .labelStyle(.iconOnly)
-                        .frame(width: 44, height: 44)
-                }
-                .disabled(isTodaySelected)
-                .accessibilityLabel("Día siguiente")
-                .opacity(isTodaySelected ? 0.28 : 1)
+                dayNavigationButton(offset: 1)
             }
 
             if !isTodaySelected {
@@ -186,6 +204,21 @@ struct TodayView: View {
                 .accessibilityIdentifier("timeline-return-today")
             }
         }
+        .foregroundStyle(NidoTheme.moss)
+    }
+
+    private func dayNavigationButton(offset: Int) -> some View {
+        let isDisabled = offset < 0 ? dayDates.first == selectedDay : isTodaySelected
+        let title = offset < 0 ? "Día anterior" : "Día siguiente"
+        return Button {
+            moveDay(by: offset)
+        } label: {
+            Image(systemName: offset < 0 ? "chevron.left" : "chevron.right")
+                .frame(width: 44, height: 44)
+        }
+        .disabled(isDisabled)
+        .accessibilityLabel(title)
+        .opacity(isDisabled ? 0.28 : 1)
         .foregroundStyle(NidoTheme.moss)
     }
 
@@ -388,12 +421,13 @@ private struct ActiveFeedCard: View {
 private struct SleepCard: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let compactHeight: Bool
     @State private var isEditingStart = false
 
     var body: some View {
         if let start = store.activeSleepStartedAt {
             adaptiveLayout {
-                if !dynamicTypeSize.isAccessibilitySize {
+                if !dynamicTypeSize.isAccessibilitySize && !compactHeight {
                     EntryGlyph(kind: .sleep, size: 28)
                 }
 
@@ -401,7 +435,7 @@ private struct SleepCard: View {
                     isEditingStart = true
                 } label: {
                     VStack(alignment: .leading, spacing: 3) {
-                    Text("\(store.profile?.babyName ?? "El bebé") está durmiendo")
+                        Text("\(store.profile?.babyName ?? "El bebé") está durmiendo")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.72))
                         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -410,7 +444,7 @@ private struct SleepCard: View {
                         }
                         .id(start)
                         Label(
-                            "Desde \(start.formatted(date: .abbreviated, time: .shortened))",
+                            "Desde \(compactHeight ? start.formatted(.dateTime.day().month(.abbreviated).hour().minute()) : start.formatted(date: .abbreviated, time: .shortened))",
                             systemImage: "pencil"
                         )
                         .font(.caption.weight(.medium))
@@ -439,7 +473,8 @@ private struct SleepCard: View {
                 .buttonStyle(PressScaleButtonStyle())
                 .accessibilityHint("Finaliza y guarda el sueño")
             }
-            .padding(14)
+            .padding(.horizontal, 14)
+            .padding(.vertical, compactHeight ? 6 : 14)
             .frame(maxWidth: .infinity)
             .background {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
@@ -484,7 +519,8 @@ private struct SleepCard: View {
                         .padding(.vertical, 10)
                         .background(NidoTheme.moss, in: Capsule())
                 }
-                .padding(14)
+                .padding(.horizontal, 14)
+                .padding(.vertical, compactHeight ? 9 : 14)
                 .frame(maxWidth: .infinity)
                 .background(.white.opacity(0.48), in: RoundedRectangle(cornerRadius: 21, style: .continuous))
                 .overlay {

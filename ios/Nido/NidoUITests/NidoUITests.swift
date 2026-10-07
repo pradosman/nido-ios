@@ -790,10 +790,21 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "circular-timeline")
 
         let dial = app.otherElements["timeline-circular-dial"]
+        let registration = app.buttons["registration-action-button"]
         let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
+        XCTAssertTrue(registration.exists)
         XCTAssertTrue(tabBar.exists)
+        XCTAssertLessThanOrEqual(dial.frame.maxY, registration.frame.minY - 16)
         XCTAssertLessThanOrEqual(dial.frame.maxY, tabBar.frame.minY - 16)
+
+        app.terminate()
+        launch(scenario: "active-sleep")
+        let activeDial = app.otherElements["timeline-circular-dial"]
+        let activeRegistration = app.buttons["registration-action-button"]
+        XCTAssertTrue(activeDial.waitForExistence(timeout: 3))
+        XCTAssertTrue(activeRegistration.exists)
+        XCTAssertLessThanOrEqual(activeDial.frame.maxY, activeRegistration.frame.minY - 16)
     }
 
     func testCircularTimelineIsInTheFirstViewportAtAccessibilityXXXL() {
