@@ -2,6 +2,8 @@
 
 This document is the delivery ledger for the visual, interaction, accessibility, and copy pass requested on 2026-08-28. It is intentionally kept in the repository so each change can be traced to a commit and verified again later.
 
+**Release status (2026-10-08): not yet verified for production.** The simulator, package, and local API checks below passed, but VoiceOver, physical-iPhone behavior, deployed API and real Apple identity integration, and tinted/clear widget appearances still need direct evidence. “Implemented” in the older ledger records a code change, not release acceptance.
+
 ## Definition of done
 
 - The app has one clear navigation layer and one clear action layer.
@@ -43,15 +45,29 @@ This document is the delivery ledger for the visual, interaction, accessibility,
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Swift package tests | Passed | 17 tests completed with no failures. |
-| iOS Simulator build without signing | Passed | `xcodebuild` completed for the `Nido` scheme and generic iOS Simulator destination. |
-| iPhone light appearance | Passed | Inspected on an iPhone 17 Pro simulator. |
-| iPhone dark appearance | Passed | Inspected on an iPhone 17 Pro simulator; semantic surfaces and hierarchy remain legible. |
-| Accessibility Dynamic Type | Passed | Inspected at Accessibility Extra Extra Extra Large; the access flow reflows without clipping or overlap. |
+| Swift package tests | Passed | 115 tests in the full package run after the compact Today and UI-test updates; isolated scratch was used after a repository-local build database error. |
+| Synthetic in-process API contracts | Passed locally | `env -u DATABASE_URL -u NIDO_REAL_POSTGRES_URL -u NODE_ENV node --test tests/nido-households.contract.test.mjs tests/nido-apple-auth.contract.test.mjs tests/apple-session-handler.test.mjs` exited 0: 18 passed, 0 failed, 0 skipped. No deployed HTTP service or real Apple identity was exercised. |
+| PostgreSQL-backed API contract | Passed locally | Migrations and `tests/postgres-real.contract.test.mjs` each exited 0 against an isolated ephemeral PostgreSQL 17.10 `tmpfs` container, which was removed afterward. No retained per-test TAP count; no production database, remote credentials, or VPS was used. |
+| Local HTTP smoke check | Passed locally | With disposable PostgreSQL 17.10 on `tmpfs`, migrations and `npm run build` exited 0. The local API returned `GET /api/nido/status` 200 with capability flags true, unauthenticated `GET /api/nido` 401, and `POST /api/nido/auth/apple/challenge` 201 with nonempty `challengeID`, `nonce`, and `expiresAt`. API and container stopped with no leftover ports. No Apple session/JWKS, credential-backed invitation, physical iPhone, VPS, or production HTTP was tested. |
+| iPhone SE (3rd generation) UI suite | Passed with skips | Fresh isolated iOS 26.5 simulator: `/tmp/nido-au12b-full-se.xcresult`, 41 tests, 38 passed, 3 credential-dependent skips, 0 failures after `73e0e1c`. The circular timeline clears the floating action in idle and active sleep. |
+| iPhone 17 Pro UI suite | Passed with skips | Fresh isolated simulator: `/tmp/nido-au12b-full-pro.xcresult`, 41 tests, 38 passed, 3 credential-dependent skips, 0 failures after `73e0e1c`. Neither suite proves real-backend behavior. |
+| Snapshot suite | Passed | 2 existing simulator snapshots, including the corrected 280pt/350pt XXXL Today center from AU-4. |
+| iOS Simulator build without signing | Passed | `Nido` built for the iPhone 17 Pro simulator after the compact Today and UI-test updates. |
+| Modal presentations | Visually covered | All 12 presentations inspected on an isolated simulator; this is visual coverage, not automated accessibility proof. |
+| Restore confirmation | Passed in simulator | UI RED found no visible Cancel; `0d198fb` made it visible. Focused GREEN dismissed the alert and retained both synthetic History entries without selecting Restore. |
+| iPhone light appearance | Passed in simulator | Existing iPhone 17 Pro inspection; light appearance restored after the Live Activity dark-mode check. |
+| iPhone dark appearance | Passed in simulator | Existing screen inspection and 10-hour synthetic Live Activity capture showed a legible, non-ellipsized timer after `8047918`. |
+| Accessibility Dynamic Type | Passed for tested flows | Today 280pt/350pt XXXL snapshots and medication form Large/XXXL reachability (2/2 isolated temporary checks). This is not exhaustive coverage of every screen. |
+| VoiceOver | Pending | No end-to-end spoken navigation and focus-order verification recorded for this pass. |
+| Tinted/clear widget appearances | Pending | No CLI control for these modes was found; the Mac was locked during attempted Simulator UI inspection. No color defect is established. |
+| Physical iPhone and deployed API | Pending | No physical-device run, deployed HTTP check, real Apple identity, or credential-backed VPS/server integration was performed in this pass; the local API contract checks above do not cover these boundaries. |
 | Reduce Motion code audit | Passed | Custom transitions and animations are conditional on `accessibilityReduceMotion`. |
 | Increased Contrast code audit | Passed | Semantic colors provide explicit high-contrast variants through `UIAccessibility.isDarkerSystemColorsEnabled`. |
 
 ## Delivery notes
 
 - Xcode signing and shared-scheme changes that predate this pass are intentionally excluded from its commits.
-- Each work unit updates this ledger in the same commit as the implementation it describes.
+- Recent independent local work units targeting `main`: compact Today timeline clearance `7e75076` and UI-test synchronization `73e0e1c`. This release ledger is a separate documentation follow-up; neither commit has been pushed or opened as a PR in this pass.
+- Apple UI follow-up commits: timeline geometry `9f9fa5d`, native tabs `6200318`, Today editing `72f5564`, Today hierarchy `02ca5d1`, History targets `c403835`, compact Live Activity timer `8047918`, and restore cancellation `0d198fb`. AU-7 was read-only verification, not a source change.
+- Native RDD review of `7e75076` is **not approved**: risk assessment could not classify the candidate because of untracked-inventory requirements, and committed-only STATUS timed out before native review began (`mutation_outcome: not_started`, `retry_safe: false`). Do not infer review approval from passing tests or retry blindly.
+- Release checks remain: VoiceOver on core flows; tinted and clear widget rendering; physical-iPhone Live Activity, widget, notification, Keychain, and restore behavior; and credential-backed invitation/synchronization, offline/reconnection, and permission tests against the real API. Record exact results before marking the definition of done complete.
