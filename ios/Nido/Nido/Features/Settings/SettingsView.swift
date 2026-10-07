@@ -225,13 +225,12 @@ struct SettingsView: View {
                 backupError = "No hemos podido leer esta copia."
             }
         }
-        .confirmationDialog(
+        .alert(
             "¿Restaurar esta copia?",
             isPresented: Binding(
                 get: { pendingBackup != nil },
                 set: { if !$0 { pendingBackup = nil } }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("Restaurar registros") {
                 guard let backup = pendingBackup else { return }

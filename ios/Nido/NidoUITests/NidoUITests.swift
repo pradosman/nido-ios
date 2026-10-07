@@ -58,6 +58,45 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["El cuidado familiar, en privado."].waitForExistence(timeout: 5))
     }
 
+    func testRestoreConfirmationOffersCancel() {
+        launch(scenario: "quick-diaper-registration")
+
+        app.tabBars.buttons["Ajustes"].tap()
+        let prepareBackup = app.buttons["Preparar copia de seguridad"]
+        for _ in 0..<6 where !prepareBackup.exists { app.swipeUp() }
+        XCTAssertTrue(prepareBackup.waitForExistence(timeout: 5))
+        prepareBackup.tap()
+        app.buttons["Compartir copia completa"].tap()
+
+        let saveToFiles = app.cells["Guardar en Archivos"]
+        XCTAssertTrue(saveToFiles.waitForExistence(timeout: 5))
+        saveToFiles.tap()
+        let save = app.buttons["Guardar"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
+
+        let importBackup = app.buttons["Restaurar desde un archivo"]
+        XCTAssertTrue(importBackup.waitForExistence(timeout: 5))
+        importBackup.tap()
+        let browse = app.buttons["Explorar"]
+        if browse.exists { browse.tap() }
+        let backupFile = app.cells.matching(NSPredicate(format: "label BEGINSWITH 'Copia-Nido-'" )).firstMatch
+        XCTAssertTrue(backupFile.waitForExistence(timeout: 5))
+        backupFile.tap()
+
+        let restore = app.buttons["Restaurar registros"]
+        XCTAssertTrue(restore.waitForExistence(timeout: 5))
+        let cancel = app.buttons["Cancelar"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3), "Restore confirmation needs a visible Cancel action")
+        XCTAssertTrue(cancel.isHittable)
+        cancel.tap()
+        XCTAssertFalse(restore.exists)
+
+        app.tabBars.buttons["Historia"].tap()
+        XCTAssertTrue(app.buttons["history-entry-ui-test-latest-diaper"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["history-entry-ui-test-older-diaper"].exists)
+    }
+
     func testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby() async throws {
         let baseURL = ProcessInfo.processInfo.environment["NIDO_UI_TEST_API_BASE_URL"] ?? "http://127.0.0.1:34200"
         let ownerAToken = try requiredSessionToken(named: "NIDO_UI_TEST_OWNER_A_TOKEN")
