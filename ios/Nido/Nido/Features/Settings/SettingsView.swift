@@ -30,7 +30,7 @@ struct SettingsView: View {
                             HStack(spacing: 14) {
                                 Text(profile.initials)
                                     .font(.title3.weight(.semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(NidoTheme.textOnMoss)
                                     .frame(width: 52, height: 52)
                                     .background(NidoTheme.moss, in: Circle())
                                 VStack(alignment: .leading, spacing: 3) {
@@ -321,7 +321,7 @@ private struct CaregiverRow: View {
         HStack(spacing: 13) {
             Text(caregiver.initials)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(caregiver.status == .active ? .white : NidoTheme.secondaryInk)
+                .foregroundStyle(caregiver.status == .active ? NidoTheme.textOnMoss : NidoTheme.secondaryInk)
                 .frame(width: 38, height: 38)
                 .background(
                     caregiver.status == .active ? NidoTheme.moss : NidoTheme.secondaryInk.opacity(0.12),

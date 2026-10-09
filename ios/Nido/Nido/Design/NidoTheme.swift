@@ -28,6 +28,12 @@ enum NidoTheme {
         light: UIColor(red: 0.32, green: 0.43, blue: 0.37, alpha: 1),
         dark: UIColor(red: 0.50, green: 0.64, blue: 0.55, alpha: 1)
     )
+    static let textOnMoss = Color(
+        light: .white,
+        dark: UIColor(red: 0.06, green: 0.07, blue: 0.065, alpha: 1),
+        highContrastLight: .white,
+        highContrastDark: .black
+    )
     static let sleep = Color(
         light: UIColor(red: 0.32, green: 0.43, blue: 0.51, alpha: 1),
         dark: UIColor(red: 0.51, green: 0.66, blue: 0.77, alpha: 1)
