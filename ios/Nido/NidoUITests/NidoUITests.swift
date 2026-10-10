@@ -892,10 +892,11 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(largeAction.isHittable, "The Large-size invite action must be reachable by scrolling.")
         XCTAssertEqual(largeAction.label, "Invitar familiar")
         let largeActionFrame = largeAction.frame
+        let largeViewport = inviteVisibleViewport(in: largeScrollView)
         let largeInviteText = app.staticTexts["Invitar familiar"]
         let largeInviteTextFrame = largeInviteText.exists ? largeInviteText.frame : nil
         XCTAssertTrue(
-            largeScrollView.frame.contains(largeActionFrame),
+            largeViewport.contains(largeActionFrame),
             "The Large-size invite action must fit inside the scroll viewport."
         )
         print("NIDO_SETTINGS_INVITE_DYNAMIC_TYPE: category=Large frame=\(largeActionFrame)")
@@ -923,24 +924,31 @@ final class NidoUITests: XCTestCase {
         )
         XCTAssertEqual(accessibilityAction.label, "Invitar familiar")
         let accessibilityActionFrame = accessibilityAction.frame
+        let accessibilityViewport = inviteVisibleViewport(in: accessibilityScrollView)
         let accessibilityInviteText = app.staticTexts["Invitar familiar"]
         let accessibilityInviteTextFrame = accessibilityInviteText.exists ? accessibilityInviteText.frame : nil
+        print("NIDO_SETTINGS_INVITE_DYNAMIC_TYPE: category=AccessibilityXXXL viewport=\(accessibilityViewport) action=\(accessibilityActionFrame) fullyContained=\(accessibilityViewport.contains(accessibilityActionFrame)) hittable=\(accessibilityAction.isHittable)")
+        let accessibilityViewportAttachment = XCTAttachment(screenshot: app.screenshot())
+        accessibilityViewportAttachment.name = "Settings invite viewport before containment assertion"
+        accessibilityViewportAttachment.lifetime = .keepAlways
+        add(accessibilityViewportAttachment)
         XCTAssertTrue(
-            accessibilityScrollView.frame.contains(accessibilityActionFrame),
+            accessibilityViewport.contains(accessibilityActionFrame),
             "The Accessibility XXXL invite action must fit inside the scroll viewport."
         )
-        XCTAssertEqual(
-            accessibilityInviteTextFrame != nil,
-            largeInviteTextFrame != nil,
-            "The invite label must expose a StaticText node consistently at both Dynamic Type sizes."
-        )
-        if let largeInviteTextFrame, let accessibilityInviteTextFrame {
-            XCTAssertGreaterThan(
-                accessibilityInviteTextFrame.height,
-                largeInviteTextFrame.height,
-                "The Invitar familiar StaticText frame must grow at Accessibility XXXL."
-            )
+        guard let largeInviteTextFrame else {
+            XCTFail("The invite label must expose a StaticText node at Large.")
+            return
         }
+        guard let accessibilityInviteTextFrame else {
+            XCTFail("The invite label must expose a StaticText node at Accessibility XXXL.")
+            return
+        }
+        XCTAssertGreaterThan(
+            accessibilityInviteTextFrame.height,
+            largeInviteTextFrame.height,
+            "The Invitar familiar StaticText frame must grow at Accessibility XXXL."
+        )
         XCTAssertGreaterThan(
             accessibilityActionFrame.height,
             largeActionFrame.height,
@@ -955,14 +963,40 @@ final class NidoUITests: XCTestCase {
     }
 
     private func scrollInviteActionIntoView(_ action: XCUIElement, in collectionView: XCUIElement) {
-        for _ in 0..<8 {
-            if action.isHittable { return }
-            if action.exists && action.frame.midY < collectionView.frame.midY {
-                collectionView.swipeDown()
-            } else {
+        for _ in 0..<12 {
+            let viewport = inviteVisibleViewport(in: collectionView)
+            if action.exists && viewport.contains(action.frame) { return }
+            guard action.exists else {
                 collectionView.swipeUp()
+                continue
             }
+
+            let frame = action.frame
+            let overshoot = frame.minY < viewport.minY
+                ? frame.minY - viewport.minY
+                : frame.maxY - viewport.maxY
+            let fraction = min(0.35, max(0.05, abs(overshoot) / collectionView.frame.height))
+            let start = collectionView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let endY = min(0.95, max(0.05, 0.5 + (overshoot > 0 ? -fraction : fraction)))
+            start.press(
+                forDuration: 0.05,
+                thenDragTo: collectionView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+            )
         }
+    }
+
+    private func inviteVisibleViewport(in collectionView: XCUIElement) -> CGRect {
+        let navigationBar = app.navigationBars.firstMatch
+        let registrationAction = app.buttons["registration-action-button"]
+        let collectionFrame = collectionView.frame
+        let top = max(collectionFrame.minY, navigationBar.frame.maxY)
+        let bottom = min(collectionFrame.maxY, registrationAction.frame.minY)
+        return CGRect(
+            x: collectionFrame.minX,
+            y: top,
+            width: collectionFrame.width,
+            height: max(0, bottom - top)
+        )
     }
 
     func testHistoryFormatsDurationAsHoursAndMinutes() {
