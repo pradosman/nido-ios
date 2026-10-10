@@ -880,6 +880,91 @@ final class NidoUITests: XCTestCase {
         XCTAssertLessThan(dial.frame.minY, tabBar.frame.minY)
     }
 
+    func testSettingsInviteActionScalesAndRemainsReachableAtAccessibilityXXXL() {
+        launch(scenario: "caregiver-removal", contentSizeCategory: "UICTContentSizeCategoryLarge")
+        app.tabBars.buttons["Ajustes"].tap()
+
+        let largeAction = app.buttons["settings-invite-caregiver"]
+        let largeScrollView = app.collectionViews["settings-list"]
+        XCTAssertTrue(largeScrollView.waitForExistence(timeout: 3))
+        scrollInviteActionIntoView(largeAction, in: largeScrollView)
+        XCTAssertTrue(largeAction.waitForExistence(timeout: 3))
+        XCTAssertTrue(largeAction.isHittable, "The Large-size invite action must be reachable by scrolling.")
+        XCTAssertEqual(largeAction.label, "Invitar familiar")
+        let largeActionFrame = largeAction.frame
+        let largeInviteText = app.staticTexts["Invitar familiar"]
+        let largeInviteTextFrame = largeInviteText.exists ? largeInviteText.frame : nil
+        XCTAssertTrue(
+            largeScrollView.frame.contains(largeActionFrame),
+            "The Large-size invite action must fit inside the scroll viewport."
+        )
+        print("NIDO_SETTINGS_INVITE_DYNAMIC_TYPE: category=Large frame=\(largeActionFrame)")
+        print("NIDO_SETTINGS_INVITE_DYNAMIC_TYPE: category=Large staticTextFrame=\(String(describing: largeInviteTextFrame))")
+        let largeAttachment = XCTAttachment(screenshot: app.screenshot())
+        largeAttachment.name = "Settings invite action at Large"
+        largeAttachment.lifetime = .keepAlways
+        add(largeAttachment)
+
+        app.terminate()
+        launch(
+            scenario: "caregiver-removal",
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        )
+        app.tabBars.buttons["Ajustes"].tap()
+
+        let accessibilityAction = app.buttons["settings-invite-caregiver"]
+        let accessibilityScrollView = app.collectionViews["settings-list"]
+        XCTAssertTrue(accessibilityScrollView.waitForExistence(timeout: 3))
+        scrollInviteActionIntoView(accessibilityAction, in: accessibilityScrollView)
+        XCTAssertTrue(accessibilityAction.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            accessibilityAction.isHittable,
+            "The Accessibility XXXL invite action must be reachable by scrolling."
+        )
+        XCTAssertEqual(accessibilityAction.label, "Invitar familiar")
+        let accessibilityActionFrame = accessibilityAction.frame
+        let accessibilityInviteText = app.staticTexts["Invitar familiar"]
+        let accessibilityInviteTextFrame = accessibilityInviteText.exists ? accessibilityInviteText.frame : nil
+        XCTAssertTrue(
+            accessibilityScrollView.frame.contains(accessibilityActionFrame),
+            "The Accessibility XXXL invite action must fit inside the scroll viewport."
+        )
+        XCTAssertEqual(
+            accessibilityInviteTextFrame != nil,
+            largeInviteTextFrame != nil,
+            "The invite label must expose a StaticText node consistently at both Dynamic Type sizes."
+        )
+        if let largeInviteTextFrame, let accessibilityInviteTextFrame {
+            XCTAssertGreaterThan(
+                accessibilityInviteTextFrame.height,
+                largeInviteTextFrame.height,
+                "The Invitar familiar StaticText frame must grow at Accessibility XXXL."
+            )
+        }
+        XCTAssertGreaterThan(
+            accessibilityActionFrame.height,
+            largeActionFrame.height,
+            "The invite action's measured row must grow with Accessibility XXXL Dynamic Type."
+        )
+        print("NIDO_SETTINGS_INVITE_DYNAMIC_TYPE: category=AccessibilityXXXL frame=\(accessibilityActionFrame)")
+        print("NIDO_SETTINGS_INVITE_DYNAMIC_TYPE: category=AccessibilityXXXL staticTextFrame=\(String(describing: accessibilityInviteTextFrame))")
+        let accessibilityAttachment = XCTAttachment(screenshot: app.screenshot())
+        accessibilityAttachment.name = "Settings invite action at Accessibility XXXL"
+        accessibilityAttachment.lifetime = .keepAlways
+        add(accessibilityAttachment)
+    }
+
+    private func scrollInviteActionIntoView(_ action: XCUIElement, in collectionView: XCUIElement) {
+        for _ in 0..<8 {
+            if action.isHittable { return }
+            if action.exists && action.frame.midY < collectionView.frame.midY {
+                collectionView.swipeDown()
+            } else {
+                collectionView.swipeUp()
+            }
+        }
+    }
+
     func testHistoryFormatsDurationAsHoursAndMinutes() {
         launch(scenario: "timeline-duration")
 
