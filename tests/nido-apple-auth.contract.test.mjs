@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { seedSession, withRouteDatabase } from "./support/nido-route-harness.mjs";
+import { appleDeletionProof } from "./support/apple-deletion-proof.mjs";
 
 test("Apple challenge is stateless and ignores client-controlled source headers", async () => {
   await withRouteDatabase(async ({ client, request }) => {
@@ -149,7 +150,7 @@ test("owner deletion cascades the household and every related identity", async (
     assert.equal((await request("/api/nido/caregivers/join", {
       method: "POST", token: member.token, body: { code },
     })).status, 200);
-    assert.equal((await request("/api/nido/auth/account", { method: "DELETE", token: owner.token })).status, 200);
+    assert.equal((await request("/api/nido/auth/account", { method: "DELETE", token: owner.token, body: await appleDeletionProof(owner.userID.replace("test-user-", "test-apple-subject-")) })).status, 200);
     const state = await client.query(`SELECT
       (SELECT COUNT(*)::int FROM households) AS households,
       (SELECT COUNT(*)::int FROM caregivers) AS caregivers,
@@ -174,7 +175,7 @@ test("member deletion preserves the household and owner", async () => {
     assert.equal((await request("/api/nido/caregivers/join", {
       method: "POST", token: member.token, body: { code: invitation.payload.invitation.code },
     })).status, 200);
-    assert.equal((await request("/api/nido/auth/account", { method: "DELETE", token: member.token })).status, 200);
+    assert.equal((await request("/api/nido/auth/account", { method: "DELETE", token: member.token, body: await appleDeletionProof(member.userID.replace("test-user-", "test-apple-subject-")) })).status, 200);
     assert.equal((await request("/api/nido", { token: member.token })).status, 401);
     assert.equal((await request("/api/nido", { token: owner.token })).status, 200);
     const state = await client.query(`SELECT

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { createTestDatabase } from "../../db/testing.ts";
-import * as accountRoute from "../../app/api/nido/auth/account/route.ts";
+import { accountDeletionHandler } from "./apple-deletion-proof.mjs";
 import * as challengeRoute from "../../app/api/nido/auth/apple/challenge/route.ts";
 import * as sessionRoute from "../../app/api/nido/auth/apple/session/route.ts";
 import * as logoutRoute from "../../app/api/nido/auth/logout/route.ts";
@@ -15,7 +15,7 @@ import * as statusRoute from "../../app/api/nido/status/route.ts";
 
 const routes = new Map([
   ["/api/nido", nidoRoute],
-  ["/api/nido/auth/account", accountRoute],
+  ["/api/nido/auth/account", { DELETE: accountDeletionHandler }],
   ["/api/nido/auth/apple/challenge", challengeRoute],
   ["/api/nido/auth/apple/session", sessionRoute],
   ["/api/nido/auth/logout", logoutRoute],
