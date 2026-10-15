@@ -6,6 +6,37 @@ import XCTest
 
 @MainActor
 final class CircularTimelineSnapshotTests: XCTestCase {
+    func testUITestLargestDynamicTypeOverrideReachesLargestAccessibilitySize() async throws {
+        let observed = expectation(description: "The hosted child reads the overridden Dynamic Type environment")
+        var actualSize: DynamicTypeSize?
+        let probe = DynamicTypeEnvironmentProbe { size in
+            actualSize = size
+            observed.fulfill()
+        }
+        .modifier(UITestDynamicTypeOverride(
+            requestedSize: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        ))
+        let host = UIHostingController(rootView: probe)
+        let previousKeyWindow = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+        let scene = try XCTUnwrap(previousKeyWindow?.windowScene ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        defer {
+            window.isHidden = true
+            previousKeyWindow?.makeKey()
+        }
+
+        await fulfillment(of: [observed], timeout: 2)
+        XCTAssertEqual(try XCTUnwrap(actualSize), .accessibility5)
+    }
+
     func testCircularTimelineDial() async throws {
         try await assertDialSnapshots(
             dynamicTypeSize: .large,
@@ -112,5 +143,15 @@ final class CircularTimelineSnapshotTests: XCTestCase {
             named: "circular-timeline-280pt-\(suffix)",
             testName: testName
         )
+    }
+}
+
+private struct DynamicTypeEnvironmentProbe: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let observe: (DynamicTypeSize) -> Void
+
+    var body: some View {
+        Text("Tamaño de texto")
+            .onAppear { observe(dynamicTypeSize) }
     }
 }

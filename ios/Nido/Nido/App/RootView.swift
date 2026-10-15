@@ -52,6 +52,7 @@ private struct LoadingView: View {
 private struct MainTabView: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isPresentingEntryKindMenu = false
     @State private var quickRegistrationKind: EntryKind?
     @State private var pendingDetailKind: EntryKind?
@@ -190,13 +191,17 @@ private struct MainTabView: View {
             Button {
                 isPresentingEntryKindMenu = true
             } label: {
-                Label("Registrar una actividad", systemImage: "plus.circle.fill")
+                Label(
+                    dynamicTypeSize.isAccessibilitySize ? "Registrar" : "Registrar una actividad",
+                    systemImage: "plus.circle.fill"
+                )
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(.white)
                     .background(NidoTheme.moss, in: Capsule())
             }
             .buttonStyle(PressScaleButtonStyle())
+            .accessibilityLabel("Registrar una actividad")
             .accessibilityHint("Abre las opciones de registro")
             .accessibilityIdentifier("registration-action-button")
             .padding(.horizontal, 16)

@@ -144,13 +144,18 @@ struct NidoApp: App {
     }
 }
 
-private struct UITestDynamicTypeOverride: ViewModifier {
+struct UITestDynamicTypeOverride: ViewModifier {
+    let requestedSize: String?
+
+    init(requestedSize: String? = ProcessInfo.processInfo.environment["NIDO_UI_TEST_DYNAMIC_TYPE_SIZE"]) {
+        self.requestedSize = requestedSize
+    }
+
     @ViewBuilder
     func body(content: Content) -> some View {
         #if DEBUG
-        let requestedSize = ProcessInfo.processInfo.environment["NIDO_UI_TEST_DYNAMIC_TYPE_SIZE"]
         if requestedSize == "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge" {
-            content.environment(\.dynamicTypeSize, .accessibility3)
+            content.environment(\.dynamicTypeSize, .accessibility5)
         } else if requestedSize == "UICTContentSizeCategoryLarge" {
             content.environment(\.dynamicTypeSize, .large)
         } else {

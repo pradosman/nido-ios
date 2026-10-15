@@ -880,6 +880,18 @@ final class NidoUITests: XCTestCase {
         XCTAssertLessThan(dial.frame.minY, tabBar.frame.minY)
     }
 
+    func testLargestTextRegistrationActionKeepsACompactReachableLabel() {
+        launch(
+            scenario: "circular-timeline",
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        )
+        let action = app.buttons["registration-action-button"]
+        XCTAssertTrue(action.waitForExistence(timeout: 3))
+        XCTAssertEqual(action.label, "Registrar una actividad")
+        XCTAssertTrue(action.isHittable)
+        XCTAssertLessThanOrEqual(action.frame.height, 110)
+    }
+
     func testSettingsInviteActionScalesAndRemainsReachableAtAccessibilityXXXL() {
         launch(scenario: "caregiver-removal", contentSizeCategory: "UICTContentSizeCategoryLarge")
         app.tabBars.buttons["Ajustes"].tap()
