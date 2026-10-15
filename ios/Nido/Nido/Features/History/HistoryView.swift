@@ -195,7 +195,7 @@ struct HistoryView: View {
                 Text(title)
             }
             .font(.subheadline.weight(.medium))
-            .foregroundStyle(isSelected ? .white : NidoTheme.secondaryInk)
+            .foregroundStyle(isSelected ? NidoTheme.textOnMoss : NidoTheme.secondaryInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(isSelected ? NidoTheme.moss : NidoTheme.surface, in: Capsule())

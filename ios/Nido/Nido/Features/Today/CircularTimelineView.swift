@@ -222,7 +222,7 @@ struct CircularTimelineDayView: View {
         let frame = geometry.cardinalFrame(atMinute: minute)
         let size = geometry.cardinalSize(atMinute: minute)
         return cardinalTime(String(hour))
-            .foregroundStyle(NidoTheme.secondaryInk.opacity(0.88))
+            .foregroundStyle(NidoTheme.readableSupportingInk)
             .frame(width: size.width, height: size.height)
             .position(x: frame.midX, y: frame.midY)
             .accessibilityElement(children: .combine)
@@ -262,10 +262,8 @@ struct CircularTimelineDayView: View {
             .shadow(color: NidoTheme.sleep.opacity(0.24), radius: 5, y: 2)
             .frame(width: geometry.interactionDiameter, height: geometry.interactionDiameter)
             .position(position(angle: marker.angle, center: center, radius: geometry.trackRadius))
-            .accessibilityElement()
-            .accessibilityLabel("Ahora, \(clockLabel(marker.minute))")
-            .accessibilityIdentifier("timeline-now-marker")
-            .accessibilitySortPriority(1_500)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private func eventMarker(for item: CircularTimeline.Item, visualDiameter: CGFloat) -> some View {
@@ -564,7 +562,7 @@ private struct DashboardCenterSummary: View {
 
                     Text("\(feedCountLabel)\n\(diaperCountLabel)")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .foregroundStyle(NidoTheme.readableSupportingInk)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
@@ -689,6 +687,7 @@ private struct TimelineCategoryLegend: View {
 }
 
 private struct DialCenterContent: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let day: CircularTimeline.Day
     let item: CircularTimeline.Item?
     let compact: Bool
@@ -766,7 +765,7 @@ private struct DialCenterContent: View {
             .frame(maxWidth: 122)
             .multilineTextAlignment(.center)
         }
-        .animation(.easeOut(duration: 0.16), value: item?.entry.id)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: item?.entry.id)
     }
 
     private var accessibilityLabel: String {
@@ -826,22 +825,23 @@ private struct AccessibilityTimelineDetail: View {
     private var isSleeping: Bool { day.activeSleep != nil && item == nil }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbolName)
-                .foregroundStyle(color)
-                .frame(width: 32, height: 44)
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: symbolName)
+                    .foregroundStyle(color)
+                    .frame(width: 32, height: 44)
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(NidoTheme.ink)
-                if let detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.body)
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                }
             }
-            Spacer(minLength: 0)
+            if let detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.body)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(NidoTheme.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)

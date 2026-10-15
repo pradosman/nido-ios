@@ -76,7 +76,7 @@ private struct MainTabView: View {
                 .tabItem { Label("Ajustes", systemImage: "gearshape.fill") }
                 .tag(AppTab.settings)
         }
-        .tint(NidoTheme.moss)
+        .tint(NidoTheme.tabSelection)
         .confirmationDialog("Registrar una actividad", isPresented: $isPresentingEntryKindMenu) {
             ForEach(EntryKind.allCases) { kind in
                 Button("Registrar \(kind.title.lowercased())") {
@@ -198,7 +198,7 @@ private struct MainTabView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(.white)
-                    .background(NidoTheme.moss, in: Capsule())
+                    .background(NidoTheme.prominentActionFill, in: Capsule())
             }
             .buttonStyle(PressScaleButtonStyle())
             .accessibilityLabel("Registrar una actividad")

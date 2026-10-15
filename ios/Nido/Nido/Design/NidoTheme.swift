@@ -34,6 +34,30 @@ enum NidoTheme {
         highContrastLight: .white,
         highContrastDark: .black
     )
+    static let prominentActionFill = Color(
+        light: UIColor(red: 0.32, green: 0.43, blue: 0.37, alpha: 1),
+        dark: UIColor(red: 0.19, green: 0.29, blue: 0.23, alpha: 1),
+        highContrastLight: UIColor(red: 0.20, green: 0.31, blue: 0.24, alpha: 1),
+        highContrastDark: UIColor(red: 0.12, green: 0.22, blue: 0.16, alpha: 1)
+    )
+    static let sectionHeadingInk = Color(
+        light: UIColor(red: 0.37, green: 0.37, blue: 0.34, alpha: 1),
+        dark: UIColor(red: 0.76, green: 0.78, blue: 0.74, alpha: 1),
+        highContrastLight: UIColor(red: 0.27, green: 0.28, blue: 0.26, alpha: 1),
+        highContrastDark: UIColor(red: 0.86, green: 0.88, blue: 0.84, alpha: 1)
+    )
+    static let readableSupportingInk = Color(
+        light: UIColor(red: 0.34, green: 0.34, blue: 0.32, alpha: 1),
+        dark: UIColor(red: 0.72, green: 0.74, blue: 0.71, alpha: 1),
+        highContrastLight: UIColor(red: 0.27, green: 0.28, blue: 0.26, alpha: 1),
+        highContrastDark: UIColor(red: 0.86, green: 0.88, blue: 0.84, alpha: 1)
+    )
+    static let tabSelection = Color(
+        light: UIColor(red: 0.12, green: 0.22, blue: 0.16, alpha: 1),
+        dark: UIColor(red: 0.72, green: 0.87, blue: 0.76, alpha: 1),
+        highContrastLight: UIColor(red: 0.08, green: 0.17, blue: 0.12, alpha: 1),
+        highContrastDark: UIColor(red: 0.79, green: 0.94, blue: 0.83, alpha: 1)
+    )
     static let sleep = Color(
         light: UIColor(red: 0.32, green: 0.43, blue: 0.51, alpha: 1),
         dark: UIColor(red: 0.51, green: 0.66, blue: 0.77, alpha: 1)
@@ -41,6 +65,18 @@ enum NidoTheme {
     static let feed = Color(
         light: UIColor(red: 0.70, green: 0.44, blue: 0.17, alpha: 1),
         dark: UIColor(red: 0.85, green: 0.58, blue: 0.30, alpha: 1)
+    )
+    static let activeSleepFill = Color(
+        light: UIColor(red: 0.32, green: 0.43, blue: 0.51, alpha: 1),
+        dark: UIColor(red: 0.28, green: 0.39, blue: 0.47, alpha: 1),
+        highContrastLight: UIColor(red: 0.24, green: 0.34, blue: 0.42, alpha: 1),
+        highContrastDark: UIColor(red: 0.24, green: 0.34, blue: 0.42, alpha: 1)
+    )
+    static let activeFeedFill = Color(
+        light: UIColor(red: 0.54, green: 0.32, blue: 0.10, alpha: 1),
+        dark: UIColor(red: 0.48, green: 0.29, blue: 0.10, alpha: 1),
+        highContrastLight: UIColor(red: 0.42, green: 0.25, blue: 0.08, alpha: 1),
+        highContrastDark: UIColor(red: 0.42, green: 0.25, blue: 0.08, alpha: 1)
     )
     static let diaper = Color(
         light: UIColor(red: 0.25, green: 0.51, blue: 0.60, alpha: 1),
@@ -128,7 +164,6 @@ enum NidoTitleRole {
 }
 
 struct NidoTitle: ViewModifier {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let role: NidoTitleRole
 
     func body(content: Content) -> some View {
@@ -138,9 +173,6 @@ struct NidoTitle: ViewModifier {
     }
 
     private var textStyle: Font.TextStyle {
-        if dynamicTypeSize.isAccessibilitySize {
-            return role == .hero ? .title : .title2
-        }
         return role == .hero ? .largeTitle : .title
     }
 }

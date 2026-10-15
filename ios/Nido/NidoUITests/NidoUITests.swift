@@ -622,7 +622,8 @@ final class NidoUITests: XCTestCase {
         XCTAssertEqual(activityEdit.label, "Editar Sueño")
         XCTAssertGreaterThanOrEqual(activityEdit.frame.width, 44)
         XCTAssertGreaterThanOrEqual(activityEdit.frame.height, 44)
-        scrollToHittable(activityEdit)
+        scrollElementIntoViewport(activityEdit, in: app.scrollViews.firstMatch)
+        XCTAssertTrue(activityEdit.isHittable)
         activityEdit.tap()
         XCTAssertTrue(app.navigationBars["Editar registro"].waitForExistence(timeout: 2))
     }
@@ -875,9 +876,66 @@ final class NidoUITests: XCTestCase {
 
         let dial = app.otherElements["timeline-circular-dial"]
         let tabBar = app.tabBars.firstMatch
+        let registration = app.buttons["registration-action-button"]
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
         XCTAssertTrue(tabBar.exists)
+        XCTAssertTrue(registration.waitForExistence(timeout: 3))
+        XCTAssertEqual(registration.label, "Registrar una actividad")
+        XCTAssertTrue(registration.isHittable)
         XCTAssertLessThan(dial.frame.minY, tabBar.frame.minY)
+        XCTAssertLessThan(dial.frame.maxY, registration.frame.minY)
+    }
+
+    func testTodayStoryHeadingKeepsOrderAndScalesAtLargestAccessibilitySize() {
+        launch(scenario: "circular-timeline")
+        let normalHeading = app.staticTexts["Actividad de hoy"]
+        let normalDayControl = app.buttons["Día anterior"]
+        XCTAssertTrue(normalHeading.waitForExistence(timeout: 3))
+        XCTAssertTrue(normalDayControl.exists)
+        XCTAssertLessThanOrEqual(normalHeading.frame.maxY, normalDayControl.frame.minY)
+        let normalHeight = normalHeading.frame.height
+
+        app.terminate()
+        launch(
+            scenario: "circular-timeline",
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        )
+        let largeHeading = app.staticTexts["Actividad de hoy"]
+        let largeDayControl = app.buttons["Día anterior"]
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
+        scrollElementIntoViewport(largeHeading, in: scrollView)
+        XCTAssertTrue(largeDayControl.exists)
+        XCTAssertGreaterThan(largeHeading.frame.height, normalHeight * 1.5)
+        let largeScreenshot = XCTAttachment(screenshot: app.screenshot())
+        largeScreenshot.name = "Story heading and dial at largest text size"
+        largeScreenshot.lifetime = .keepAlways
+        add(largeScreenshot)
+        XCTAssertLessThanOrEqual(
+            largeHeading.frame.maxY, largeDayControl.frame.minY,
+            "Changing text size must preserve the heading before the activity it introduces."
+        )
+    }
+
+    func testLargestTextKeepsTheCircularDialUncompressedAndDetailsReachable() {
+        launch(
+            scenario: "circular-timeline",
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        )
+        let dial = app.otherElements["timeline-circular-dial"]
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 3))
+        scrollElementIntoViewport(dial, in: scrollView)
+        XCTAssertGreaterThanOrEqual(dial.frame.height, 279)
+        XCTAssertGreaterThanOrEqual(dial.frame.width, 279)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Circular dial at largest text size"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let detail = app.descendants(matching: .any)["timeline-accessibility-detail"]
+        scrollElementIntoViewport(detail, in: scrollView)
+        XCTAssertTrue(detail.isHittable)
+        XCTAssertTrue(detail.label.contains("registros hoy"))
     }
 
     func testLargestTextRegistrationActionKeepsACompactReachableLabel() {
@@ -1258,6 +1316,59 @@ final class NidoUITests: XCTestCase {
         let http = try XCTUnwrap(response as? HTTPURLResponse)
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         return (http.statusCode, payload)
+    }
+
+    private func scrollElementIntoViewport(_ element: XCUIElement, in scrollView: XCUIElement) {
+        for _ in 0..<12 {
+            let viewport = visibleScrollViewport(in: scrollView)
+            if element.exists && viewport.contains(element.frame) { return }
+            guard element.exists else {
+                scrollView.swipeUp()
+                continue
+            }
+
+            let frame = element.frame
+            let overshoot = frame.minY < viewport.minY
+                ? frame.minY - viewport.minY
+                : frame.maxY - viewport.maxY
+            let fraction = min(0.35, max(0.05, abs(overshoot) / scrollView.frame.height))
+            let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let endY = min(0.95, max(0.05, 0.5 + (overshoot > 0 ? -fraction : fraction)))
+            start.press(
+                forDuration: 0.05,
+                thenDragTo: scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+            )
+        }
+
+        let viewport = visibleScrollViewport(in: scrollView)
+        let frame = element.exists ? element.frame : .zero
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Scroll element viewport failure"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Scroll element accessibility hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        XCTFail(
+            "Could not fully place element \(element.identifier) frame=\(frame) inside viewport=\(viewport)."
+        )
+    }
+
+    private func visibleScrollViewport(in scrollView: XCUIElement) -> CGRect {
+        let navigationBar = app.navigationBars.firstMatch
+        let registrationAction = app.buttons["registration-action-button"]
+        let scrollFrame = scrollView.frame
+        let top = navigationBar.exists ? max(scrollFrame.minY, navigationBar.frame.maxY) : scrollFrame.minY
+        let bottom = registrationAction.exists
+            ? min(scrollFrame.maxY, registrationAction.frame.minY)
+            : scrollFrame.maxY
+        return CGRect(
+            x: scrollFrame.minX,
+            y: top,
+            width: scrollFrame.width,
+            height: max(0, bottom - top)
+        )
     }
 
     private func launch(scenario: String, contentSizeCategory: String? = nil, accessToken: String? = nil) {

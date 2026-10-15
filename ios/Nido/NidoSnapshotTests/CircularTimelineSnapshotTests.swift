@@ -55,6 +55,101 @@ final class CircularTimelineSnapshotTests: XCTestCase {
         )
     }
 
+    func testSelectedEntrySettlesImmediatelyWithReduceMotion() async throws {
+        try XCTSkipUnless(
+            UIAccessibility.isReduceMotionEnabled,
+            "Enable Reduce Motion on the iPhone 16 Pro simulator before running this test."
+        )
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Madrid"))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026, month: 8, day: 28, hour: 22, minute: 40
+        )))
+        let identifier = UUID().uuidString
+        let suiteName = "com.momentumia.nido.snapshottests.reduce-motion.\(identifier)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "NidoReduceMotion-\(identifier)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let eventHub = RegistrationMutationEventHub()
+        let registrationService = NidoRegistrationServices.make(
+            cache: LocalCache(fileURL: directory.appending(path: "cache.json")),
+            stateDefaults: defaults,
+            legacyDefaults: defaults,
+            stateStore: RegistrationStateFileStore(fileURL: directory.appending(path: "state.json")),
+            eventHub: eventHub,
+            credentialOverride: SessionCredential(
+                accessToken: "snapshot-test-session",
+                expiresAt: now.addingTimeInterval(3_600),
+                appleUserID: nil
+            )
+        )
+        let store = NidoStore(
+            defaults: defaults,
+            now: { now },
+            shouldLoadCredential: false,
+            registrationService: registrationService,
+            registrationEventHub: eventHub
+        )
+        await store.prepareForUITesting(scenario: "circular-timeline")
+        let day = CircularTimeline.day(on: now, entries: store.entries, now: now, calendar: calendar)
+        let first = try XCTUnwrap(day.items.first { $0.entry.kind == .feed })
+        let second = try XCTUnwrap(day.items.first { $0.entry.kind == .diaper })
+        let selection = TimelineSelection(first.entry.id)
+        let host = UIHostingController(rootView: ReducedMotionTimeline(
+            day: day, selection: selection
+        ).environment(store))
+        let previousKeyWindow = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+        let scene = try XCTUnwrap(previousKeyWindow?.windowScene ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        defer {
+            window.isHidden = true
+            previousKeyWindow?.makeKey()
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        let initial = timelineImage(host.view)
+
+        selection.selectedEntryID = second.entry.id
+        try await Task.sleep(for: .milliseconds(20))
+        let early = timelineImage(host.view)
+        try await Task.sleep(for: .milliseconds(300))
+        let settled = timelineImage(host.view)
+        for (name, image) in [("initial", initial), ("early", early), ("settled", settled)] {
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "Reduce Motion selected entry — \(name)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let diffing = Diffing<UIImage>.image(precision: 0.995, perceptualPrecision: 0.99)
+        XCTAssertNotNil(diffing.diff(initial, settled), "The selected entry must visibly change.")
+        XCTAssertNil(
+            diffing.diff(early, settled),
+            "Reduce Motion must render the selected entry without an intermediate animated state."
+        )
+    }
+
+    private func timelineImage(_ view: UIView) -> UIImage {
+        view.layoutIfNeeded()
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(bounds: view.bounds, format: format).image { _ in
+            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+        }
+        // Compare the changing dial detail rather than diluting it with the static window.
+        let center = CGRect(x: view.bounds.midX - 100, y: view.bounds.midY - 100, width: 200, height: 200)
+        guard let cropped = image.cgImage?.cropping(to: center) else { return image }
+        return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
+    }
+
     private func assertDialSnapshots(
         dynamicTypeSize: DynamicTypeSize,
         contentSizeCategory: UIContentSizeCategory,
@@ -153,5 +248,31 @@ private struct DynamicTypeEnvironmentProbe: View {
     var body: some View {
         Text("Tamaño de texto")
             .onAppear { observe(dynamicTypeSize) }
+    }
+}
+
+@MainActor
+private final class TimelineSelection: ObservableObject {
+    @Published var selectedEntryID: String?
+
+    init(_ selectedEntryID: String) {
+        self.selectedEntryID = selectedEntryID
+    }
+}
+
+private struct ReducedMotionTimeline: View {
+    let day: CircularTimeline.Day
+    @ObservedObject var selection: TimelineSelection
+
+    var body: some View {
+        CircularTimelineDayView(
+            day: day,
+            selectedEntryID: $selection.selectedEntryID,
+            expandedClusterID: .constant(nil)
+        )
+        .frame(width: 350, height: 350)
+        .environment(\.locale, Locale(identifier: "es_ES"))
+        .environment(\.dynamicTypeSize, .large)
+        .preferredColorScheme(.light)
     }
 }
