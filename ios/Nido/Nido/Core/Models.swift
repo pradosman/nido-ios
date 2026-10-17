@@ -154,7 +154,7 @@ nonisolated struct Entry: Codable, Equatable, Identifiable, Sendable {
 }
 
 extension Entry {
-    var summary: String {
+    nonisolated var summary: String {
         let pieces: [String?] = [
             durationMinutes.map(DurationLabel.minutes),
             amountMl.map { "\($0) ml" },
@@ -256,11 +256,12 @@ nonisolated struct DayMetrics: Equatable, Sendable {
     let diapers: Int
 }
 
-nonisolated struct GrowthMeasurement: Identifiable, Equatable, Sendable {
+nonisolated struct LegacyGrowthMeasurement: Identifiable, Equatable, Sendable {
     let id: String
     let date: Date
     let weightKilograms: Double?
     let heightCentimeters: Double?
+    let note: String
 
     init?(entry: Entry) {
         guard entry.kind == .health, entry.detail.hasPrefix("Medidas") else { return nil }
@@ -268,8 +269,9 @@ nonisolated struct GrowthMeasurement: Identifiable, Equatable, Sendable {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         func measurement(ending unit: String) -> Double? {
-            guard let value = values.first(where: { $0.hasSuffix(unit) }) else { return nil }
-            return Double(value.dropLast(unit.count).trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "."))
+            guard let value = values.first(where: { $0.contains(unit) }),
+                  let unitRange = value.range(of: unit) else { return nil }
+            return Double(value[..<unitRange.lowerBound].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "."))
         }
         let weight = measurement(ending: "kg")
         let height = measurement(ending: "cm")
@@ -278,6 +280,12 @@ nonisolated struct GrowthMeasurement: Identifiable, Equatable, Sendable {
         date = entry.date
         weightKilograms = weight
         heightCentimeters = height
+        if let details = CareEntryDetails.parse(entry.detail), details.activity == .measurements {
+            note = details.note
+        } else {
+            note = values.dropFirst().filter { !$0.contains("kg") && !$0.contains("cm") }
+                .joined(separator: " · ")
+        }
     }
 }
 

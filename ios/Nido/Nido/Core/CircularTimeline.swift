@@ -54,6 +54,8 @@ nonisolated enum CircularTimeline {
         var dialBounds: CGRect { CGRect(origin: .zero, size: CGSize(width: side, height: side)) }
         var center: CGPoint { CGPoint(x: side / 2, y: side / 2) }
         var ringDiameter: CGFloat { trackRadius * 2 }
+        var unifiedEventRadius: CGFloat { feedRadius }
+        var unifiedCenterDiameter: CGFloat { max(0, feedRadius * 2 - trackStroke) }
         var centerInnerDiameter: CGFloat { max(0, diaperRadius * 2 - trackStroke) }
         var centerSafetyInset: CGFloat { Self.clamp(side * 6 / 350, minimum: 4, maximum: 7) }
         var centerContentDiameter: CGFloat {
@@ -166,7 +168,11 @@ nonisolated enum CircularTimeline {
         let nowMarker: NowMarker?
         let activeSleep: ActiveSleep?
 
-        var totalSleepSeconds: Int { sleepSegments.reduce(0) { $0 + $1.elapsedSeconds } }
+        var unifiedMarkerGroups: [MarkerGroup] {
+            CircularTimeline.unifiedMarkerGroups(for: items)
+        }
+
+        let totalSleepSeconds: Int
         var feedCount: Int { items.count { $0.presentation == .point && $0.entry.kind == .feed } }
         var diaperCount: Int { items.count { $0.presentation == .point && $0.entry.kind == .diaper } }
     }
@@ -209,9 +215,11 @@ nonisolated enum CircularTimeline {
         let items: [Item]
 
         var id: String {
-            "\(kind.rawValue)|\(minute)|\(items.map(\.entry.id).joined(separator: "|"))"
+            let categoryPrefix = isMixedCategory ? "all" : kind.rawValue
+            return "\(categoryPrefix)|\(minute)|\(items.map(\.entry.id).joined(separator: "|"))"
         }
         var isCluster: Bool { items.count > 1 }
+        var isMixedCategory: Bool { Set(items.map(\.entry.kind)).count > 1 }
         var angle: Double { CircularTimeline.angle(forMinute: minute) }
     }
 
@@ -246,6 +254,52 @@ nonisolated enum CircularTimeline {
 
     static func angle(forMinute minute: Int) -> Double {
         Double(min(max(minute, 0), 1_440)) / 1_440 * 360
+    }
+
+    struct RoundedArcGeometry: Equatable, Sendable {
+        let startFraction: CGFloat
+        let endFraction: CGFloat
+        let strokeWidth: CGFloat
+
+        init(startMinute: Int, endMinute: Int, radius: CGFloat, strokeWidth requestedStrokeWidth: CGFloat) {
+            let start = min(max(startMinute, 0), 1_440)
+            let end = max(start, min(max(endMinute, 0), 1_440))
+            let startFraction = CGFloat(start) / 1_440
+            let endFraction = CGFloat(end) / 1_440
+            let durationRadians = CGFloat(end - start) / 1_440 * 2 * .pi
+            let radius = max(0, radius)
+            let requestedStrokeWidth = max(0, requestedStrokeWidth)
+
+            guard end > start else {
+                self.startFraction = startFraction
+                self.endFraction = startFraction
+                self.strokeWidth = 0
+                return
+            }
+
+            guard start == 0 && end == 1_440 else {
+                var effectiveStrokeWidth = min(requestedStrokeWidth, radius * 2)
+                if radius > 0, durationRadians < .pi {
+                    let maximumStrokeWidth = 2 * radius * sin(durationRadians / 2)
+                    effectiveStrokeWidth = min(effectiveStrokeWidth, maximumStrokeWidth)
+                }
+
+                let capAngle = radius > 0
+                    ? asin(min(1, effectiveStrokeWidth / (2 * radius)))
+                    : 0
+                let insetAngle = min(capAngle, durationRadians / 2)
+                let insetFraction = insetAngle / (2 * .pi)
+
+                self.startFraction = startFraction + insetFraction
+                self.endFraction = max(startFraction + insetFraction, endFraction - insetFraction)
+                self.strokeWidth = effectiveStrokeWidth
+                return
+            }
+
+            self.startFraction = 0
+            self.endFraction = 1
+            self.strokeWidth = requestedStrokeWidth
+        }
     }
 
     static func dashboardDurationLabel(_ seconds: Int) -> String {
@@ -284,21 +338,26 @@ nonisolated enum CircularTimeline {
                 markerGroups: [],
                 periodSegments: defaultPeriodSegments,
                 nowMarker: nil,
-                activeSleep: nil
+                activeSleep: nil,
+                totalSleepSeconds: 0
             )
         }
 
         var values: [Item] = []
         var sleepSegments: [SleepSegment] = []
+        var sleepIntervals: [(Date, Date)] = []
         var pointEntries: [(entry: Entry, minute: Int)] = []
+        var seenEntryIDs = Set<String>()
+        let uniqueEntries = entries.filter { seenEntryIDs.insert($0.id).inserted }
 
-        for entry in entries {
+        for entry in uniqueEntries {
             if entry.kind == .sleep, let duration = entry.durationMinutes, duration > 0 {
                 let intervalEnd = entry.date
                 let intervalStart = intervalEnd.addingTimeInterval(-TimeInterval(duration * 60))
                 let clippedStart = max(intervalStart, dayStart)
                 let clippedEnd = min(intervalEnd, dayEnd)
                 guard clippedStart < clippedEnd else { continue }
+                sleepIntervals.append((clippedStart, clippedEnd))
                 sleepSegments.append(SleepSegment(
                     sourceEntryID: entry.id,
                     startMinute: minute(clippedStart, dayEnd: dayEnd, calendar: calendar),
@@ -336,10 +395,11 @@ nonisolated enum CircularTimeline {
         }
 
         let activeSegment: SleepSegment? = {
-            guard calendar.isDate(dayStart, inSameDayAs: now), let activeSleepStartedAt else { return nil }
+            guard let activeSleepStartedAt else { return nil }
             let clippedStart = max(activeSleepStartedAt, dayStart)
             let clippedEnd = min(now, dayEnd)
             guard clippedStart < clippedEnd else { return nil }
+            sleepIntervals.append((clippedStart, clippedEnd))
             return SleepSegment(
                 sourceEntryID: nil,
                 startMinute: minute(clippedStart, dayEnd: dayEnd, calendar: calendar),
@@ -367,8 +427,25 @@ nonisolated enum CircularTimeline {
             nowMarker: calendar.isDate(dayStart, inSameDayAs: now)
                 ? NowMarker(minute: minute(now, dayEnd: dayEnd, calendar: calendar))
                 : nil,
-            activeSleep: activeSleep
+            activeSleep: activeSleep,
+            totalSleepSeconds: Self.unionSeconds(sleepIntervals)
         )
+    }
+
+    private static func unionSeconds(_ intervals: [(Date, Date)]) -> Int {
+        let sorted = intervals.sorted { $0.0 < $1.0 }
+        guard var current = sorted.first else { return 0 }
+        var total: TimeInterval = 0
+        for interval in sorted.dropFirst() {
+            if interval.0 <= current.1 {
+                current.1 = max(current.1, interval.1)
+            } else {
+                total += current.1.timeIntervalSince(current.0)
+                current = interval
+            }
+        }
+        total += current.1.timeIntervalSince(current.0)
+        return Int(total)
     }
 
     static func availableDates(
@@ -418,6 +495,47 @@ nonisolated enum CircularTimeline {
                 kind: kind,
                 minimumSeparationMinutes: minimumSeparationMinutes
             )
+        }
+    }
+
+    private static func unifiedMarkerGroups(
+        for items: [Item],
+        minimumSeparationMinutes: Int = 140
+    ) -> [MarkerGroup] {
+        let candidates = items
+            .filter { $0.presentation == .point && $0.entry.kind != .sleep }
+            .sorted {
+                if $0.startMinute == $1.startMinute { return $0.entry.id < $1.entry.id }
+                return $0.startMinute < $1.startMinute
+            }
+        guard let first = candidates.first else { return [] }
+
+        var groups: [[Item]] = [[first]]
+        var anchorMinute = first.startMinute
+
+        for item in candidates.dropFirst() {
+            if item.startMinute - anchorMinute < minimumSeparationMinutes {
+                groups[groups.index(before: groups.endIndex)].append(item)
+            } else {
+                groups.append([item])
+                anchorMinute = item.startMinute
+            }
+        }
+
+        if groups.count > 1,
+           let firstMinute = groups.first?.first?.startMinute,
+           let lastMinute = groups.last?.first?.startMinute,
+           1_440 - lastMinute + firstMinute < minimumSeparationMinutes {
+            let last = groups.removeLast()
+            groups[0].append(contentsOf: last)
+            groups[0].sort {
+                if $0.startMinute == $1.startMinute { return $0.entry.id < $1.entry.id }
+                return $0.startMinute < $1.startMinute
+            }
+        }
+
+        return groups.map { group in
+            MarkerGroup(kind: group[0].entry.kind, minute: group[0].startMinute, items: group)
         }
     }
 

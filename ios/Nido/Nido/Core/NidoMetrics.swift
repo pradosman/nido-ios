@@ -2,18 +2,17 @@ import Foundation
 
 nonisolated enum NidoMetrics {
     static func entries(on date: Date, from entries: [Entry], calendar: Calendar = .current) -> [Entry] {
-        entries
-            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+        var seenIDs = Set<String>()
+        return entries
+            .filter { calendar.isDate($0.date, inSameDayAs: date) && seenIDs.insert($0.id).inserted }
             .sorted { $0.occurredAt > $1.occurredAt }
     }
 
     static func day(_ date: Date, entries: [Entry], calendar: Calendar = .current) -> DayMetrics {
         let values = self.entries(on: date, from: entries, calendar: calendar)
+        let timeline = CircularTimeline.day(on: date, entries: entries, now: date, calendar: calendar)
         return DayMetrics(
-            sleepMinutes: values
-                .filter { $0.kind == .sleep }
-                .compactMap(\.durationMinutes)
-                .reduce(0, +),
+            sleepMinutes: timeline.totalSleepSeconds / 60,
             feeds: values.count { $0.kind == .feed },
             feedMl: values.compactMap(\.amountMl).reduce(0, +),
             diapers: values.count { $0.kind == .diaper }

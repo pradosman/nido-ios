@@ -67,6 +67,71 @@ struct HistoryPresentationTests {
         #expect(records.map(\.id) == ["earlier", "later"])
     }
 
+    @Test
+    func overnightSleepAppearsOnEveryDayItContributesTo() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let overnight = entry(
+            id: "overnight", kind: .sleep,
+            date: day.addingTimeInterval(24 * 3_600 + 45 * 60), duration: 135
+        )
+
+        let previousDayEntries = HistoryPresentation.entries(
+            on: day, entries: [overnight], filter: .sleep, calendar: calendar
+        )
+
+        #expect(previousDayEntries.map(\.id) == ["overnight"])
+    }
+
+    @Test
+    func readingAnchorTracksVisibleSectionAndRetainsRecordsAtTheBottom() {
+        let empty: [EntryKind: ClosedRange<Double>] = [:]
+        let aboveThreshold: [EntryKind: ClosedRange<Double>] = [.diaper: 151...320]
+        let visible: [EntryKind: ClosedRange<Double>] = [
+            .feed: 20...310,
+            .diaper: 0...100,
+        ]
+        let records: [EntryKind: ClosedRange<Double>] = [
+            .feed: -80...0,
+            .diaper: (-200)...(-1),
+        ]
+        let thresholdBoundary: [EntryKind: ClosedRange<Double>] = [.sleep: 150...220]
+
+        #expect(HistoryPresentation.readingAnchor(for: empty) == "history-detail-top")
+        #expect(HistoryPresentation.readingAnchor(for: aboveThreshold) == "history-detail-top")
+        #expect(HistoryPresentation.readingAnchor(for: visible) == "history-section-feed")
+        #expect(HistoryPresentation.readingAnchor(for: records) == "history-records")
+        #expect(HistoryPresentation.readingAnchor(for: thresholdBoundary) == "history-section-sleep")
+    }
+
+    @Test
+    func calendarMonthsIncludeTheMonthAfterTodayAndClampFutureEarliestMonth() throws {
+        let calendar = utcCalendar
+        let earliest = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 19)))
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let june = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let july = try #require(calendar.date(from: DateComponents(year: 2026, month: 7, day: 1)))
+        let august = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 1)))
+        let september = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 1)))
+
+        let months = HistoryPresentation.calendarMonths(from: earliest, through: today, calendar: calendar)
+
+        #expect(months == [june, july, august, september])
+    }
+
+    @Test
+    func calendarMonthsRollOverYearAndClampFutureEarliestToCurrentMonth() throws {
+        let calendar = utcCalendar
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 12, day: 20)))
+        let earliestFuture = try #require(calendar.date(from: DateComponents(year: 2027, month: 4, day: 5)))
+        let december = try #require(calendar.date(from: DateComponents(year: 2026, month: 12, day: 1)))
+        let january = try #require(calendar.date(from: DateComponents(year: 2027, month: 1, day: 1)))
+
+        let months = HistoryPresentation.calendarMonths(from: earliestFuture, through: today, calendar: calendar)
+
+        #expect(months == [december, january])
+    }
+
     private var utcCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!

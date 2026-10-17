@@ -16,7 +16,10 @@ enum NidoRegistrationServices {
         eventHub: RegistrationMutationEventHub,
         credentialOverride: SessionCredential? = nil,
         now: @escaping @Sendable () -> Date = { .now },
-        createEntry: (@Sendable (Entry, String) async throws -> Entry)? = nil
+        createEntry: (@Sendable (Entry, String) async throws -> Entry)? = nil,
+        syncSleep: (@Sendable (Date?, Date?, String) async throws -> Date?)? = nil,
+        loadSleep: (@Sendable (String) async throws -> Date?)? = nil,
+        allowsExternalEffects: Bool = true
     ) -> RegistrationMutationService {
         let durableDefaults = stateDefaults ?? UserDefaults()
         let resolvedStateStore = stateStore ?? productionStateStore()
@@ -35,6 +38,7 @@ enum NidoRegistrationServices {
                 },
                 clearExternalState: {
                     await eventHub.invalidate()
+                    guard allowsExternalEffects else { return }
                     await MainActor.run {
                         NidoWidgetBridge.update(
                             profile: nil,
@@ -46,7 +50,13 @@ enum NidoRegistrationServices {
                     await NidoLiveActivity.endAll()
                 },
                 now: now,
-                makeID: { UUID().uuidString }
+                makeID: { UUID().uuidString },
+                syncSleep: syncSleep ?? { startedAt, expectedStartedAt, token in
+                    try await api.syncSleep(startedAt: startedAt, expectedStartedAt: expectedStartedAt, accessToken: token)
+                },
+                loadSleep: loadSleep ?? { token in
+                    try await api.loadSleep(accessToken: token)
+                }
             )
         )
     }

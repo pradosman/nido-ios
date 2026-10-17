@@ -3,18 +3,15 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(NidoDemoSessionCoordinator.self) private var demoCoordinator
     @State private var isInvitingCaregiver = false
-    @State private var reportURL: URL?
-    @State private var reportError: String?
+    @State private var reportPreparation = ReportPreparation()
     @State private var backupURL: URL?
     @State private var reminderMessage: String?
     @State private var isImportingBackup = false
     @State private var pendingBackup: NidoBackup?
     @State private var backupError: String?
     @State private var caregiverPendingRemoval: Caregiver?
-    @State private var isConfirmingAccountDeletion = false
-    @State private var isDeletingAccount = false
-    @State private var accountError: String?
     @AppStorage("dailySummaryReminder") private var dailySummaryReminder = false
     @AppStorage("feedCheckReminder") private var feedCheckReminder = false
 
@@ -51,6 +48,12 @@ struct SettingsView: View {
                         }
                         .disabled(!isOwner)
                         .accessibilityIdentifier("settings-profile-button")
+                        NavigationLink {
+                            GrowthOverviewView()
+                        } label: {
+                            Label("Crecimiento de \(profile.babyName)", systemImage: "chart.xyaxis.line")
+                        }
+                        .accessibilityIdentifier("open-baby-growth")
                     }
                 }
 
@@ -62,6 +65,7 @@ struct SettingsView: View {
                         CaregiverRow(
                             caregiver: caregiver,
                             isCurrent: caregiver.id == store.currentCaregiver?.id,
+                            isDemo: !store.allowsExternalEffects,
                             onRemove: isOwner && caregiver.id != store.currentCaregiver?.id
                                 ? { caregiverPendingRemoval = caregiver }
                                 : nil
@@ -98,6 +102,10 @@ struct SettingsView: View {
                 Section("Recordatorios") {
                     Toggle("Resumen diario a las 20:00", isOn: $dailySummaryReminder)
                         .onChange(of: dailySummaryReminder) { _, enabled in
+                            guard store.allowsExternalEffects else {
+                                reminderMessage = "Preferencia guardada solo en esta demostración."
+                                return
+                            }
                             Task {
                                 if enabled {
                                     do { try await ReminderManager.enableDailySummary() }
@@ -108,6 +116,10 @@ struct SettingsView: View {
                         }
                     Toggle("Avisar 3 h después de una toma", isOn: $feedCheckReminder)
                         .onChange(of: feedCheckReminder) { _, enabled in
+                            guard store.allowsExternalEffects else {
+                                reminderMessage = "Preferencia guardada solo en esta demostración."
+                                return
+                            }
                             Task {
                                 if enabled {
                                     do { _ = try await ReminderManager.requestAccess() }
@@ -122,18 +134,27 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if let reportURL {
+                    if let reportURL = reportPreparation.url {
                         ShareLink(item: reportURL) {
                             Label("Compartir informe de 30 días", systemImage: "square.and.arrow.up")
                         }
                     } else {
                         Button {
                             guard let profile = store.profile else { return }
-                            do { reportURL = try PediatricReport.make(profile: profile, entries: store.entries) }
-                            catch { reportError = error.localizedDescription }
+                            let entries = store.entries
+                            Task {
+                                await reportPreparation.prepare {
+                                    try await PediatricReport.prepare(profile: profile, entries: entries)
+                                }
+                            }
                         } label: {
-                            Label("Preparar informe de 30 días", systemImage: "doc.text.fill")
+                            if reportPreparation.isPreparing {
+                                ProgressView("Preparando informe…")
+                            } else {
+                                Label("Preparar informe de 30 días", systemImage: "doc.text.fill")
+                            }
                         }
+                        .disabled(reportPreparation.isPreparing)
                     }
                     Button {
                         isImportingBackup = true
@@ -143,7 +164,9 @@ struct SettingsView: View {
                     if let backupError {
                         Text(backupError).font(.footnote).foregroundStyle(NidoTheme.error)
                     }
-                    if let reportError { Text(reportError).foregroundStyle(NidoTheme.error) }
+                    if let reportError = reportPreparation.errorMessage {
+                        Text(reportError).foregroundStyle(NidoTheme.error)
+                    }
                 } header: {
                     Text("Pediatra")
                 } footer: {
@@ -157,7 +180,7 @@ struct SettingsView: View {
                         }
                     } else {
                         Button {
-                            backupURL = try? NidoBackup.make(profile: store.profile, caregivers: store.caregivers, entries: store.entries)
+                            backupURL = try? NidoBackup.make(profile: store.profile, caregivers: store.caregivers, entries: store.entries, babyCareState: store.babyCareState)
                         } label: {
                             Label("Preparar copia de seguridad", systemImage: "externaldrive.fill")
                         }
@@ -171,18 +194,23 @@ struct SettingsView: View {
                 Section("Privacidad") {
                     Label("Sin publicidad ni seguimiento", systemImage: "hand.raised.fill")
                     Label("Acceso solo para familiares invitados", systemImage: "lock.shield.fill")
+                    Link("Política de privacidad", destination: URL(string: "https://nido.momentumia.com/api/nido/legal/privacy")!)
+                        .accessibilityIdentifier("privacy-policy-link")
+                    Link("Ayuda y contacto", destination: URL(string: "https://nido.momentumia.com/api/nido/legal/support")!)
+                        .accessibilityIdentifier("support-link")
                 }
 
                 Section("Cuenta") {
-                    Button("Cerrar sesión") {
-                        Task { await store.signOut() }
-                    }
-                    Button("Eliminar mi cuenta", role: .destructive) {
-                        isConfirmingAccountDeletion = true
-                    }
-                    .disabled(isDeletingAccount)
-                    if let accountError {
-                        Text(accountError).font(.footnote).foregroundStyle(NidoTheme.error)
+                    if store.allowsExternalEffects {
+                        Button("Cerrar sesión") {
+                            Task { await store.signOut() }
+                        }
+                        AccountDeletionEntryPoint(style: .settings)
+                    } else {
+                        Button("Salir de la demostración") {
+                            demoCoordinator.exit()
+                        }
+                        .disabled(demoCoordinator.isTransitioning)
                     }
                 }
 
@@ -205,6 +233,7 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
+            guard store.allowsExternalEffects else { return }
             let hasEnabledReminder = dailySummaryReminder || feedCheckReminder
             guard hasEnabledReminder else { return }
 
@@ -262,34 +291,14 @@ struct SettingsView: View {
                     : "\(caregiver.name) dejará de poder consultar y registrar información en Nido.")
             }
         }
-        .alert(
-            isOwner ? "¿Eliminar permanentemente el espacio familiar?" : "¿Eliminar tu cuenta?",
-            isPresented: $isConfirmingAccountDeletion
-        ) {
-            Button("Eliminar definitivamente", role: .destructive) {
-                isDeletingAccount = true
-                accountError = nil
-                Task {
-                    defer { isDeletingAccount = false }
-                    do { try await store.deleteAccount() }
-                    catch { accountError = error.localizedDescription }
-                }
-            }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text(isOwner
-                ? "Se eliminarán de forma permanente el perfil, todos los registros y el acceso de todos los familiares. Esta acción no se puede deshacer."
-                : "Se eliminarán tu identidad y tu acceso a este espacio familiar. Los datos compartidos permanecerán para el resto de familiares.")
-        }
         .sheet(isPresented: $isInvitingCaregiver) {
             InviteCaregiverView()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
         .onDisappear {
-            removeGeneratedFile(reportURL)
+            reportPreparation.reset()
             removeGeneratedFile(backupURL)
-            reportURL = nil
             backupURL = nil
         }
     }
@@ -315,6 +324,7 @@ struct SettingsView: View {
 private struct CaregiverRow: View {
     let caregiver: Caregiver
     let isCurrent: Bool
+    let isDemo: Bool
     let onRemove: (() -> Void)?
 
     var body: some View {
@@ -344,7 +354,10 @@ private struct CaregiverRow: View {
                     .padding(.vertical, 5)
                     .background(NidoTheme.moss.opacity(0.1), in: Capsule())
             } else if caregiver.status == .pending, let invitationText = caregiver.invitationText {
-                ShareLink(item: invitationText) {
+                let shareText = isDemo
+                    ? "Código ficticio de demostración: solo funciona dentro de esta demostración de Nido.\n\n\(invitationText)"
+                    : invitationText
+                ShareLink(item: shareText) {
                     Image(systemName: "square.and.arrow.up")
                         .foregroundStyle(NidoTheme.feed)
                         .frame(width: 44, height: 44)
@@ -400,13 +413,21 @@ private struct InviteCaregiverView: View {
                                 Text("El código se puede utilizar una sola vez.")
                                     .font(.footnote)
                                     .foregroundStyle(NidoTheme.secondaryInk)
+                                if !store.allowsExternalEffects {
+                                    Text("Código ficticio: solo funciona dentro de esta demostración.")
+                                        .font(.footnote.weight(.medium))
+                                        .foregroundStyle(NidoTheme.secondaryInk)
+                                        .accessibilityIdentifier("demo-invitation-notice")
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                         }
 
                         Section {
-                            ShareLink(item: invitationText) {
+                            ShareLink(item: store.allowsExternalEffects
+                                ? invitationText
+                                : invitationText + "\n\nCódigo ficticio: solo funciona dentro de la demostración de Nido.") {
                                 Label("Compartir invitación", systemImage: "square.and.arrow.up")
                                     .font(.headline)
                                     .frame(maxWidth: .infinity)

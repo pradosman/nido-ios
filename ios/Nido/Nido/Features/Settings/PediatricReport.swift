@@ -1,7 +1,22 @@
 import UIKit
 
 enum PediatricReport {
-    static func make(profile: Profile, entries: [Entry], days: Int = 30) throws -> URL {
+    @concurrent
+    static func prepare(profile: Profile, entries: [Entry], days: Int = 30) async throws -> URL {
+        try await prepare(profile: profile, entries: entries, days: days, render: make)
+    }
+
+    @concurrent
+    static func prepare(
+        profile: Profile,
+        entries: [Entry],
+        days: Int,
+        render: @Sendable (Profile, [Entry], Int) throws -> URL
+    ) async throws -> URL {
+        try render(profile, entries, days)
+    }
+
+    nonisolated static func make(profile: Profile, entries: [Entry], days: Int = 30) throws -> URL {
         let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .distantPast
         let recent = entries.filter { $0.date >= cutoff }.sorted { $0.occurredAt > $1.occurredAt }
         let url = FileManager.default.temporaryDirectory

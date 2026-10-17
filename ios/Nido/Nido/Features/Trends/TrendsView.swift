@@ -3,17 +3,27 @@ import SwiftUI
 
 struct TrendsView: View {
     @Environment(NidoStore.self) private var store
+    private var calendar: Calendar { BabyCareMetrics.calendar(for: store.babyCareState) }
 
     private var week: [(date: Date, minutes: Int)] {
-        NidoMetrics.sleepByDay(endingOn: .now, days: 7, entries: store.entries)
+        (0..<7).reversed().compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: store.now) else { return nil }
+            let summary = BabyCareMetrics.summary(on: date, entries: store.entries,
+                activeSleepStartedAt: store.activeSleepStartedAt, now: store.now, calendar: calendar)
+            return (calendar.startOfDay(for: date), summary.sleepSeconds / 60)
+        }
     }
 
     private var today: DayMetrics {
-        NidoMetrics.day(.now, entries: store.entries)
+        let summary = BabyCareMetrics.summary(on: store.now, entries: store.entries,
+            activeSleepStartedAt: store.activeSleepStartedAt, now: store.now, calendar: calendar)
+        return DayMetrics(sleepMinutes: summary.sleepSeconds / 60, feeds: summary.feedCount,
+            feedMl: NidoMetrics.day(store.now, entries: store.entries, calendar: calendar).feedMl,
+            diapers: summary.diaperCount)
     }
 
     private var growth: [GrowthMeasurement] {
-        store.entries.compactMap(GrowthMeasurement.init(entry:)).sorted { $0.date < $1.date }
+        BabyCareReconciliation.mergedMeasurements(state: store.babyCareState, entries: store.entries)
     }
 
     var body: some View {
@@ -82,6 +92,10 @@ struct TrendsView: View {
                     if !growth.isEmpty {
                         growthCard
                     }
+                    NavigationLink("Ver crecimiento", destination: GrowthOverviewView())
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(NidoTheme.moss)
+                        .frame(minHeight: 44)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
@@ -176,7 +190,7 @@ struct TrendsView: View {
             EntryGlyph(kind: kind, size: 22)
                 .frame(width: 32, height: 32)
             Text(value)
-                .font(.system(size: 34, weight: .semibold, design: .rounded))
+                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
                 .foregroundStyle(NidoTheme.ink)
             Text(note)
                 .font(.caption)
@@ -186,4 +200,10 @@ struct TrendsView: View {
         .padding(18)
         .paperCard()
     }
+}
+
+private extension GrowthMeasurement {
+    var date: Date { Date(timeIntervalSince1970: Double(measuredAt) / 1_000) }
+    var weightKilograms: Double? { weightGrams.map { Double($0) / 1_000 } }
+    var heightCentimeters: Double? { heightMillimeters.map { Double($0) / 10 } }
 }

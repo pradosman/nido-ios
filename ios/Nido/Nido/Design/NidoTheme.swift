@@ -2,13 +2,13 @@ import SwiftUI
 
 enum NidoTheme {
     static let paper = Color(
-        light: UIColor(red: 0.965, green: 0.941, blue: 0.898, alpha: 1),
+        light: UIColor(red: 0.969, green: 0.973, blue: 0.961, alpha: 1),
         dark: UIColor(red: 0.075, green: 0.082, blue: 0.078, alpha: 1),
-        highContrastLight: UIColor(red: 0.985, green: 0.972, blue: 0.943, alpha: 1),
+        highContrastLight: UIColor(red: 0.99, green: 0.99, blue: 0.98, alpha: 1),
         highContrastDark: UIColor(red: 0.035, green: 0.04, blue: 0.037, alpha: 1)
     )
     static let paperLight = Color(
-        light: UIColor(red: 0.992, green: 0.982, blue: 0.958, alpha: 1),
+        light: UIColor(red: 0.99, green: 0.99, blue: 0.98, alpha: 1),
         dark: UIColor(red: 0.105, green: 0.115, blue: 0.108, alpha: 1),
         highContrastLight: .white,
         highContrastDark: UIColor(red: 0.07, green: 0.075, blue: 0.072, alpha: 1)
@@ -19,14 +19,19 @@ enum NidoTheme {
         highContrastLight: .white,
         highContrastDark: UIColor(red: 0.18, green: 0.19, blue: 0.185, alpha: 1)
     )
-    static let ink = Color(uiColor: .label)
+    static let ink = Color(
+        light: UIColor(red: 0.129, green: 0.224, blue: 0.176, alpha: 1),
+        dark: .label,
+        highContrastLight: .black,
+        highContrastDark: .white
+    )
     static let secondaryInk = Color(uiColor: .secondaryLabel)
     static let separator = Color(uiColor: .separator)
     static let error = Color(uiColor: .systemRed)
     static let warning = Color(uiColor: .systemOrange)
     static let moss = Color(
-        light: UIColor(red: 0.32, green: 0.43, blue: 0.37, alpha: 1),
-        dark: UIColor(red: 0.50, green: 0.64, blue: 0.55, alpha: 1)
+        light: UIColor(red: 0.149, green: 0.463, blue: 0.357, alpha: 1),
+        dark: UIColor(red: 0.48, green: 0.80, blue: 0.63, alpha: 1)
     )
     static let textOnMoss = Color(
         light: .white,
@@ -35,8 +40,8 @@ enum NidoTheme {
         highContrastDark: .black
     )
     static let prominentActionFill = Color(
-        light: UIColor(red: 0.32, green: 0.43, blue: 0.37, alpha: 1),
-        dark: UIColor(red: 0.19, green: 0.29, blue: 0.23, alpha: 1),
+        light: UIColor(red: 0.157, green: 0.400, blue: 0.306, alpha: 1),
+        dark: UIColor(red: 0.14, green: 0.37, blue: 0.27, alpha: 1),
         highContrastLight: UIColor(red: 0.20, green: 0.31, blue: 0.24, alpha: 1),
         highContrastDark: UIColor(red: 0.12, green: 0.22, blue: 0.16, alpha: 1)
     )
@@ -59,32 +64,66 @@ enum NidoTheme {
         highContrastDark: UIColor(red: 0.79, green: 0.94, blue: 0.83, alpha: 1)
     )
     static let sleep = Color(
-        light: UIColor(red: 0.32, green: 0.43, blue: 0.51, alpha: 1),
-        dark: UIColor(red: 0.51, green: 0.66, blue: 0.77, alpha: 1)
+        light: UIColor(red: 0.72, green: 0.035, blue: 0.29, alpha: 1),
+        dark: UIColor(displayP3Red: 228.0 / 255, green: 62.0 / 255, blue: 108.0 / 255, alpha: 1),
+        highContrastLight: UIColor(red: 0.65, green: 0.02, blue: 0.26, alpha: 1),
+        highContrastDark: UIColor(red: 1, green: 0.55, blue: 0.70, alpha: 1)
     )
     static let feed = Color(
-        light: UIColor(red: 0.70, green: 0.44, blue: 0.17, alpha: 1),
-        dark: UIColor(red: 0.85, green: 0.58, blue: 0.30, alpha: 1)
+        light: UIColor(red: 0.23, green: 0.37, blue: 0, alpha: 1),
+        dark: UIColor(displayP3Red: 186.0 / 255, green: 249.0 / 255, blue: 78.0 / 255, alpha: 1)
     )
     static let activeSleepFill = Color(
-        light: UIColor(red: 0.32, green: 0.43, blue: 0.51, alpha: 1),
-        dark: UIColor(red: 0.28, green: 0.39, blue: 0.47, alpha: 1),
-        highContrastLight: UIColor(red: 0.24, green: 0.34, blue: 0.42, alpha: 1),
-        highContrastDark: UIColor(red: 0.24, green: 0.34, blue: 0.42, alpha: 1)
+        light: UIColor(red: 0.66, green: 0.02, blue: 0.26, alpha: 1),
+        dark: UIColor(red: 0.56, green: 0.02, blue: 0.23, alpha: 1),
+        highContrastLight: UIColor(red: 0.48, green: 0.02, blue: 0.20, alpha: 1),
+        highContrastDark: UIColor(red: 0.48, green: 0.02, blue: 0.20, alpha: 1)
     )
     static let activeFeedFill = Color(
-        light: UIColor(red: 0.54, green: 0.32, blue: 0.10, alpha: 1),
-        dark: UIColor(red: 0.48, green: 0.29, blue: 0.10, alpha: 1),
-        highContrastLight: UIColor(red: 0.42, green: 0.25, blue: 0.08, alpha: 1),
-        highContrastDark: UIColor(red: 0.42, green: 0.25, blue: 0.08, alpha: 1)
+        light: UIColor(red: 0.23, green: 0.37, blue: 0, alpha: 1),
+        dark: UIColor(red: 0.19, green: 0.30, blue: 0, alpha: 1),
+        highContrastLight: UIColor(red: 0.17, green: 0.27, blue: 0, alpha: 1),
+        highContrastDark: UIColor(red: 0.17, green: 0.27, blue: 0, alpha: 1)
     )
     static let diaper = Color(
-        light: UIColor(red: 0.25, green: 0.51, blue: 0.60, alpha: 1),
-        dark: UIColor(red: 0.39, green: 0.68, blue: 0.78, alpha: 1)
+        light: UIColor(red: 0, green: 0.365, blue: 0.404, alpha: 1),
+        dark: UIColor(displayP3Red: 100.0 / 255, green: 218.0 / 255, blue: 214.0 / 255, alpha: 1)
     )
     static let care = Color(
-        light: UIColor(red: 0.65, green: 0.32, blue: 0.44, alpha: 1),
-        dark: UIColor(red: 0.80, green: 0.47, blue: 0.59, alpha: 1)
+        light: UIColor(red: 0.718, green: 0.235, blue: 0.459, alpha: 1),
+        dark: UIColor(red: 0.98, green: 0.50, blue: 0.69, alpha: 1)
+    )
+    static let textOnEvent = Color(
+        light: UIColor(red: 0.06, green: 0.07, blue: 0.065, alpha: 1),
+        dark: UIColor(red: 0.06, green: 0.07, blue: 0.065, alpha: 1)
+    )
+
+    static func chartAccent(for kind: EntryKind) -> Color {
+        switch kind {
+        case .sleep: Color(.displayP3, red: 228.0 / 255, green: 62.0 / 255, blue: 108.0 / 255)
+        case .feed: Color(.displayP3, red: 186.0 / 255, green: 249.0 / 255, blue: 78.0 / 255)
+        case .diaper: Color(.displayP3, red: 100.0 / 255, green: 218.0 / 255, blue: 214.0 / 255)
+        case .health: Color(red: 0.76, green: 0.42, blue: 1)
+        }
+    }
+
+    static let backdropLavender = Color(
+        light: UIColor(red: 0.863, green: 0.839, blue: 1, alpha: 1),
+        dark: UIColor(red: 0.17, green: 0.14, blue: 0.28, alpha: 1),
+        highContrastLight: UIColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1),
+        highContrastDark: UIColor(red: 0.07, green: 0.075, blue: 0.085, alpha: 1)
+    )
+    static let backdropPeach = Color(
+        light: UIColor(red: 1, green: 0.812, blue: 0.710, alpha: 1),
+        dark: UIColor(red: 0.31, green: 0.17, blue: 0.14, alpha: 1),
+        highContrastLight: UIColor(red: 0.99, green: 0.97, blue: 0.95, alpha: 1),
+        highContrastDark: UIColor(red: 0.08, green: 0.07, blue: 0.065, alpha: 1)
+    )
+    static let backdropMint = Color(
+        light: UIColor(red: 0.753, green: 0.922, blue: 0.831, alpha: 1),
+        dark: UIColor(red: 0.10, green: 0.25, blue: 0.19, alpha: 1),
+        highContrastLight: UIColor(red: 0.95, green: 0.98, blue: 0.96, alpha: 1),
+        highContrastDark: UIColor(red: 0.06, green: 0.08, blue: 0.07, alpha: 1)
     )
 
     static func color(for kind: EntryKind) -> Color {
@@ -100,16 +139,31 @@ enum NidoTheme {
 struct PaperBackground: View {
     var body: some View {
         LinearGradient(
-            colors: [NidoTheme.paperLight, NidoTheme.paper, NidoTheme.paper.opacity(0.92)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            gradient: Gradient(stops: [
+                .init(color: NidoTheme.backdropLavender, location: 0),
+                .init(color: NidoTheme.paper, location: 0.78),
+                .init(color: NidoTheme.paper, location: 1)
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
         )
+        .overlay(alignment: .topLeading) {
+            RadialGradient(
+                colors: [NidoTheme.backdropPeach, NidoTheme.backdropPeach.opacity(0)],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 430
+            )
+            .frame(width: 480, height: 590)
+        }
         .overlay(alignment: .topTrailing) {
-            Circle()
-                .fill(NidoTheme.moss.opacity(0.05))
-                .frame(width: 320)
-                .blur(radius: 40)
-                .offset(x: 150, y: -170)
+            RadialGradient(
+                colors: [NidoTheme.backdropMint, NidoTheme.backdropMint.opacity(0)],
+                center: .topTrailing,
+                startRadius: 0,
+                endRadius: 460
+            )
+            .frame(width: 500, height: 620)
         }
         .ignoresSafeArea()
     }
@@ -168,7 +222,7 @@ struct NidoTitle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .font(.system(textStyle, design: .serif, weight: .regular))
+            .font(.system(textStyle, design: .default, weight: .bold))
             .foregroundStyle(NidoTheme.ink)
     }
 

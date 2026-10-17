@@ -11,6 +11,9 @@ nonisolated private struct NidoWidgetSnapshot: Codable, Sendable {
     let activeKind: String?
     let activeStartedAt: Date?
     let updatedAt: Date
+    let sleepGoalMinutes: Int?
+    let feedGoal: Int?
+    let diaperGoal: Int?
 
     static let preview = NidoWidgetSnapshot(
         babyName: "Marco",
@@ -21,7 +24,10 @@ nonisolated private struct NidoWidgetSnapshot: Codable, Sendable {
         latestDate: .now.addingTimeInterval(-1_800),
         activeKind: nil,
         activeStartedAt: nil,
-        updatedAt: .now
+        updatedAt: .now,
+        sleepGoalMinutes: nil,
+        feedGoal: nil,
+        diaperGoal: nil
     )
 }
 
@@ -76,6 +82,9 @@ private struct NidoDayWidgetView: View {
     private let moss = Color(red: 0.27, green: 0.39, blue: 0.32)
     private let paper = Color(red: 0.97, green: 0.95, blue: 0.90)
     private let ink = Color(red: 0.15, green: 0.14, blue: 0.12)
+    private let sleepAccent = Color(.displayP3, red: 228.0 / 255, green: 62.0 / 255, blue: 108.0 / 255)
+    private let feedAccent = Color(.displayP3, red: 186.0 / 255, green: 249.0 / 255, blue: 78.0 / 255)
+    private let diaperAccent = Color(.displayP3, red: 100.0 / 255, green: 218.0 / 255, blue: 214.0 / 255)
 
     var body: some View {
         Group {
@@ -136,9 +145,9 @@ private struct NidoDayWidgetView: View {
             }
             Spacer(minLength: 0)
             VStack(spacing: 10) {
-                metricRow(symbol: "moon.fill", value: sleepLabel, tint: moss)
-                metricRow(symbol: "waterbottle.fill", value: "\(entry.snapshot.feeds)", tint: .orange)
-                metricRow(symbol: "drop.fill", value: "\(entry.snapshot.diapers)", tint: .cyan)
+                metricRow(symbol: "moon.fill", value: sleepLabel + (entry.snapshot.sleepGoalMinutes.map { " / \($0 / 60) h \($0 % 60) min" } ?? ""), tint: sleepAccent)
+                metricRow(symbol: "waterbottle.fill", value: "\(entry.snapshot.feeds)" + (entry.snapshot.feedGoal.map { " / \($0)" } ?? ""), tint: feedAccent)
+                metricRow(symbol: "drop.fill", value: "\(entry.snapshot.diapers)" + (entry.snapshot.diaperGoal.map { " / \($0)" } ?? ""), tint: diaperAccent)
             }
             .privacySensitive()
         }
@@ -199,9 +208,9 @@ private struct NidoDayWidgetView: View {
 
     private var metricStrip: some View {
         HStack(spacing: 13) {
-            compactMetric(symbol: "moon.fill", value: shortSleepLabel, tint: moss)
-            compactMetric(symbol: "waterbottle.fill", value: "\(entry.snapshot.feeds)", tint: .orange)
-            compactMetric(symbol: "drop.fill", value: "\(entry.snapshot.diapers)", tint: .cyan)
+            compactMetric(symbol: "moon.fill", value: shortSleepLabel, tint: sleepAccent)
+            compactMetric(symbol: "waterbottle.fill", value: "\(entry.snapshot.feeds)", tint: feedAccent)
+            compactMetric(symbol: "drop.fill", value: "\(entry.snapshot.diapers)", tint: diaperAccent)
         }
         .privacySensitive()
     }

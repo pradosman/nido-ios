@@ -132,13 +132,13 @@ struct NidoDomainCharacterizationTests {
     @Test
     func growthMeasurementsAcceptPartialValuesAndRejectOtherCareEntries() throws {
         let weightOnly = entry(id: "weight", kind: .health, timestamp: 1_000, detail: "Medidas · 4,8 kg")
-        let measurement = try #require(GrowthMeasurement(entry: weightOnly))
+        let measurement = try #require(LegacyGrowthMeasurement(entry: weightOnly))
 
         #expect(measurement.id == "weight")
         #expect(measurement.weightKilograms == 4.8)
         #expect(measurement.heightCentimeters == nil)
-        #expect(GrowthMeasurement(entry: entry(id: "bath", kind: .health, timestamp: 1_000, detail: "Baño")) == nil)
-        #expect(GrowthMeasurement(entry: entry(id: "feed", kind: .feed, timestamp: 1_000, detail: "Medidas · 4,8 kg")) == nil)
+        #expect(LegacyGrowthMeasurement(entry: entry(id: "bath", kind: .health, timestamp: 1_000, detail: "Baño")) == nil)
+        #expect(LegacyGrowthMeasurement(entry: entry(id: "feed", kind: .feed, timestamp: 1_000, detail: "Medidas · 4,8 kg")) == nil)
     }
 
     @Test

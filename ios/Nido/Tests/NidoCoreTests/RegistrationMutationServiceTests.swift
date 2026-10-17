@@ -7,6 +7,26 @@ struct RegistrationMutationServiceTests {
     private let now = Date(timeIntervalSince1970: 20_000)
 
     @Test
+    func editedEntryCommitsAgainstLatestSnapshotWithoutLosingOtherChanges() async throws {
+        let original = entry(id: "edited", kind: .diaper, detail: "Pis", timestamp: 1_000)
+        let other = entry(id: "other", kind: .feed, detail: "Biberón · Fórmula", timestamp: 2_000)
+        let harness = try Harness(entries: [original, other])
+        let updatedOther = other.edited(detail: "Pecho · Derecho", occurredAt: other.date,
+                                        durationMinutes: 8, amountMl: nil)
+        let edited = original.edited(detail: "Pis y caca", occurredAt: original.date,
+                                     durationMinutes: nil, amountMl: nil)
+
+        #expect(try await harness.service.updateAppEntry(updatedOther, expectedAccessToken: "real-test-session"))
+        #expect(try await harness.service.updateAppEntry(edited, expectedAccessToken: "real-test-session"))
+
+        let snapshot = try harness.cache.load()
+        #expect(snapshot.entries == [updatedOther, edited])
+        let missing = entry(id: "deleted", kind: .diaper, detail: "Pis", timestamp: 3_000)
+        #expect(try await !harness.service.updateAppEntry(missing, expectedAccessToken: "real-test-session"))
+        #expect(try harness.cache.load() == snapshot)
+    }
+
+    @Test
     func diaperUsesLatestReusableDetailsAndSafeDefault() async throws {
         let latest = entry(id: "latest", kind: .diaper, detail: "Pis y caca · Normal", timestamp: 2_000)
         let harness = try Harness(entries: [latest])
@@ -107,6 +127,186 @@ struct RegistrationMutationServiceTests {
         let noActive = await harness.service.finishSleep(caregiverID: nil, caregiverName: nil)
         #expect(noActive.outcome == .noActiveSleep)
         #expect(noActive.entry == nil)
+    }
+
+    @Test
+    func sleepStartUploadsAfterDurableCommitAndSynchronizationReadsRemote() async throws {
+        let recorder = SleepRemoteRecorder()
+        let harness = try Harness(sleepRemote: { proposed, expected, token in
+            _ = try await recorder.record(proposed, expected, token)
+            return proposed
+        }, loadRemoteSleep: { _ in await recorder.remoteValue })
+
+        let started = await harness.service.startSleep()
+        #expect(started.outcome == .sleepStarted)
+        #expect(await recorder.mutations.count == 1)
+        #expect(try await harness.service.synchronizeSleep() == started.activeSleepStartedAt)
+    }
+
+    @Test
+    func failedSleepUploadRemainsDurableAndRetries() async throws {
+        let recorder = SleepRemoteRecorder(error: URLError(.notConnectedToInternet))
+        let harness = try Harness(sleepRemote: { proposed, expected, token in
+            try await recorder.record(proposed, expected, token)
+        })
+
+        _ = await harness.service.startSleep()
+        #expect(try await harness.service.activeSleepStartedAt() != nil)
+        await recorder.clearError()
+        _ = try await harness.service.synchronizeSleep()
+        #expect(await recorder.mutations.count == 2)
+    }
+
+    @Test
+    func offlineFinishKeepsExactStartedAtForCompareAndSetAfterEntrySync() async throws {
+        let startedAt = now.addingTimeInterval(-125.75)
+        let recorder = SleepRemoteRecorder()
+        let harness = try Harness(now: startedAt, remoteError: nil, sleepRemote: { proposed, expected, token in
+            try await recorder.record(proposed, expected, token)
+        })
+
+        _ = await harness.service.startSleep()
+        await recorder.setError(URLError(.notConnectedToInternet))
+        await harness.clock.set(now)
+        let finish = await harness.service.finishSleep(caregiverID: nil, caregiverName: nil)
+        #expect(finish.outcome == .sleepFinished)
+        #expect(try await harness.service.activeSleepStartedAt() == nil)
+
+        await recorder.clearError()
+        _ = try await harness.service.synchronizeSleep()
+        let lastMutation = try #require(await recorder.mutations.last)
+        #expect(lastMutation.0 == nil)
+        #expect(lastMutation.1 == startedAt)
+    }
+
+    @Test
+    func offlineStartCorrectionUsesOriginalRemoteExpectationOnReconnect() async throws {
+        let start = now.addingTimeInterval(-200)
+        let corrected = start.addingTimeInterval(-30)
+        let remote = SleepCASRecorder(offline: true)
+        let harness = try Harness(now: start, sleepRemote: { proposed, expected, token in
+            try await remote.sync(proposed, expected, token)
+        }, loadRemoteSleep: { _ in await remote.value })
+
+        _ = await harness.service.startSleep()
+        _ = try await harness.service.updateSleepStart(corrected)
+        await remote.setOffline(false)
+        _ = try await harness.service.synchronizeSleep()
+
+        #expect(await remote.value == corrected)
+        #expect(try await harness.service.activeSleepStartedAt() == corrected)
+    }
+
+    @Test
+    func finishingOfflineCorrectionClearsRemoteUsingOriginalExpectation() async throws {
+        let start = now.addingTimeInterval(-200)
+        let corrected = start.addingTimeInterval(-30)
+        let remote = SleepCASRecorder()
+        let harness = try Harness(now: start, sleepRemote: { proposed, expected, token in
+            try await remote.sync(proposed, expected, token)
+        }, loadRemoteSleep: { _ in await remote.value })
+
+        _ = await harness.service.startSleep()
+        #expect(await remote.value == start)
+        await remote.setOffline(true)
+        _ = try await harness.service.updateSleepStart(corrected)
+        await harness.clock.set(now)
+        let finish = await harness.service.finishSleep(caregiverID: nil, caregiverName: nil)
+        #expect(finish.outcome == .sleepFinished)
+        await remote.setOffline(false)
+        _ = try await harness.service.synchronizeSleep()
+
+        #expect(await remote.value == nil)
+        #expect(try await harness.service.activeSleepStartedAt() == nil)
+    }
+
+    @Test
+    func legacyDurableActiveSleepIsUploadedInsteadOfClearedByRemoteRead() async throws {
+        let start = now.addingTimeInterval(-90)
+        let remote = SleepCASRecorder()
+        var legacyObject = try #require(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(RegistrationDurableState(activeSleepStartedAt: start))
+        ) as? [String: Any])
+        legacyObject.removeValue(forKey: "hasPendingSleepMutation")
+        legacyObject.removeValue(forKey: "pendingSleepStartedAt")
+        legacyObject.removeValue(forKey: "pendingSleepExpectedStartedAt")
+        legacyObject.removeValue(forKey: "finishingSleepStartedAt")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+        #expect(try JSONDecoder().decode(RegistrationDurableState.self, from: legacyData).activeSleepStartedAt == start)
+        #expect(try JSONDecoder().decode(RegistrationDurableState.self, from: legacyData).hasPendingSleepMutation)
+        let harness = try Harness(legacyDurableState: legacyData, sleepRemote: { proposed, expected, token in
+            try await remote.sync(proposed, expected, token)
+        }, loadRemoteSleep: { _ in await remote.value })
+
+        _ = try await harness.service.synchronizeSleep()
+        #expect(await remote.value == start)
+        #expect(try await harness.service.activeSleepStartedAt() == start)
+    }
+
+    @Test
+    func staleFinishConflictPreservesNewerRemoteSleep() async throws {
+        let startB = now.addingTimeInterval(-120)
+        let remote = SleepCASRecorder()
+        let harness = try Harness(sleepRemote: { proposed, expected, token in
+            try await remote.sync(proposed, expected, token)
+        }, loadRemoteSleep: { _ in await remote.value })
+
+        _ = await harness.service.startSleep()
+        await remote.setValue(startB)
+        let finishedA = await harness.service.finishSleep(caregiverID: nil, caregiverName: nil)
+
+        #expect(finishedA.activeSleepStartedAt == startB)
+        #expect(await remote.value == startB)
+        #expect(try await harness.service.activeSleepStartedAt() == startB)
+    }
+
+    @Test
+    func suspendedRemoteSleepReadCannotRestoreClearedPrivateState() async throws {
+        let remoteStart = now.addingTimeInterval(-120)
+        let gate = SuspendedSleepRead(value: remoteStart)
+        let harness = try Harness(loadRemoteSleep: { _ in await gate.load() })
+
+        let synchronization = Task { try await harness.service.synchronizeSleep() }
+        await gate.waitUntilStarted()
+        await harness.service.clearPrivateData()
+        await gate.resume()
+        _ = try await synchronization.value
+
+        #expect(try await harness.service.activeSleepStartedAt() == nil)
+    }
+
+    @Test
+    func staleRemoteReadCannotEraseSleepStartAcceptedWhileReadWasSuspended() async throws {
+        let gate = SuspendedSleepRead(value: nil)
+        let remote = SleepCASRecorder()
+        let harness = try Harness(sleepRemote: { proposed, expected, token in
+            try await remote.sync(proposed, expected, token)
+        }, loadRemoteSleep: { _ in await gate.load() })
+
+        let synchronization = Task { try await harness.service.synchronizeSleep() }
+        await gate.waitUntilStarted()
+        let started = await harness.service.startSleep()
+        #expect(started.activeSleepStartedAt == now)
+        await gate.resume()
+        _ = try await synchronization.value
+
+        #expect(try await harness.service.activeSleepStartedAt() == now)
+    }
+
+    @Test
+    func startingNewSleepDuringFinishUploadPreservesNewPendingStart() async throws {
+        let gate = SuspendedRemote()
+        let fixture = try CorrectionFixture(remote: { entry, _ in try await gate.create(entry) })
+        // Seed a durable active interval using the service's public start path.
+        _ = await fixture.service.startSleep()
+        let finish = Task { await fixture.service.finishSleep(caregiverID: nil, caregiverName: nil) }
+        await gate.waitUntilStarted()
+        let nextStart = await fixture.service.startSleep()
+        #expect(nextStart.activeSleepStartedAt != nil)
+        await gate.resume()
+        _ = await finish.value
+
+        #expect(try await fixture.service.activeSleepStartedAt() == nextStart.activeSleepStartedAt)
     }
 
     @Test
@@ -269,6 +469,27 @@ struct RegistrationMutationServiceTests {
         #expect(final.entries.first(where: { $0.id == edited.id })?.detail == "Pis y caca")
     }
 
+    @Test
+    func acknowledgingPendingEntryRetainsCachedEntry() async throws {
+        let fixture = try CorrectionFixture(remote: { entry, _ in entry })
+        let entry = entry(id: "acknowledged-entry", kind: .diaper, detail: "Pis", timestamp: 1_000)
+        let queued = NidoSnapshot(
+            profile: nil,
+            entries: [entry],
+            pendingEntryIDs: [entry.id],
+            profileNeedsSync: false
+        )
+        _ = try await fixture.service.saveAppSnapshot(queued)
+
+        let acknowledged = try await fixture.service.saveAppSnapshot(
+            NidoSnapshot(profile: nil, entries: [], pendingEntryIDs: [], profileNeedsSync: false),
+            acknowledgedEntryIDs: [entry.id]
+        )
+
+        #expect(acknowledged.entries.contains { $0.id == entry.id })
+        #expect(!acknowledged.pendingEntryIDs.contains(entry.id))
+    }
+
     @MainActor
     @Test
     func foregroundInvalidationHubClearsActiveReceiver() {
@@ -305,6 +526,82 @@ struct RegistrationMutationServiceTests {
 
         #expect(first.entry?.id != second.entry?.id)
         #expect(try fixture.cache.load().entries.count == 2)
+    }
+
+    @Test
+    func lateUnauthorizedUploadCannotClearNewSessionData() async throws {
+        let credential = MutableCredentialSource(SessionCredential(
+            accessToken: "first-session",
+            expiresAt: now.addingTimeInterval(3_600),
+            appleUserID: "first-user"
+        ))
+        let remote = SuspendedUnauthorizedRemote()
+        let fixture = try CorrectionFixture(
+            credential: { credential.value },
+            remote: { entry, _ in try await remote.create(entry) }
+        )
+
+        let operation = Task { await fixture.service.registerDiaper(caregiverID: nil, caregiverName: nil) }
+        await remote.waitUntilStarted()
+        credential.value = SessionCredential(
+            accessToken: "second-session",
+            expiresAt: now.addingTimeInterval(3_600),
+            appleUserID: "second-user"
+        )
+        await remote.resume()
+        _ = await operation.value
+
+        #expect(try fixture.cache.load().entries.count == 1)
+        #expect(credential.value.accessToken == "second-session")
+    }
+
+    @Test
+    func finishDoesNotReturnPreviousSessionSnapshotAfterSuspendedPublish() async throws {
+        let credential = MutableCredentialSource(SessionCredential(
+            accessToken: "first-session",
+            expiresAt: now.addingTimeInterval(3_600),
+            appleUserID: "first-user"
+        ))
+        let publication = SuspendedPublication(suspendAt: 3)
+        let fixture = try CorrectionFixture(
+            credential: { credential.value },
+            publish: { commit in await publication.record(commit) },
+            remote: { entry, _ in entry }
+        )
+
+        _ = await fixture.service.startSleep()
+        let finishing = Task { await fixture.service.finishSleep(caregiverID: nil, caregiverName: nil) }
+        await publication.waitUntilSuspended()
+        credential.value = SessionCredential(
+            accessToken: "second-session",
+            expiresAt: now.addingTimeInterval(3_600),
+            appleUserID: "second-user"
+        )
+        await fixture.service.clearPrivateData()
+        await publication.resume()
+        let result = await finishing.value
+
+        #expect(result.outcome == .authenticationRequired)
+        #expect(result.snapshot == .empty)
+    }
+
+    @Test
+    func finishingWhileStartCASIsInFlightSerializesTheClearAfterItsAcknowledgement() async throws {
+        let remote = SuspendedStartCAS()
+        let harness = try Harness(sleepRemote: { proposed, expected, token in
+            try await remote.sync(proposed, expected, token)
+        })
+
+        let starting = Task { await harness.service.startSleep() }
+        await remote.waitUntilStarted()
+        let finished = await harness.service.finishSleep(caregiverID: nil, caregiverName: nil)
+        #expect(finished.outcome == .sleepFinished)
+        await remote.resume()
+        _ = await starting.value
+
+        #expect(await remote.value == nil)
+        #expect(try await harness.service.activeSleepStartedAt() == nil)
+        #expect(try harness.cache.load().entries.count == 1)
     }
 
     @Test
@@ -398,6 +695,9 @@ private final class Harness: @unchecked Sendable {
         activeSleepStartedAt: Date? = nil,
         legacySleepStartedAt: Date? = nil,
         remoteError: (any Error)? = nil,
+        legacyDurableState: Data? = nil,
+        sleepRemote: @escaping @Sendable (Date?, Date?, String) async throws -> Date? = { proposed, _, _ in proposed },
+        loadRemoteSleep: @escaping @Sendable (String) async throws -> Date? = { _ in nil },
         ids: [String] = [UUID().uuidString, UUID().uuidString]
     ) throws {
         let id = UUID().uuidString
@@ -411,6 +711,7 @@ private final class Harness: @unchecked Sendable {
         if let legacySleepStartedAt {
             legacyDefaults.set(legacySleepStartedAt.timeIntervalSince1970, forKey: "activeSleepStartedAt")
         }
+        if let legacyDurableState { stateDefaults.set(legacyDurableState, forKey: RegistrationMutationService.stateKey) }
         clock = TestClock(now)
         remote = RemoteRecorder(error: remoteError)
         let idSource = IDSource(ids)
@@ -432,13 +733,56 @@ private final class Harness: @unchecked Sendable {
                 publishLocalCommit: { _ in },
                 clearExternalState: { [cleanup] in await cleanup.increment() },
                 now: { [clock] in clock.value },
-                makeID: { idSource.next() }
+                makeID: { idSource.next() },
+                syncSleep: sleepRemote,
+                loadSleep: loadRemoteSleep
             )
         )
         if let activeSleepStartedAt {
             stateDefaults.set(try JSONEncoder().encode(RegistrationDurableState(activeSleepStartedAt: activeSleepStartedAt)), forKey: RegistrationMutationService.stateKey)
         }
     }
+}
+
+private actor SleepRemoteRecorder {
+    private(set) var mutations: [(Date?, Date?, String)] = []
+    var remoteValue: Date? { mutations.last?.0 }
+    private var error: (any Error)?
+    init(error: (any Error)? = nil) { self.error = error }
+    func record(_ proposed: Date?, _ expected: Date?, _ token: String) throws -> Date? {
+        mutations.append((proposed, expected, token))
+        if let error { throw error }
+        return proposed
+    }
+    func clearError() { error = nil }
+    func setError(_ error: (any Error)?) { self.error = error }
+}
+
+private actor SleepCASRecorder {
+    private(set) var value: Date?
+    private var offline: Bool
+    init(value: Date? = nil, offline: Bool = false) { self.value = value; self.offline = offline }
+    func setOffline(_ offline: Bool) { self.offline = offline }
+    func setValue(_ value: Date?) { self.value = value }
+    func sync(_ proposed: Date?, _ expected: Date?, _ token: String) throws -> Date? {
+        if offline { throw URLError(.notConnectedToInternet) }
+        guard value == expected else { return value }
+        value = proposed
+        return value
+    }
+}
+
+private actor SuspendedSleepRead {
+    private let value: Date?
+    private var started = false
+    private var continuation: CheckedContinuation<Date?, Never>?
+    init(value: Date?) { self.value = value }
+    func load() async -> Date? {
+        started = true
+        return await withCheckedContinuation { continuation = $0 }
+    }
+    func waitUntilStarted() async { while !started { await Task.yield() } }
+    func resume() { continuation?.resume(returning: value); continuation = nil }
 }
 
 private actor Counter {
@@ -558,6 +902,53 @@ private final class MutableCredentialSource: @unchecked Sendable {
         get { lock.withLock { stored } }
         set { lock.withLock { stored = newValue } }
     }
+}
+
+private actor SuspendedUnauthorizedRemote {
+    private var started = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func create(_ entry: Entry) async throws -> Entry {
+        started = true
+        await withCheckedContinuation { continuation = $0 }
+        throw APIError.server(status: 401, message: "revoked")
+    }
+    func waitUntilStarted() async { while !started { await Task.yield() } }
+    func resume() { continuation?.resume(); continuation = nil }
+}
+
+private actor SuspendedPublication {
+    private let suspendAt: Int
+    private var count = 0
+    private var suspended = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    init(suspendAt: Int) { self.suspendAt = suspendAt }
+    func record(_ commit: RegistrationLocalCommit) async {
+        count += 1
+        guard count == suspendAt else { return }
+        suspended = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func waitUntilSuspended() async { while !suspended { await Task.yield() } }
+    func resume() { continuation?.resume(); continuation = nil }
+}
+
+private actor SuspendedStartCAS {
+    private(set) var value: Date?
+    private var started = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func sync(_ proposed: Date?, _ expected: Date?, _ token: String) async throws -> Date? {
+        if !started {
+            started = true
+            await withCheckedContinuation { continuation = $0 }
+            value = proposed
+            return proposed
+        }
+        guard value == expected else { return value }
+        value = proposed
+        return value
+    }
+    func waitUntilStarted() async { while !started { await Task.yield() } }
+    func resume() { continuation?.resume(); continuation = nil }
 }
 
 @MainActor

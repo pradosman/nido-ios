@@ -24,6 +24,9 @@ struct EntryEditorView: View {
     @State private var weightKilograms: Double
     @State private var heightCentimeters: Double
     @State private var isSaving = false
+    @State private var saveError: String?
+    @State private var initialDraft: Entry?
+    @State private var isConfirmingDiscard = false
 
     init(entry: Entry) {
         self.entry = entry
@@ -85,6 +88,13 @@ struct EntryEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let saveError {
+                    Section {
+                        Label(saveError, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.primary)
+                            .accessibilityIdentifier("entry-editor-save-error")
+                    }
+                }
                 Section {
                     HStack(spacing: 12) {
                         EntryGlyph(kind: entry.kind, size: 24)
@@ -120,13 +130,25 @@ struct EntryEditorView: View {
                     }
                 }
             }
+            .disabled(isSaving)
             .scrollContentBackground(.hidden)
             .background(PaperBackground())
             .navigationTitle("Editar registro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
+                    Button("Cancelar") {
+                        if hasChanges {
+                            isConfirmingDiscard = true
+                        } else {
+                            dismiss()
+                        }
+                    }
+                        .disabled(isSaving)
+                        .confirmationDialog("¿Descartar los cambios?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
+                            Button("Descartar cambios", role: .destructive) { dismiss() }
+                            Button("Seguir editando") { isConfirmingDiscard = false }
+                        }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Guardar", action: save)
@@ -136,6 +158,10 @@ struct EntryEditorView: View {
             }
         }
         .tint(NidoTheme.moss)
+        .interactiveDismissDisabled(hasChanges || isSaving)
+        .onAppear {
+            if initialDraft == nil { initialDraft = entryToSave }
+        }
     }
 
     private var canSave: Bool {
@@ -342,8 +368,11 @@ struct EntryEditorView: View {
         return EntryDetailPersistence.preserved(legacyDetail, semanticDetail: semanticDetail)
     }
 
-    private func save() {
-        isSaving = true
+    private var hasChanges: Bool {
+        initialDraft.map { entryToSave != $0 } ?? false
+    }
+
+    private var entryToSave: Entry {
         let savedDate = EntryMoment.resolve(
             kind: entry.kind,
             selectedDate: date,
@@ -357,16 +386,27 @@ struct EntryEditorView: View {
         let savedAmount = entry.kind == .feed && (feedType == .bottle || feedType == .pumping) && amountMl > 0
             ? amountMl
             : nil
-        let updated = entry.edited(
+        return entry.edited(
             detail: savedDetail,
             occurredAt: savedDate,
             durationMinutes: savedDuration,
             amountMl: savedAmount
         )
+    }
+
+    private func save() {
+        guard canSave else { return }
+        let updated = entryToSave
+        isSaving = true
+        saveError = nil
         Task {
-            await store.updateEntry(updated)
+            let saved = await store.updateEntry(updated)
             isSaving = false
-            dismiss()
+            if saved {
+                dismiss()
+            } else {
+                saveError = "No se han podido guardar los cambios. Tu borrador sigue aquí; vuelve a intentarlo."
+            }
         }
     }
 }

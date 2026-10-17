@@ -55,6 +55,63 @@ nonisolated enum HistoryPresentation {
         return (-6...0).compactMap { calendar.date(byAdding: .day, value: $0, to: end) }
     }
 
+    static func calendarWeekDates(containing date: Date, calendar: Calendar = .current) -> [Date] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else { return [] }
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: week.start) }
+    }
+
+    static func calendarMonths(
+        from earliest: Date,
+        through today: Date,
+        calendar: Calendar = .current
+    ) -> [Date] {
+        func monthStart(_ date: Date) -> Date {
+            let components = calendar.dateComponents([.year, .month], from: date)
+            return calendar.date(from: components) ?? calendar.startOfDay(for: date)
+        }
+
+        let currentMonth = monthStart(today)
+        let firstMonth = min(monthStart(earliest), currentMonth)
+        guard let finalMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth) else { return [] }
+
+        var months: [Date] = []
+        var cursor = firstMonth
+        while cursor <= finalMonth {
+            months.append(cursor)
+            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: cursor), nextMonth > cursor else {
+                break
+            }
+            cursor = nextMonth
+        }
+        return months
+    }
+
+    static func readingAnchor(
+        for sections: [EntryKind: ClosedRange<Double>],
+        threshold: Double = 150
+    ) -> String {
+        if let earliestSection = sections.values.map(\.lowerBound).min(), earliestSection > threshold {
+            return "history-detail-top"
+        }
+
+        let visibleSection = sections
+            .filter { $0.value.lowerBound <= threshold && $0.value.upperBound > 0 }
+            .max { lhs, rhs in
+                if lhs.value.lowerBound == rhs.value.lowerBound {
+                    return lhs.key.rawValue < rhs.key.rawValue
+                }
+                return lhs.value.lowerBound < rhs.value.lowerBound
+            }
+        if let visibleSection {
+            return "history-section-\(visibleSection.key.rawValue)"
+        }
+
+        if !sections.isEmpty && sections.values.allSatisfy({ $0.upperBound <= 0 }) {
+            return "history-records"
+        }
+        return "history-detail-top"
+    }
+
     static func month(
         containing date: Date,
         through today: Date,
@@ -93,8 +150,22 @@ nonisolated enum HistoryPresentation {
         filter: EntryKind?,
         calendar: Calendar = .current
     ) -> [Entry] {
-        entries
-            .filter { calendar.isDate($0.date, inSameDayAs: date) && (filter == nil || $0.kind == filter) }
-            .sorted { $0.occurredAt < $1.occurredAt }
+        let start = calendar.startOfDay(for: date)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        return entries.compactMap { entry -> (entry: Entry, sortDate: Date)? in
+            guard filter == nil || entry.kind == filter else { return nil }
+            if entry.kind == .sleep, let duration = entry.durationMinutes, duration > 0 {
+                let intervalStart = entry.date.addingTimeInterval(-TimeInterval(duration * 60))
+                guard intervalStart < end, entry.date > start else { return nil }
+                return (entry, max(intervalStart, start))
+            }
+            guard entry.date >= start, entry.date < end else { return nil }
+            return (entry, entry.date)
+        }
+        .sorted {
+            if $0.sortDate == $1.sortDate { return $0.entry.id < $1.entry.id }
+            return $0.sortDate < $1.sortDate
+        }
+        .map(\.entry)
     }
 }

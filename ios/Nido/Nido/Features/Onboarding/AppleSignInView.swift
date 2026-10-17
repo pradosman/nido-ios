@@ -3,7 +3,9 @@ import SwiftUI
 
 struct AppleSignInView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(NidoDemoSessionCoordinator.self) private var demoCoordinator
     @State private var isCompleting = false
+    @State private var isStartingDemo = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -69,14 +71,50 @@ struct AppleSignInView: View {
                 .signInWithAppleButtonStyle(.black)
                 .frame(height: 54)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .disabled(store.appleSignInChallenge == nil || store.isPreparingAppleSignIn || isCompleting)
-                .opacity(store.appleSignInChallenge == nil || isCompleting ? 0.55 : 1)
+                .disabled(store.appleSignInChallenge == nil || store.isPreparingAppleSignIn || isCompleting || isStartingDemo)
+                .opacity(store.appleSignInChallenge == nil || store.isPreparingAppleSignIn || isCompleting || isStartingDemo ? 0.55 : 1)
+                .accessibilityIdentifier("apple-sign-in")
+
+                Button {
+                    isStartingDemo = true
+                    Task {
+                        defer { isStartingDemo = false }
+                        await demoCoordinator.enter()
+                    }
+                } label: {
+                    if isStartingDemo {
+                        ProgressView("Preparando la demostración…")
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                    } else {
+                        Text("Explorar demostración")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(NidoTheme.moss)
+                .disabled(isStartingDemo || demoCoordinator.isTransitioning || isCompleting)
+                .accessibilityIdentifier("demo-start")
+                .padding(.top, 12)
 
                 if store.isPreparingAppleSignIn || isCompleting {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.top, 14)
                 }
+
+                #if DEBUG
+                if store.isCompletingAppleSignInForUITest {
+                    Text("Iniciando sesión con Apple")
+                        .font(.footnote)
+                        .accessibilityIdentifier("apple-auth-completing")
+                }
+                if store.isStartingDemoForUITest {
+                    Text("Preparando la demostración")
+                        .font(.footnote)
+                        .accessibilityIdentifier("demo-start-in-progress")
+                }
+                #endif
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
@@ -85,5 +123,11 @@ struct AppleSignInView: View {
             guard store.appleSignInChallenge == nil else { return }
             await store.prepareAppleSignIn()
         }
+        #if DEBUG
+        .onAppear {
+            if store.isCompletingAppleSignInForUITest { isCompleting = true }
+            if store.isStartingDemoForUITest { isStartingDemo = true }
+        }
+        #endif
     }
 }

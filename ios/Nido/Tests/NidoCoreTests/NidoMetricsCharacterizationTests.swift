@@ -23,6 +23,19 @@ struct NidoMetricsCharacterizationTests {
     }
 
     @Test
+    func duplicateEventIDsDoNotInflateDailyCountsOrFeedVolume() throws {
+        let date = try #require(utcCalendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let feed = Entry(id: "duplicate-feed", kind: .feed, title: "Toma", detail: "", occurredAt: Int64(date.timeIntervalSince1970 * 1_000), durationMinutes: nil, amountMl: 75)
+        let diaper = Entry(id: "duplicate-diaper", kind: .diaper, title: "Pañal", detail: "", occurredAt: Int64(date.timeIntervalSince1970 * 1_000), durationMinutes: nil, amountMl: nil)
+
+        let metrics = NidoMetrics.day(date, entries: [feed, feed, diaper, diaper], calendar: utcCalendar)
+
+        #expect(metrics.feeds == 1)
+        #expect(metrics.feedMl == 75)
+        #expect(metrics.diapers == 1)
+    }
+
+    @Test
     func entriesForADayAreFilteredAndNewestFirst() {
         let target = Date(timeIntervalSince1970: 1_787_918_400)
         let previousDay = target.addingTimeInterval(-86_400)

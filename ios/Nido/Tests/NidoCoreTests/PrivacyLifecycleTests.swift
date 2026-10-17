@@ -57,4 +57,27 @@ struct PrivacyLifecycleTests {
             try NidoBackup.load(from: url)
         }
     }
+
+    @Test
+    func backupRejectsBabyCareMeasurementsOutsideTheWireBounds() throws {
+        let backup = NidoBackup(
+            version: 1,
+            exportedAt: .now,
+            profile: nil,
+            caregivers: [],
+            entries: [],
+            babyCareState: BabyCareState(measurements: [
+                GrowthMeasurement(id: "invalid", measuredAt: 1_797_000_000_000, weightGrams: 0)
+            ])
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let url = FileManager.default.temporaryDirectory.appending(path: "nido-invalid-baby-care-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try encoder.encode(backup).write(to: url)
+
+        #expect(throws: NidoBackupError.invalidBabyCareState) {
+            try NidoBackup.load(from: url)
+        }
+    }
 }

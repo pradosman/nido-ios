@@ -7,6 +7,11 @@ struct TodayView: View {
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
     @State private var selectedEntryID: String?
     @State private var expandedClusterID: String?
+    @State private var isHeaderOutsideViewport = false
+    @State private var pageHeadingSize = CGSize.zero
+    @State private var dateHeadingSize = CGSize.zero
+    @State private var isEditingGoals = false
+    private var calendar: Calendar { BabyCareMetrics.calendar(for: store.babyCareState) }
 
     private var profile: Profile {
         store.profile ?? Profile(caregiverName: "", babyName: "Bebé", birthDate: "")
@@ -19,11 +24,11 @@ struct TodayView: View {
             return entry.date.addingTimeInterval(-TimeInterval(duration * 60))
         }
         let earliest = ([birthDate].compactMap { $0 } + entryStarts).min() ?? store.now
-        return CircularTimeline.availableDates(earliest: earliest, through: store.now)
+        return CircularTimeline.availableDates(earliest: earliest, through: store.now, calendar: calendar)
     }
 
     private var isTodaySelected: Bool {
-        Calendar.current.isDate(selectedDay, inSameDayAs: store.now)
+        calendar.isDate(selectedDay, inSameDayAs: store.now)
     }
 
     private var selectedTimelineDay: CircularTimeline.Day {
@@ -31,11 +36,25 @@ struct TodayView: View {
             on: selectedDay,
             entries: store.entries,
             activeSleepStartedAt: store.activeSleepStartedAt,
-            now: store.now
+            now: store.now,
+            calendar: calendar
         )
     }
 
+    @ViewBuilder
     var body: some View {
+        #if DEBUG
+        if let scenario = store.goalDesignPreviewScenario {
+            GoalTodayPreviewView(scenario: scenario)
+        } else {
+            timelineBody
+        }
+        #else
+        timelineBody
+        #endif
+    }
+
+    private var timelineBody: some View {
         GeometryReader { viewport in
             // Use the available viewport, but preserve multiline layouts for accessibility text sizes.
             let compactHeight = viewport.size.height < 560 && !dynamicTypeSize.isAccessibilitySize
@@ -43,7 +62,11 @@ struct TodayView: View {
                 PaperBackground()
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        prioritizedContent(compactHeight: compactHeight)
+                        prioritizedContent(
+                            compactHeight: compactHeight,
+                            availableWidth: viewport.size.width - 48,
+                            viewportTop: viewport.frame(in: .global).minY + viewport.safeAreaInsets.top
+                        )
                     }
                     .padding(.horizontal, 24)
                 }
@@ -51,18 +74,13 @@ struct TodayView: View {
                 .refreshable { await store.refresh() }
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { store.selectedTab = .settings } label: {
-                    Image(systemName: "person.crop.circle")
-                }
-                .accessibilityLabel("Abrir ajustes de \(profile.babyName)")
-            }
-        }
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            selectedDay = Calendar.current.startOfDay(for: store.now)
+            selectedDay = calendar.startOfDay(for: store.now)
+        }
+        .sheet(isPresented: $isEditingGoals) {
+            CareGoalEditor(state: store.babyCareState, now: store.now)
         }
         .onChange(of: selectedDay) { _, _ in
             selectedEntryID = nil
@@ -71,37 +89,138 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private func prioritizedContent(compactHeight: Bool) -> some View {
-        pageHeader(compactHeight: compactHeight)
-        SleepCard(compactHeight: compactHeight)
-            .padding(.top, compactHeight ? 0 : 12)
-        if isTodaySelected, store.activeFeedStartedAt != nil {
-            ActiveFeedCard()
-                .padding(.top, 10)
+    private func prioritizedContent(compactHeight: Bool, availableWidth: CGFloat, viewportTop: CGFloat) -> some View {
+        pageHeader(compactHeight: compactHeight, viewportTop: viewportTop)
+        HStack {
+            Text(isTodaySelected ? "Objetivos de hoy" : "Objetivos de este día")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(NidoTheme.readableSupportingInk)
+            Spacer()
+            if !compactHeight {
+                dayNavigationButton(offset: -1)
+                dayNavigationButton(offset: 1)
+            }
+            if store.canEditGoals {
+                Button { isEditingGoals = true } label: {
+                    Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
+                }
+                .foregroundStyle(NidoTheme.moss)
+                .accessibilityLabel("Ajustar objetivos")
+                .accessibilityIdentifier("today-edit-goals")
+            }
         }
-        storyHeader
-        dayPager(compactHeight: compactHeight)
+        .padding(.top, 10)
+        if !isTodaySelected && !compactHeight {
+            Button(action: returnToToday) {
+                Label("Volver a hoy", systemImage: "arrow.uturn.forward")
+                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+            }
+            .foregroundStyle(NidoTheme.moss)
+            .accessibilityIdentifier("timeline-return-today")
+        }
+        dayPager(compactHeight: compactHeight, availableWidth: availableWidth)
+        BabyCareSyncStatus()
+        if let selectedEntryID,
+           let item = selectedTimelineDay.items.first(where: { $0.entry.id == selectedEntryID }) {
+            selectedRecord(item)
+                .padding(.top, 12)
+        } else if isTodaySelected {
+            if store.activeFeedStartedAt != nil {
+                ActiveFeedCard()
+                    .padding(.top, 12)
+            }
+            SleepCard(compactHeight: compactHeight)
+                .padding(.top, store.activeFeedStartedAt == nil ? 12 : 10)
+        }
         DayTimelineActivity(
             day: selectedTimelineDay,
             isToday: isTodaySelected,
             selectedEntryID: $selectedEntryID,
             onEdit: { store.editingEntry = $0 },
-            onShowAll: { store.selectedTab = .history }
+            onShowAll: { store.showHistory(on: selectedDay) }
         )
-        .padding(.top, 24)
+        .padding(.top, 20)
         Color.clear.frame(height: 28)
     }
 
-    private func pageHeader(compactHeight: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func selectedRecord(_ item: CircularTimeline.Item) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label(item.entry.title, systemImage: item.entry.kind.symbolName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.color(for: item.entry.kind))
+                Spacer(minLength: 8)
+                Button {
+                    selectedEntryID = nil
+                    expandedClusterID = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NidoTheme.readableSupportingInk)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Volver al estado actual")
+                .accessibilityIdentifier("today-clear-selection")
+            }
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.entry.summary.isEmpty ? item.entry.title : item.entry.summary)
+                        .font(.system(.title3, design: .rounded, weight: .semibold))
+                        .foregroundStyle(NidoTheme.ink)
+                        .contentTransition(.opacity)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: item.entry.id)
+                    Text(selectedRecordTime(item))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(NidoTheme.readableSupportingInk)
+                    if let caregiver = item.entry.caregiverName, !caregiver.isEmpty {
+                        Text(caregiver)
+                            .font(.caption)
+                            .foregroundStyle(NidoTheme.readableSupportingInk)
+                    }
+                }
+                Spacer(minLength: 8)
+                Button("Editar") { store.editingEntry = item.entry }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NidoTheme.moss)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .background(NidoTheme.moss.opacity(0.08), in: Capsule())
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+        .paperCard(cornerRadius: 23)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-selected-record")
+    }
+
+    private func selectedRecordTime(_ item: CircularTimeline.Item) -> String {
+        guard item.presentation == .sleepSegment else {
+            return item.entry.date.formatted(date: .omitted, time: .shortened)
+        }
+        func clock(_ minute: Int) -> String {
+            let bounded = min(max(minute, 0), 1_440)
+            return String(format: "%02d:%02d", bounded / 60, bounded % 60)
+        }
+        return "\(clock(item.startMinute))–\(clock(item.endMinute))"
+    }
+
+    private func pageHeader(compactHeight: Bool, viewportTop: CGFloat) -> some View {
+        return VStack(alignment: .leading, spacing: 6) {
             if compactHeight {
                 HStack(spacing: 0) {
-                    Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.day().month(.abbreviated)))
-                        .nidoTitle(.screen)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .accessibilityLabel(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                        .accessibilityIdentifier("timeline-day-heading")
+                    if isHeaderOutsideViewport, pageHeadingSize != .zero {
+                        Color.clear.frame(width: pageHeadingSize.width, height: pageHeadingSize.height)
+                    } else {
+                        Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.day().month(.abbreviated)))
+                            .nidoTitle(.screen)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .accessibilityLabel(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                            .accessibilityIdentifier("timeline-day-heading")
+                            .onGeometryChange(for: CGSize.self) { $0.size } action: { pageHeadingSize = $0 }
+                    }
 
                     Spacer(minLength: 4)
                     dayNavigationButton(offset: -1)
@@ -117,76 +236,81 @@ struct TodayView: View {
                     }
                 }
             } else {
-                if !dynamicTypeSize.isAccessibilitySize && store.activeSleepStartedAt == nil {
-                    Text(isTodaySelected ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)) : "El día de \(profile.babyName)")
-                        .font(.system(.subheadline, design: .serif, weight: .medium))
-                        .italic()
-                        .foregroundStyle(NidoTheme.ink.opacity(0.9))
-                        .textCase(.lowercase)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    if isHeaderOutsideViewport, dateHeadingSize != .zero {
+                        Color.clear.frame(width: dateHeadingSize.width, height: dateHeadingSize.height)
+                    } else {
+                        Text(isTodaySelected ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)) : "El día de \(profile.babyName)")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(NidoTheme.ink.opacity(0.9))
+                            .textCase(.lowercase)
+                            .accessibilityIdentifier("timeline-date-heading")
+                            .onGeometryChange(for: CGSize.self) { $0.size } action: { dateHeadingSize = $0 }
+                    }
                 }
-                Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                    .nidoTitle(.hero)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
-                    .accessibilityIdentifier("timeline-day-heading")
-                    .accessibilityValue(
-                        (dynamicTypeSize.isAccessibilitySize || store.activeSleepStartedAt != nil) && isTodaySelected
-                            ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide))
-                            : ""
-                    )
+                if isHeaderOutsideViewport, pageHeadingSize != .zero {
+                    Color.clear.frame(width: pageHeadingSize.width, height: pageHeadingSize.height)
+                } else {
+                    Text(isTodaySelected ? "Hoy con \(profile.babyName)" : selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                        .nidoTitle(.hero)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                        .accessibilityIdentifier("timeline-day-heading")
+                        .accessibilityValue(
+                            (dynamicTypeSize.isAccessibilitySize || store.activeSleepStartedAt != nil) && isTodaySelected
+                                ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide))
+                                : ""
+                        )
+                        .onGeometryChange(for: CGSize.self) { $0.size } action: { pageHeadingSize = $0 }
+                }
             }
         }
         .padding(.top, compactHeight ? 0 : 10)
-    }
-
-    private var storyHeader: some View {
-        HStack(spacing: 14) {
-            Text(isTodaySelected ? "Actividad de hoy" : "Actividad del día")
-                .font(.system(.subheadline, design: .serif, weight: .medium))
-                .italic()
-                .foregroundStyle(NidoTheme.sectionHeadingInk)
-                .fixedSize(horizontal: false, vertical: true)
-                .layoutPriority(1)
-            Rectangle()
-                .fill(NidoTheme.secondaryInk.opacity(0.24))
-                .frame(height: 0.5)
-        }
-        .padding(.top, 16)
-        .padding(.bottom, 8)
-    }
-
-    private func dayPager(compactHeight: Bool) -> some View {
-        VStack(spacing: compactHeight ? 0 : 4) {
-            if !compactHeight {
-                dayControls
+        .padding(.trailing, compactHeight ? 0 : 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .topTrailing) {
+            if !compactHeight && !isHeaderOutsideViewport {
+                Button { store.selectedTab = .settings } label: {
+                    Text(String(profile.babyName.prefix(1)).uppercased())
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(NidoTheme.moss)
+                        .frame(width: 44, height: 44)
+                        .background(NidoTheme.surface, in: Circle())
+                }
+                .buttonStyle(PressScaleButtonStyle())
+                .accessibilityLabel("Abrir ajustes de \(profile.babyName)")
+                .padding(.top, 10)
             }
+        }
+        .accessibilityHidden(isHeaderOutsideViewport)
+        .onGeometryChange(for: Bool.self) { geometry in
+            geometry.frame(in: .global).maxY <= viewportTop
+        } action: { isOutside in
+            isHeaderOutsideViewport = isOutside
+        }
+    }
+
+    private func dayPager(compactHeight: Bool, availableWidth: CGFloat) -> some View {
+        let ringSize = max(100, min(availableWidth, dynamicTypeSize.isAccessibilitySize ? 250 : 294))
+        return
+        VStack(spacing: compactHeight ? 0 : 4) {
             if dynamicTypeSize.isAccessibilitySize {
-                timeline(for: selectedDay)
+                timeline(for: selectedDay, size: ringSize)
             } else {
                 TabView(selection: $selectedDay) {
                     ForEach(dayDates, id: \.self) { date in
-                        timeline(for: date)
+                        timeline(for: date, size: ringSize)
                             .tag(date)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 350)
+                .frame(height: ringSize + (dynamicTypeSize > .large ? 150 : 116))
             }
         }
     }
 
-    private func timeline(for date: Date) -> some View {
-        TimelineView(.everyMinute) { context in
-            CircularTimelineDayView(
-                day: CircularTimeline.day(
-                    on: date,
-                    entries: store.entries,
-                    activeSleepStartedAt: store.activeSleepStartedAt,
-                    now: store.currentDate(for: context.date)
-                ),
-                selectedEntryID: $selectedEntryID,
-                expandedClusterID: $expandedClusterID
-            )
-        }
+    private func timeline(for date: Date, size: CGFloat) -> some View {
+        GoalDayPanel(date: date, size: size, summaryIdentifierPrefix: "day-goal-summary") { _ in store.showHistory(on: date) }
+            .accessibilityIdentifier("today-goal-rings")
     }
 
     private var dayControls: some View {
@@ -276,32 +400,33 @@ struct DayTimelineActivity: View {
         VStack(alignment: .leading, spacing: 10) {
             activityHeaderLayout {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isToday ? "Hoy" : day.date.formatted(.dateTime.day().month(.wide)))
-                        .font(.system(.title3, design: .serif, weight: .semibold))
-                        .foregroundStyle(NidoTheme.ink)
                     Text("Actividad del día")
-                        .font(.caption)
-                        .foregroundStyle(NidoTheme.readableSupportingInk)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(NidoTheme.ink)
+                    let careCount = day.items.filter { $0.entry.kind == .health }.count
+                    if careCount > 0 {
+                        TimelineCareSummary(count: careCount)
+                    }
                 }
                 if !dynamicTypeSize.isAccessibilitySize {
                     Spacer()
                 }
                 Button(action: onShowAll) {
                     Text("Ver todo")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(NidoTheme.moss)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(NidoTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
+                .tint(NidoTheme.ink)
             }
 
             VStack(spacing: 0) {
                 if items.isEmpty {
                     Label("Sin registros este día", systemImage: "clock")
                         .font(.subheadline)
-                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .foregroundStyle(NidoTheme.ink)
                         .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                         .padding(.horizontal, 14)
                 } else {
@@ -411,23 +536,22 @@ struct ActiveFeedCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Lactancia en curso")
                             .font(.caption)
-                            .foregroundStyle(.white)
                         TimelineView(.periodic(from: .now, by: 1)) { context in
                             Text(context.date.timeIntervalSince(start).durationLabel)
-                                .font(.headline.monospacedDigit())
+                                .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
                         }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(NidoTheme.ink)
                     Spacer()
                     Text("Terminar")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(NidoTheme.moss)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(.white, in: Capsule())
+                        .background(NidoTheme.moss.opacity(0.08), in: Capsule())
                 }
                 .padding(14)
-                .background(NidoTheme.activeFeedFill, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+                .background(NidoTheme.surface, in: RoundedRectangle(cornerRadius: 23, style: .continuous))
             }
             .buttonStyle(PressScaleButtonStyle())
             .accessibilityHint("Finaliza y guarda la lactancia")
@@ -461,10 +585,10 @@ struct SleepCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("\(store.profile?.babyName ?? "El bebé") está durmiendo")
                             .font(.caption)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(NidoTheme.ink)
                         TimelineView(.periodic(from: .now, by: 1)) { context in
                             Text(context.date.timeIntervalSince(start).durationLabel)
-                                .font(.headline.monospacedDigit())
+                                .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
                         }
                         .id(start)
                         Label(
@@ -472,12 +596,12 @@ struct SleepCard: View {
                             systemImage: "pencil"
                         )
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(NidoTheme.readableSupportingInk)
                     }
                     .frame(minHeight: 44, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.white)
+                .foregroundStyle(NidoTheme.ink)
                 .accessibilityLabel("Editar hora de inicio, \(start.formatted(date: .abbreviated, time: .shortened))")
                 .accessibilityHint("Abre el selector de fecha y hora")
 
@@ -488,10 +612,10 @@ struct SleepCard: View {
                 } label: {
                     Text("Terminar")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(NidoTheme.moss)
                         .padding(.horizontal, 14)
                         .frame(minHeight: 45)
-                        .background(.white, in: Capsule())
+                        .background(NidoTheme.moss.opacity(0.08), in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(PressScaleButtonStyle())
@@ -502,14 +626,14 @@ struct SleepCard: View {
             .frame(maxWidth: .infinity)
             .background {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
-                    .fill(NidoTheme.activeSleepFill)
+                    .fill(NidoTheme.surface)
                     .accessibilityElement()
                     .accessibilityLabel("Estado del sueño de hoy")
                     .accessibilityIdentifier("sleep-status-card")
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
-                    .stroke(.white.opacity(0.72), lineWidth: 0.7)
+                    .stroke(NidoTheme.separator.opacity(0.35), lineWidth: 0.5)
             }
             .shadow(color: NidoTheme.ink.opacity(0.05), radius: 16, y: 7)
             .sheet(isPresented: $isEditingStart) {
@@ -523,33 +647,26 @@ struct SleepCard: View {
             } label: {
                 adaptiveLayout {
                     if !dynamicTypeSize.isAccessibilitySize {
-                        EntryGlyph(kind: .sleep, size: 28)
+                        EntryGlyph(kind: .sleep, size: 21)
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        if !dynamicTypeSize.isAccessibilitySize {
-                            Text("Sueño de hoy")
-                                .font(.caption)
-                                .foregroundStyle(NidoTheme.readableSupportingInk)
-                        }
-                        Text("Registrar sueño")
-                            .font(.headline)
-                            .foregroundStyle(NidoTheme.ink)
-                    }
+                    Text("Iniciar sueño")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(NidoTheme.ink)
                     Spacer(minLength: 8)
-                    Text("Iniciar")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(NidoTheme.prominentActionFill, in: Capsule())
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NidoTheme.moss)
+                        .frame(width: 32, height: 32)
+                        .background(NidoTheme.moss.opacity(0.08), in: Circle())
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, compactHeight ? 9 : 14)
+                .padding(.vertical, compactHeight ? 6 : 9)
                 .frame(maxWidth: .infinity)
                 .background(NidoTheme.surface, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 21, style: .continuous)
-                        .stroke(.white.opacity(0.72), lineWidth: 0.7)
+                        .stroke(NidoTheme.separator.opacity(0.35), lineWidth: 0.5)
                 }
                 .shadow(color: NidoTheme.ink.opacity(0.05), radius: 16, y: 7)
             }

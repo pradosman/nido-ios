@@ -92,6 +92,30 @@ nonisolated struct RegistrationMutationDependencies: Sendable {
     let clearExternalState: @Sendable () async -> Void
     let now: @Sendable () -> Date
     let makeID: @Sendable () -> String
+    let syncSleep: @Sendable (Date?, Date?, String) async throws -> Date?
+    let loadSleep: @Sendable (String) async throws -> Date?
+
+    init(
+        loadCredential: @escaping @Sendable () -> SessionCredential?,
+        deleteCredential: @escaping @Sendable () -> Void,
+        createEntry: @escaping @Sendable (Entry, String) async throws -> Entry,
+        publishLocalCommit: @escaping @Sendable (RegistrationLocalCommit) async -> Void,
+        clearExternalState: @escaping @Sendable () async -> Void,
+        now: @escaping @Sendable () -> Date,
+        makeID: @escaping @Sendable () -> String,
+        syncSleep: @escaping @Sendable (Date?, Date?, String) async throws -> Date? = { proposed, _, _ in proposed },
+        loadSleep: @escaping @Sendable (String) async throws -> Date? = { _ in nil }
+    ) {
+        self.loadCredential = loadCredential
+        self.deleteCredential = deleteCredential
+        self.createEntry = createEntry
+        self.publishLocalCommit = publishLocalCommit
+        self.clearExternalState = clearExternalState
+        self.now = now
+        self.makeID = makeID
+        self.syncSleep = syncSleep
+        self.loadSleep = loadSleep
+    }
 }
 
 nonisolated struct RegistrationStateDefaults: @unchecked Sendable {
@@ -153,15 +177,41 @@ nonisolated struct RegistrationDurableState: Codable, Equatable, Sendable {
     var activeSleepStartedAt: Date?
     var finishingSleepEntry: Entry?
     var voiceReceipts: [RegistrationVoiceReceipt]
+    var hasPendingSleepMutation: Bool
+    var pendingSleepStartedAt: Date?
+    var pendingSleepExpectedStartedAt: Date?
+    var finishingSleepStartedAt: Date?
 
     init(
         activeSleepStartedAt: Date? = nil,
         finishingSleepEntry: Entry? = nil,
-        voiceReceipts: [RegistrationVoiceReceipt] = []
+        voiceReceipts: [RegistrationVoiceReceipt] = [],
+        hasPendingSleepMutation: Bool = false,
+        pendingSleepStartedAt: Date? = nil,
+        pendingSleepExpectedStartedAt: Date? = nil,
+        finishingSleepStartedAt: Date? = nil
     ) {
         self.activeSleepStartedAt = activeSleepStartedAt
         self.finishingSleepEntry = finishingSleepEntry
         self.voiceReceipts = voiceReceipts
+        self.hasPendingSleepMutation = hasPendingSleepMutation
+        self.pendingSleepStartedAt = pendingSleepStartedAt
+        self.pendingSleepExpectedStartedAt = pendingSleepExpectedStartedAt
+        self.finishingSleepStartedAt = finishingSleepStartedAt
+    }
+
+    private enum CodingKeys: String, CodingKey { case activeSleepStartedAt, finishingSleepEntry, voiceReceipts, hasPendingSleepMutation, pendingSleepStartedAt, pendingSleepExpectedStartedAt, finishingSleepStartedAt }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        activeSleepStartedAt = try values.decodeIfPresent(Date.self, forKey: .activeSleepStartedAt)
+        finishingSleepEntry = try values.decodeIfPresent(Entry.self, forKey: .finishingSleepEntry)
+        voiceReceipts = try values.decodeIfPresent([RegistrationVoiceReceipt].self, forKey: .voiceReceipts) ?? []
+        hasPendingSleepMutation = try values.decodeIfPresent(Bool.self, forKey: .hasPendingSleepMutation)
+            ?? (activeSleepStartedAt != nil)
+        pendingSleepStartedAt = try values.decodeIfPresent(Date.self, forKey: .pendingSleepStartedAt)
+            ?? (hasPendingSleepMutation ? activeSleepStartedAt : nil)
+        pendingSleepExpectedStartedAt = try values.decodeIfPresent(Date.self, forKey: .pendingSleepExpectedStartedAt)
+        finishingSleepStartedAt = try values.decodeIfPresent(Date.self, forKey: .finishingSleepStartedAt)
     }
 }
 
@@ -185,6 +235,9 @@ actor RegistrationMutationService {
     private let dependencies: RegistrationMutationDependencies
     private var loadedSnapshot: NidoSnapshot?
     private var loadedState: RegistrationDurableState?
+    private var stateRevision: UInt64 = 0
+    private var privateStateGeneration: UInt64 = 0
+    private var sleepMutationInFlight = false
 
     init(
         cache: LocalCache,
@@ -245,7 +298,8 @@ actor RegistrationMutationService {
     func create(
         draft: RegistrationDraft,
         caregiverID: String?,
-        caregiverName: String?
+        caregiverName: String?,
+        onLocalCommit: (@Sendable (Entry) async -> Void)? = nil
     ) async -> RegistrationMutationResult {
         guard let credential = await validCredential() else { return authenticationResult() }
         return await create(
@@ -254,19 +308,24 @@ actor RegistrationMutationService {
             caregiverName: caregiverName,
             category: category(for: draft.kind),
             credential: credential,
-            recordsVoiceReceipt: false
+            recordsVoiceReceipt: false,
+            onLocalCommit: onLocalCommit
         )
     }
 
     func startSleep() async -> RegistrationMutationResult {
-        guard await validCredential() != nil else { return authenticationResult() }
+        guard let credential = await validCredential() else { return authenticationResult() }
         do {
             var state = try durableState()
             let snapshot = try loadSnapshot()
             if state.activeSleepStartedAt != nil {
                 return try result(.sleepAlreadyActive, category: .sleep, snapshot: snapshot, state: state)
             }
+            let remoteExpectation = state.hasPendingSleepMutation ? state.pendingSleepExpectedStartedAt : nil
             state.activeSleepStartedAt = dependencies.now()
+            state.hasPendingSleepMutation = true
+            state.pendingSleepStartedAt = state.activeSleepStartedAt
+            state.pendingSleepExpectedStartedAt = remoteExpectation
             try saveState(state)
             let commit = RegistrationLocalCommit(
                 category: .sleep,
@@ -275,6 +334,8 @@ actor RegistrationMutationService {
                 activeSleepStartedAt: state.activeSleepStartedAt
             )
             await dependencies.publishLocalCommit(commit)
+            await trySyncPendingSleep(state: state, credential: credential)
+            state = try durableState()
             return try result(.sleepStarted, category: .sleep, snapshot: snapshot, state: state)
         } catch {
             return storageResult(category: .sleep)
@@ -283,6 +344,8 @@ actor RegistrationMutationService {
 
     func finishSleep(caregiverID: String?, caregiverName: String?) async -> RegistrationMutationResult {
         guard let credential = await validCredential() else { return authenticationResult() }
+        let requestGeneration = privateStateGeneration
+        let requestToken = credential.accessToken
         do {
             var state = try durableState()
             let entry: Entry
@@ -310,11 +373,27 @@ actor RegistrationMutationService {
                 snapshot.pendingEntryIDs.insert(entry.id)
                 try saveSnapshot(snapshot)
             }
+            let finishedStart = state.activeSleepStartedAt ?? state.finishingSleepStartedAt
+            let remoteExpectation = state.hasPendingSleepMutation
+                ? state.pendingSleepExpectedStartedAt
+                : finishedStart
             state.activeSleepStartedAt = nil
+            state.finishingSleepStartedAt = finishedStart
+            state.hasPendingSleepMutation = true
+            state.pendingSleepStartedAt = nil
+            state.pendingSleepExpectedStartedAt = remoteExpectation
             state.finishingSleepEntry = nil
             try saveState(state)
             await publishLocalCommit(category: .sleep, entry: entry, snapshot: snapshot, state: state)
-            return await upload(entry, credential: credential, category: .sleep)
+            let uploaded = await upload(entry, credential: credential, category: .sleep)
+            guard requestGeneration == privateStateGeneration,
+                  currentCredentialMatches(requestToken) else { return authenticationResult() }
+            if uploaded.outcome == .registered || uploaded.outcome == .sleepFinished {
+                await trySyncPendingSleep(state: try durableState(), credential: credential)
+            }
+            guard requestGeneration == privateStateGeneration,
+                  currentCredentialMatches(requestToken) else { return authenticationResult() }
+            return try result(uploaded.outcome, category: .sleep, entry: uploaded.entry, snapshot: uploaded.snapshot, state: try durableState())
         } catch {
             return storageResult(category: .sleep)
         }
@@ -325,11 +404,20 @@ actor RegistrationMutationService {
     }
 
     func updateSleepStart(_ startedAt: Date) async throws -> Date? {
-        guard await validCredential() != nil else { return nil }
+        guard let credential = await validCredential() else { return nil }
+        let requestGeneration = privateStateGeneration
+        let requestToken = credential.accessToken
         var state = try durableState()
         guard state.activeSleepStartedAt != nil else { return nil }
+        let previousStart = state.activeSleepStartedAt
+        let remoteExpectation = state.hasPendingSleepMutation
+            ? state.pendingSleepExpectedStartedAt
+            : previousStart
         let correctedStart = min(startedAt, dependencies.now())
         state.activeSleepStartedAt = correctedStart
+        state.hasPendingSleepMutation = true
+        state.pendingSleepStartedAt = correctedStart
+        state.pendingSleepExpectedStartedAt = remoteExpectation
         try saveState(state)
         await publishLocalCommit(
             category: .sleep,
@@ -337,29 +425,174 @@ actor RegistrationMutationService {
             snapshot: try loadSnapshot(),
             state: state
         )
-        return correctedStart
+        guard requestGeneration == privateStateGeneration,
+              currentCredentialMatches(requestToken) else { return nil }
+        await trySyncPendingSleep(state: state, credential: credential)
+        guard requestGeneration == privateStateGeneration,
+              currentCredentialMatches(requestToken) else { return nil }
+        return try durableState().activeSleepStartedAt
+    }
+
+    func synchronizeSleep() async throws -> Date? {
+        guard let credential = await validCredential() else { return try durableState().activeSleepStartedAt }
+        var state = try durableState()
+        if state.hasPendingSleepMutation {
+            // A finish is only acknowledged remotely after its durable entry has uploaded.
+            let snapshot = try loadSnapshot()
+            if state.pendingSleepStartedAt == nil,
+               snapshot.entries.contains(where: { $0.kind == .sleep && snapshot.pendingEntryIDs.contains($0.id) }) {
+                return state.activeSleepStartedAt
+            }
+            do { try await applyPendingSleep(state: state, credential: credential) }
+            catch {
+                if SessionFailurePolicy.disposition(for: error, during: .update) == .invalidateSession,
+                   currentCredentialMatches(credential.accessToken) {
+                    await invalidatePrivateState()
+                }
+                throw error
+            }
+            state = try durableState()
+        }
+        let requestRevision = stateRevision
+        let requestGeneration = privateStateGeneration
+        let remote: Date?
+        do { remote = try await dependencies.loadSleep(credential.accessToken) }
+        catch {
+            if SessionFailurePolicy.disposition(for: error, during: .update) == .invalidateSession,
+               currentCredentialMatches(credential.accessToken) {
+                await invalidatePrivateState()
+            }
+            throw error
+        }
+        // A local mutation created while the remote read was suspended always wins.
+        var latest = try durableState()
+        guard stateRevision == requestRevision,
+              privateStateGeneration == requestGeneration,
+              currentCredentialMatches(credential.accessToken) else { return latest.activeSleepStartedAt }
+        if latest.hasPendingSleepMutation { return latest.activeSleepStartedAt }
+        if latest.activeSleepStartedAt != remote {
+            latest.activeSleepStartedAt = remote
+            try saveState(latest)
+            await publishLocalCommit(category: .sleep, entry: nil, snapshot: try loadSnapshot(), state: latest)
+        }
+        return latest.activeSleepStartedAt
+    }
+
+    private func trySyncPendingSleep(state: RegistrationDurableState, credential: SessionCredential) async {
+        do { try await applyPendingSleep(state: state, credential: credential) }
+        catch {
+            if SessionFailurePolicy.disposition(for: error, during: .update) == .invalidateSession,
+               currentCredentialMatches(credential.accessToken) {
+                await invalidatePrivateState()
+            }
+        }
+    }
+
+    private func applyPendingSleep(
+        state original: RegistrationDurableState,
+        credential: SessionCredential
+    ) async throws {
+        guard original.hasPendingSleepMutation else { return }
+        guard currentCredentialMatches(credential.accessToken) else { return }
+        guard !sleepMutationInFlight else { return }
+        let snapshot = try loadSnapshot()
+        if original.pendingSleepStartedAt == nil,
+           snapshot.entries.contains(where: { $0.kind == .sleep && snapshot.pendingEntryIDs.contains($0.id) }) {
+            return
+        }
+        sleepMutationInFlight = true
+        let requestRevision = stateRevision
+        let requestGeneration = privateStateGeneration
+        let response: Date?
+        do {
+            response = try await dependencies.syncSleep(original.pendingSleepStartedAt, original.pendingSleepExpectedStartedAt, credential.accessToken)
+        } catch {
+            sleepMutationInFlight = false
+            throw error
+        }
+        sleepMutationInFlight = false
+        var latest = try durableState()
+        guard privateStateGeneration == requestGeneration,
+              currentCredentialMatches(credential.accessToken),
+              latest.hasPendingSleepMutation else { return }
+        if stateRevision != requestRevision
+            || latest.pendingSleepStartedAt != original.pendingSleepStartedAt
+            || latest.pendingSleepExpectedStartedAt != original.pendingSleepExpectedStartedAt {
+            // A successful earlier PUT establishes the base for a newer local mutation.
+            guard response == original.pendingSleepStartedAt else {
+                latest.activeSleepStartedAt = response
+                latest.hasPendingSleepMutation = false
+                latest.pendingSleepStartedAt = nil
+                latest.pendingSleepExpectedStartedAt = nil
+                latest.finishingSleepStartedAt = nil
+                try saveState(latest)
+                await publishLocalCommit(category: .sleep, entry: nil, snapshot: try loadSnapshot(), state: latest)
+                return
+            }
+            latest.pendingSleepExpectedStartedAt = response
+            try saveState(latest)
+            await publishLocalCommit(category: .sleep, entry: nil, snapshot: try loadSnapshot(), state: latest)
+            try await applyPendingSleep(state: latest, credential: credential)
+            return
+        }
+        if response != original.pendingSleepStartedAt {
+            latest.activeSleepStartedAt = response
+            latest.hasPendingSleepMutation = false
+            latest.pendingSleepStartedAt = nil
+            latest.pendingSleepExpectedStartedAt = nil
+            latest.finishingSleepStartedAt = nil
+            try saveState(latest)
+            await publishLocalCommit(category: .sleep, entry: nil, snapshot: try loadSnapshot(), state: latest)
+            return
+        }
+        latest.hasPendingSleepMutation = false
+        latest.pendingSleepStartedAt = nil
+        latest.pendingSleepExpectedStartedAt = nil
+        latest.finishingSleepStartedAt = nil
+        latest.activeSleepStartedAt = response
+        try saveState(latest)
+        await publishLocalCommit(category: .sleep, entry: nil, snapshot: try loadSnapshot(), state: latest)
     }
 
     func snapshot() throws -> (NidoSnapshot, Date?) {
         (try loadSnapshot(), try durableState().activeSleepStartedAt)
     }
 
+    func updateAppEntry(_ entry: Entry, expectedAccessToken: String?) throws -> Bool {
+        if let expectedAccessToken, !currentCredentialMatches(expectedAccessToken) {
+            throw APIError.missingCredential
+        }
+        var latest = try loadSnapshot()
+        guard let index = latest.entries.firstIndex(where: { $0.id == entry.id }) else { return false }
+        latest.entries[index] = entry
+        latest.entries.sort { $0.occurredAt > $1.occurredAt }
+        try saveSnapshot(latest)
+        return true
+    }
+
     func saveAppSnapshot(
         _ proposed: NidoSnapshot,
-        removingEntryIDs: Set<String> = []
+        removingEntryIDs: Set<String> = [],
+        acknowledgedEntryIDs: Set<String> = [],
+        expectedAccessToken: String? = nil
     ) throws -> NidoSnapshot {
+        if let expectedAccessToken, !currentCredentialMatches(expectedAccessToken) {
+            throw APIError.missingCredential
+        }
         let latest = try loadSnapshot()
         var merged = proposed
         if merged.profile == nil { merged.profile = latest.profile }
-        for id in latest.pendingEntryIDs where !removingEntryIDs.contains(id) {
+        for id in latest.pendingEntryIDs {
             guard let latestEntry = latest.entries.first(where: { $0.id == id }) else { continue }
-            if !merged.entries.contains(where: { $0.id == id }) {
+            if !removingEntryIDs.contains(id), !merged.entries.contains(where: { $0.id == id }) {
                 merged.entries.append(latestEntry)
             }
-            merged.pendingEntryIDs.insert(id)
+            if !removingEntryIDs.contains(id), !acknowledgedEntryIDs.contains(id) {
+                merged.pendingEntryIDs.insert(id)
+            }
         }
         merged.entries.removeAll { removingEntryIDs.contains($0.id) }
-        merged.pendingEntryIDs.subtract(removingEntryIDs)
+        merged.pendingEntryIDs.subtract(removingEntryIDs.union(acknowledgedEntryIDs))
         merged.entries.sort { $0.occurredAt > $1.occurredAt }
         try saveSnapshot(merged)
         return merged
@@ -370,6 +603,7 @@ actor RegistrationMutationService {
     }
 
     func clearPersistentHouseholdData() async {
+        privateStateGeneration &+= 1
         try? cache.remove()
         try? stateStore.remove()
         legacyDefaults.durable.removeObject(forKey: Self.stateKey)
@@ -384,7 +618,8 @@ actor RegistrationMutationService {
         caregiverName: String?,
         category: RegistrationMutationCategory,
         credential: SessionCredential,
-        recordsVoiceReceipt: Bool
+        recordsVoiceReceipt: Bool,
+        onLocalCommit: (@Sendable (Entry) async -> Void)? = nil
     ) async -> RegistrationMutationResult {
         let entry = draft.makeEntry(
             id: dependencies.makeID(),
@@ -408,6 +643,7 @@ actor RegistrationMutationService {
             snapshot.pendingEntryIDs.insert(entry.id)
             try saveSnapshot(snapshot)
             await publishLocalCommit(category: category, entry: entry, snapshot: snapshot)
+            await onLocalCommit?(entry)
             return await upload(entry, credential: credential, category: category)
         } catch {
             return storageResult(category: category)
@@ -419,8 +655,12 @@ actor RegistrationMutationService {
         credential: SessionCredential,
         category: RegistrationMutationCategory
     ) async -> RegistrationMutationResult {
+        let requestGeneration = privateStateGeneration
+        guard currentCredentialMatches(credential.accessToken) else { return authenticationResult() }
         do {
             let saved = try await dependencies.createEntry(entry, credential.accessToken)
+            guard requestGeneration == privateStateGeneration,
+                  currentCredentialMatches(credential.accessToken) else { return authenticationResult() }
             var latest = try loadSnapshot()
             if let index = latest.entries.firstIndex(where: { $0.id == entry.id }), latest.entries[index] == entry {
                 latest.entries[index] = saved
@@ -435,7 +675,9 @@ actor RegistrationMutationService {
             let outcome: RegistrationMutationOutcome = category == .sleep ? .sleepFinished : .registered
             return try result(outcome, category: category, entry: saved, snapshot: latest)
         } catch {
-            if SessionFailurePolicy.disposition(for: error, during: .create) == .invalidateSession {
+            if SessionFailurePolicy.disposition(for: error, during: .create) == .invalidateSession,
+               requestGeneration == privateStateGeneration,
+               currentCredentialMatches(credential.accessToken) {
                 await invalidatePrivateState()
                 return authenticationResult()
             }
@@ -479,6 +721,7 @@ actor RegistrationMutationService {
     }
 
     private func invalidatePrivateState() async {
+        privateStateGeneration &+= 1
         dependencies.deleteCredential()
         try? cache.remove()
         try? stateStore.remove()
@@ -502,13 +745,21 @@ actor RegistrationMutationService {
             if let current = try? JSONDecoder().decode(RegistrationDurableState.self, from: data) {
                 migrated.activeSleepStartedAt = current.activeSleepStartedAt
                 migrated.finishingSleepEntry = current.finishingSleepEntry
+                migrated.hasPendingSleepMutation = current.hasPendingSleepMutation
+                migrated.pendingSleepStartedAt = current.pendingSleepStartedAt
+                migrated.pendingSleepExpectedStartedAt = current.pendingSleepExpectedStartedAt
+                migrated.finishingSleepStartedAt = current.finishingSleepStartedAt
             } else {
                 let legacy = try JSONDecoder().decode(LegacyRegistrationDurableState.self, from: data)
                 migrated.activeSleepStartedAt = legacy.activeSleepStartedAt
                 migrated.finishingSleepEntry = legacy.finishingSleepEntry
+                migrated.hasPendingSleepMutation = legacy.activeSleepStartedAt != nil
+                migrated.pendingSleepStartedAt = legacy.activeSleepStartedAt
             }
         } else if let timestamp = legacyDefaults.legacy.object(forKey: "activeSleepStartedAt") as? Double {
             migrated.activeSleepStartedAt = Date(timeIntervalSince1970: timestamp)
+            migrated.hasPendingSleepMutation = true
+            migrated.pendingSleepStartedAt = migrated.activeSleepStartedAt
         }
         try saveState(migrated)
         legacyDefaults.durable.removeObject(forKey: Self.stateKey)
@@ -520,6 +771,14 @@ actor RegistrationMutationService {
         let encoded = try JSONEncoder().encode(state)
         try stateStore.save(encoded)
         loadedState = state
+        stateRevision &+= 1
+    }
+
+    private func currentCredentialMatches(_ accessToken: String) -> Bool {
+        guard let current = dependencies.loadCredential(),
+              current.accessToken == accessToken,
+              !current.isExpired(at: dependencies.now()) else { return false }
+        return true
     }
 
     private func loadSnapshot() throws -> NidoSnapshot {

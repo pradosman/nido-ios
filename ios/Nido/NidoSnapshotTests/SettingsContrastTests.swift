@@ -23,7 +23,7 @@ final class SettingsContrastTests: XCTestCase {
     func testActivityListCaptionMeetsRenderedSmallTextContrastAtNormalAndLargestTextSizes() async throws {
         for size in [DynamicTypeSize.large, .accessibility5] {
             try await assertActiveCardCaptionContrast(
-                scenario: "ready", caption: "Actividad del día", size: size
+                scenario: "ready", caption: "Actividad", size: size
             )
         }
     }
@@ -80,7 +80,7 @@ final class SettingsContrastTests: XCTestCase {
                             onEdit: { _ in }, onShowAll: {}
                         )
                     } else if scenario == "history-calendar" {
-                        HistoryView()
+                        HistoryFilterButton(title: "Todo", kind: nil, isSelected: true, action: {})
                     } else if scenario == "active-sleep" {
                         SleepCard(compactHeight: false)
                     } else {
@@ -90,7 +90,7 @@ final class SettingsContrastTests: XCTestCase {
                 .environment(store)
                 .environment(\.locale, Locale(identifier: "es_ES"))
                 .environment(\.dynamicTypeSize, size)
-                .frame(width: 354, height: scenario == "history-calendar" ? 800 : nil)
+                .frame(width: 354)
                 .padding(24)
                 .background(NidoTheme.paper)
                 let hosting = UIHostingController(rootView: card)

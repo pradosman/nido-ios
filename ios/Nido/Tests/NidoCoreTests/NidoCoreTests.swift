@@ -288,7 +288,7 @@ struct NidoCoreTests {
             durationMinutes: nil,
             amountMl: nil
         )
-        let measurement = try #require(GrowthMeasurement(entry: source))
+        let measurement = try #require(LegacyGrowthMeasurement(entry: source))
         #expect(measurement.weightKilograms == 4.2)
         #expect(measurement.heightCentimeters == 53.5)
     }
@@ -307,6 +307,17 @@ struct NidoCoreTests {
         let url = try NidoBackup.make(profile: nil, caregivers: [caregiver], entries: [])
         let backup = try NidoBackup.load(from: url)
         #expect(backup.caregivers.first?.inviteCode == nil)
+    }
+
+    @Test
+    func versionOneBackupWithoutBabyCareDecodesWithEmptyOptionalState() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "nido-v1-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data(#"{"version":1,"exportedAt":"2026-10-17T12:00:00Z","profile":null,"caregivers":[],"entries":[]}"#.utf8).write(to: url)
+
+        let backup = try NidoBackup.load(from: url)
+
+        #expect(backup.babyCareState == nil)
     }
 
     @Test

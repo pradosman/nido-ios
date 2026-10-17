@@ -142,6 +142,135 @@ struct CircularTimelineTests {
     }
 
     @Test
+    func unifiedMarkersClusterAcrossCategoriesOnOneSharedTrack() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let values = [
+            entry(id: "feed", kind: .feed, date: day.addingTimeInterval(8 * 3_600)),
+            entry(id: "diaper", kind: .diaper, date: day.addingTimeInterval(8 * 3_600 + 10 * 60)),
+            entry(id: "health", kind: .health, date: day.addingTimeInterval(9 * 3_600)),
+        ]
+
+        let timeline = CircularTimeline.day(on: day, entries: values, now: day, calendar: calendar)
+        let group = try #require(timeline.unifiedMarkerGroups.only)
+
+        #expect(group.minute == 8 * 60)
+        #expect(group.items.map(\.entry.id) == ["feed", "diaper", "health"])
+        #expect(group.isCluster)
+        #expect(group.isMixedCategory)
+        #expect(group.kind == .feed)
+        #expect(group.id == "all|480|feed|diaper|health")
+    }
+
+    @Test
+    func unifiedMarkersExcludeSleepSegmentsAndSleepPointsWithoutChangingTotals() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let sleepEnd = day.addingTimeInterval(10 * 3_600)
+        let values = [
+            entry(id: "sleep-segment", kind: .sleep, date: sleepEnd, duration: 60),
+            entry(id: "sleep-point", kind: .sleep, date: day.addingTimeInterval(11 * 3_600)),
+            entry(id: "feed", kind: .feed, date: day.addingTimeInterval(12 * 3_600)),
+        ]
+
+        let timeline = CircularTimeline.day(on: day, entries: values, now: day, calendar: calendar)
+
+        #expect(timeline.totalSleepSeconds == 60 * 60)
+        #expect(timeline.unifiedMarkerGroups.flatMap(\.items).map(\.entry.id) == ["feed"])
+        #expect(timeline.unifiedMarkerGroups.flatMap(\.items).allSatisfy { $0.entry.kind != .sleep })
+        #expect(timeline.markerGroups.flatMap(\.items).map(\.entry.id) == ["feed"])
+    }
+
+    @Test
+    func unifiedMarkersKeepSameMinuteItemsAndIdentityInStableOrder() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let sameMinute = day.addingTimeInterval(8 * 3_600)
+        let values = [
+            entry(id: "z-feed", kind: .feed, date: sameMinute),
+            entry(id: "b-health", kind: .health, date: sameMinute),
+            entry(id: "a-diaper", kind: .diaper, date: sameMinute),
+        ]
+
+        let timeline = CircularTimeline.day(on: day, entries: values, now: day, calendar: calendar)
+        let group = try #require(timeline.unifiedMarkerGroups.only)
+
+        #expect(group.items.map(\.entry.id) == ["a-diaper", "b-health", "z-feed"])
+        #expect(group.id == "all|480|a-diaper|b-health|z-feed")
+        #expect(group.isMixedCategory)
+    }
+
+    @Test
+    func unifiedMarkersUseAnchorBasedMinimumSeparationAndJoinAcrossMidnight() throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let chainedEvents = [
+            entry(id: "zero", kind: .feed, date: day),
+            entry(id: "one-hundred", kind: .diaper, date: day.addingTimeInterval(100 * 60)),
+            entry(id: "one-fifty", kind: .health, date: day.addingTimeInterval(150 * 60)),
+        ]
+        let chainedTimeline = CircularTimeline.day(
+            on: day,
+            entries: chainedEvents,
+            now: day,
+            calendar: calendar
+        )
+        let midnightEvents = [
+            entry(id: "after-midnight", kind: .health, date: day.addingTimeInterval(10 * 60)),
+            entry(id: "before-midnight", kind: .diaper, date: day.addingTimeInterval(23 * 3_600 + 20 * 60)),
+        ]
+        let midnightTimeline = CircularTimeline.day(
+            on: day,
+            entries: midnightEvents,
+            now: day,
+            calendar: calendar
+        )
+
+        #expect(chainedTimeline.unifiedMarkerGroups.count == 2)
+        #expect(chainedTimeline.unifiedMarkerGroups[0].items.map(\.entry.id) == ["zero", "one-hundred"])
+        #expect(chainedTimeline.unifiedMarkerGroups[1].items.map(\.entry.id) == ["one-fifty"])
+        #expect(midnightTimeline.unifiedMarkerGroups.count == 1)
+        #expect(midnightTimeline.unifiedMarkerGroups[0].items.map(\.entry.id) == ["after-midnight", "before-midnight"])
+        #expect(midnightTimeline.unifiedMarkerGroups[0].isMixedCategory)
+    }
+
+    @Test(arguments: [CGFloat(280), 306])
+    func unifiedMarkerHitFramesDoNotOverlapAtVisualSeparationBoundary(side: CGFloat) throws {
+        let calendar = utcCalendar
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
+        let values = [
+            entry(id: "first", kind: .feed, date: day.addingTimeInterval(135 * 60)),
+            entry(id: "second", kind: .diaper, date: day.addingTimeInterval(225 * 60)),
+        ]
+        let timeline = CircularTimeline.day(on: day, entries: values, now: day, calendar: calendar)
+        let geometry = CircularTimeline.Geometry(side: side)
+        let frames = timeline.unifiedMarkerGroups.map { group -> CGRect in
+            let radians = Double(group.minute) / 1_440 * 2 * .pi
+            let center = CGPoint(
+                x: geometry.center.x + CGFloat(sin(radians)) * geometry.unifiedEventRadius,
+                y: geometry.center.y - CGFloat(cos(radians)) * geometry.unifiedEventRadius
+            )
+            return CGRect(x: center.x - 22, y: center.y - 22, width: 44, height: 44)
+        }
+
+        #expect(timeline.unifiedMarkerGroups.count == 1)
+        #expect(timeline.unifiedMarkerGroups[0].items.map(\.entry.id) == ["first", "second"])
+        for firstIndex in frames.indices {
+            for secondIndex in frames.indices where secondIndex > firstIndex {
+                #expect(!frames[firstIndex].intersects(frames[secondIndex]))
+            }
+        }
+    }
+
+    @Test
+    func unifiedTrackReusesOuterEventRadiusAndCalculatesItsInnerClearance() {
+        let geometry = CircularTimeline.Geometry(side: 350)
+
+        #expect(geometry.unifiedEventRadius == geometry.feedRadius)
+        #expect(geometry.unifiedCenterDiameter == max(0, geometry.feedRadius * 2 - geometry.trackStroke))
+    }
+
+    @Test
     func activeSleepUsesOnePreparedSegmentAndContributesExactElapsedTime() throws {
         let calendar = utcCalendar
         let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 28)))
@@ -406,6 +535,91 @@ struct CircularTimelineTests {
         #expect(geometry.centerSafetyInset == 6)
         #expect(abs(geometry.centerContentDiameter - 52 * sqrt(2)) < 0.01)
         #expect(abs(geometry.centerDurationFontSize - geometry.centerContentDiameter * 0.31) < 0.01)
+    }
+
+    @Test
+    func roundedSleepArcCapsAlignWithCivilTimeAndPreserveTheGap() {
+        let first = CircularTimeline.RoundedArcGeometry(
+            startMinute: 0,
+            endMinute: 390,
+            radius: 114,
+            strokeWidth: 26
+        )
+        let second = CircularTimeline.RoundedArcGeometry(
+            startMinute: 410,
+            endMinute: 440,
+            radius: 114,
+            strokeWidth: 26
+        )
+        let firstCapInset = asin(first.strokeWidth / (2 * 114)) / (2 * .pi)
+        let secondCapInset = asin(second.strokeWidth / (2 * 114)) / (2 * .pi)
+
+        let firstStartBoundary = (first.startFraction - firstCapInset) * 1_440
+        let firstEndBoundary = (first.endFraction + firstCapInset) * 1_440
+        let secondStartBoundary = (second.startFraction - secondCapInset) * 1_440
+        let secondEndBoundary = (second.endFraction + secondCapInset) * 1_440
+        let gapMinutes = secondStartBoundary - firstEndBoundary
+
+        #expect(abs(firstStartBoundary) < 0.000_001)
+        #expect(abs(firstEndBoundary - 390) < 0.000_001)
+        #expect(abs(secondStartBoundary - 410) < 0.000_001)
+        #expect(abs(secondEndBoundary - 440) < 0.000_001)
+        #expect(abs(gapMinutes - 20) < 0.000_001)
+        #expect(first.strokeWidth == 26)
+    }
+
+    @Test
+    func roundedSleepArcBoundsWidthToShortIntervalWithoutNegativePath() {
+        let arc = CircularTimeline.RoundedArcGeometry(
+            startMinute: 100,
+            endMinute: 105,
+            radius: 114,
+            strokeWidth: 26
+        )
+        let spanRadians = 5.0 / 1_440 * 2 * .pi
+        let maximumWidth = 2 * 114 * sin(spanRadians / 2)
+
+        #expect(arc.startFraction >= 0)
+        #expect(arc.endFraction >= arc.startFraction)
+        #expect(arc.endFraction <= 1)
+        #expect(arc.strokeWidth <= maximumWidth + 0.000_001)
+        #expect(arc.strokeWidth > 0)
+    }
+
+    @Test
+    func roundedSleepArcUsesZeroWidthForEmptyDuration() {
+        let arc = CircularTimeline.RoundedArcGeometry(
+            startMinute: 400,
+            endMinute: 400,
+            radius: 114,
+            strokeWidth: 26
+        )
+
+        #expect(arc.startFraction == arc.endFraction)
+        #expect(arc.strokeWidth == 0)
+    }
+
+    @Test
+    func roundedSleepArcKeepsFullDayClosureAndClampsDayInput() {
+        let fullDay = CircularTimeline.RoundedArcGeometry(
+            startMinute: 0,
+            endMinute: 1_440,
+            radius: 114,
+            strokeWidth: 26
+        )
+        let clamped = CircularTimeline.RoundedArcGeometry(
+            startMinute: -10,
+            endMinute: 1_450,
+            radius: 114,
+            strokeWidth: 26
+        )
+
+        #expect(fullDay.startFraction == 0)
+        #expect(fullDay.endFraction == 1)
+        #expect(fullDay.strokeWidth == 26)
+        #expect(clamped.startFraction == 0)
+        #expect(clamped.endFraction == 1)
+        #expect(clamped.strokeWidth == 26)
     }
 
     @Test(arguments: [CGFloat(280), 320, 350, 390])

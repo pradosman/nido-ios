@@ -6,6 +6,7 @@ struct EntrySheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let kind: EntryKind
+    var initialDraft: RegistrationDraft? = nil
 
     @State private var date = Date.now
     @State private var detail = ""
@@ -24,6 +25,23 @@ struct EntrySheet: View {
     @State private var weightKilograms = 4.0
     @State private var heightCentimeters = 52.0
     @State private var isSaving = false
+    @State private var baselineDraft: RegistrationDraft?
+    @State private var isConfirmingDiscard = false
+    @State private var saveError: String?
+
+    private var formDraft: RegistrationDraft {
+        RegistrationDraft(
+            kind: kind,
+            detail: savedDetail,
+            date: EntryMoment.resolve(kind: kind, selectedDate: date, sleepInterval: sleepInterval),
+            durationMinutes: kind == .sleep ? sleepInterval?.durationMinutes : (kind == .feed && feedType != .bottle && feedType != .solids ? feedDurationMinutes : nil),
+            amountMl: kind == .feed && (feedType == .bottle || feedType == .pumping) && amountMl > 0 ? amountMl : nil
+        )
+    }
+
+    private var hasUnsavedChanges: Bool {
+        baselineDraft.map { $0 != formDraft } ?? false
+    }
     @State private var didLoadSharedDefaults = false
 
     private var canSave: Bool {
@@ -82,6 +100,13 @@ struct EntrySheet: View {
             ZStack {
                 PaperBackground()
                 Form {
+                    if let saveError {
+                        Section {
+                            Label(saveError, systemImage: "exclamationmark.circle")
+                                .foregroundStyle(.red)
+                                .accessibilityIdentifier("entry-save-error")
+                        }
+                    }
                     if kind != .sleep {
                         Section("Momento") {
                             DatePicker("Fecha y hora", selection: $date, in: ...store.now)
@@ -109,7 +134,12 @@ struct EntrySheet: View {
 
                     if kind == .diaper {
                         Section {
-                            HStack(spacing: 12) {
+                            LazyVGrid(
+                                columns: dynamicTypeSize.isAccessibilitySize
+                                    ? [GridItem(.flexible())]
+                                    : [GridItem(.flexible()), GridItem(.flexible())],
+                                spacing: 12
+                            ) {
                                 DiaperChoiceButton(
                                     title: "Pis",
                                     symbol: "drop.fill",
@@ -135,6 +165,7 @@ struct EntrySheet: View {
                         Section("Nota opcional") {
                             TextField("Color, consistencia…", text: $detail, axis: .vertical)
                                 .lineLimit(2...4)
+                                .accessibilityIdentifier("entry-note-field")
                         }
                     } else if kind == .health {
                         Section {
@@ -173,30 +204,32 @@ struct EntrySheet: View {
                         }
                     }
                 }
+                .disabled(isSaving)
                 .scrollContentBackground(.hidden)
             }
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
+                    Button("Cancelar") {
+                        if hasUnsavedChanges { isConfirmingDiscard = true }
+                        else { dismiss() }
+                    }
+                    .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Guardar") {
                         isSaving = true
+                        saveError = nil
+                        let draft = formDraft
                         Task {
-                            await store.addEntry(
-                                kind: kind,
-                                detail: savedDetail,
-                                date: EntryMoment.resolve(
-                                    kind: kind,
-                                    selectedDate: date,
-                                    sleepInterval: sleepInterval
-                                ),
-                                durationMinutes: kind == .sleep ? sleepInterval?.durationMinutes : (kind == .feed && feedType != .bottle && feedType != .solids ? feedDurationMinutes : nil),
-                                amountMl: kind == .feed && (feedType == .bottle || feedType == .pumping) && amountMl > 0 ? amountMl : nil
+                            let saved = await store.addEntry(
+                                kind: draft.kind, detail: draft.detail, date: draft.date,
+                                durationMinutes: draft.durationMinutes, amountMl: draft.amountMl
                             )
                             isSaving = false
+                            if saved { dismiss() }
+                            else { saveError = store.notice ?? "No se ha podido guardar. Vuelve a intentarlo." }
                         }
                     }
                     .fontWeight(.semibold)
@@ -206,11 +239,17 @@ struct EntrySheet: View {
         }
         .tint(NidoTheme.moss)
         .onAppear(perform: loadSharedDefaults)
+        .interactiveDismissDisabled(isSaving || hasUnsavedChanges)
+        .confirmationDialog("¿Descartar los cambios sin guardar?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
+            Button("Descartar cambios", role: .destructive) { dismiss() }
+            Button("Seguir editando") { isConfirmingDiscard = false }
+        }
     }
 
     private func loadSharedDefaults() {
         guard !didLoadSharedDefaults else { return }
         didLoadSharedDefaults = true
+        defer { baselineDraft = formDraft }
         date = store.now
 
         let defaults = EntryFormDefaults(entries: store.entries)
@@ -225,6 +264,27 @@ struct EntrySheet: View {
             breastSide = defaults.feed.breastSide
             milkType = defaults.feed.milkType
         case .diaper, .health:
+            break
+        }
+
+        guard let initialDraft, initialDraft.kind == kind else { return }
+        date = initialDraft.date
+        switch kind {
+        case .diaper:
+            if let parsed = DiaperEntryDetails.parse(initialDraft.detail) {
+                diaperContents = parsed.contents
+                detail = parsed.note
+            }
+        case .feed:
+            if let parsed = FeedEntryDetails.parse(initialDraft.detail) {
+                feedType = parsed.type
+                breastSide = parsed.breastSide
+                milkType = parsed.milkType
+                detail = parsed.note
+                amountMl = initialDraft.amountMl ?? amountMl
+                feedDurationMinutes = initialDraft.durationMinutes ?? feedDurationMinutes
+            }
+        case .sleep, .health:
             break
         }
     }
@@ -410,9 +470,11 @@ private struct DiaperChoiceButton: View {
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(NidoTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 90)
+            .padding(.vertical, 12)
+            .frame(minHeight: 90)
             .background(
                 isSelected ? NidoTheme.diaper.opacity(0.13) : Color.clear,
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous)

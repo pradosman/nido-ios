@@ -3,502 +3,579 @@ import SwiftUI
 struct HistoryView: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption) private var weekLabelLineHeight = 14
     @State private var filter: EntryKind?
-    @State private var selectedDay: Date?
     @State private var isPresentingCalendar = false
+    @State private var selectedEntryID: String?
+    @State private var expandedClusterID: String?
+    @State private var selectedBins: [EntryKind: Date] = [:]
+    @State private var displayedWeekOffset = 0
+    @State private var readingContext = HistoryReadingContext()
+    @State private var availableRingWidth: CGFloat = 294
 
-    private var calendar: Calendar { .current }
+    private var calendar: Calendar { BabyCareMetrics.calendar(for: store.babyCareState) }
     private var today: Date { calendar.startOfDay(for: store.now) }
-    private var selection: Date { selectedDay ?? today }
-    private var summary: HistoryPresentation.DaySummary {
-        HistoryPresentation.summary(on: selection, entries: store.entries, now: store.now, calendar: calendar)
-    }
-    private var selectedEntries: [Entry] {
-        HistoryPresentation.entries(on: selection, entries: store.entries, filter: filter, calendar: calendar)
+    private var selection: Date { store.historySelectedDay ?? today }
+    private var weekDates: [Date] {
+        guard let shiftedDate = calendar.date(byAdding: .day, value: displayedWeekOffset * 7, to: selection) else { return [] }
+        return HistoryPresentation.calendarWeekDates(containing: shiftedDate, calendar: calendar)
     }
 
     var body: some View {
+        TimelineView(.everyMinute) { context in
+            historyContent(now: store.currentDate(for: context.date))
+        }
+        .environment(\.calendar, calendar)
+        .environment(\.timeZone, calendar.timeZone)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+            availableRingWidth = max(100, width - 40)
+        }
+    }
+
+    @ViewBuilder private func historyContent(now: Date) -> some View {
+        let snapshot = HistoryAnalytics.snapshot(
+            on: selection,
+            entries: store.entries,
+            activeSleepStartedAt: store.activeSleepStartedAt,
+            now: now,
+            calendar: calendar
+        )
         ZStack {
             PaperBackground()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 22) {
-                    dayPicker
-                    weekStrip
-                    SelectedDaySummary(date: selection, summary: summary)
-                    filterBar
-                    records
+            VStack(spacing: 0) {
+                dayHeader
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+                weekStrip
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+                if store.isOffline {
+                    Text("Sin conexión. Mostrando lo guardado.")
+                        .font(.caption)
+                        .foregroundStyle(NidoTheme.secondaryInk)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                        .accessibilityIdentifier("history-offline-status")
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 22) {
+                            dayClock(snapshot.day, onSelectCategory: { kind in
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.24)) {
+                                    scrollProxy.scrollTo("history-section-\(kind.rawValue)", anchor: .top)
+                                }
+                            })
+                            HistoryDayCharts(
+                                snapshot: snapshot,
+                                selectedBins: $selectedBins
+                            )
+                            filterBar
+                            records(snapshot.entries)
+                                .id("history-records")
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .padding(.bottom, 32)
+                    }
+                    .coordinateSpace(name: "history-detail-scroll")
+                    .accessibilityIdentifier("history-detail-scroll")
+                    .onPreferenceChange(HistoryVisibleSectionPreferenceKey.self) { positions in
+                        let frames = Dictionary(positions.map { ($0.kind, Double($0.minY)...Double($0.maxY)) }, uniquingKeysWith: { _, latest in latest })
+                        readingContext.anchor = HistoryPresentation.readingAnchor(for: frames)
+                    }
+                    .onChange(of: selection) { _, _ in
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+                            scrollProxy.scrollTo(readingContext.anchor, anchor: .top)
+                        }
+                    }
+                    .refreshable { await store.refresh() }
+                }
             }
-            .refreshable { await store.refresh() }
         }
         .navigationTitle("Historia")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(isPresented: $isPresentingCalendar) {
             HistoryCalendarSheet(
                 selectedDay: selection,
                 today: today,
+                now: store.now,
+                activeSleepStartedAt: store.activeSleepStartedAt,
                 entries: store.entries,
+                calendar: calendar,
                 onSelect: select
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .onChange(of: selection) { _, _ in
+            selectedEntryID = nil
+            expandedClusterID = nil
+            selectedBins = [:]
+            displayedWeekOffset = 0
+        }
     }
 
-    private var dayPicker: some View {
-        Button {
-            isPresentingCalendar = true
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "calendar")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(NidoTheme.moss)
-                    .frame(width: 44, height: 44)
-                    .background(NidoTheme.moss.opacity(0.11), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Día seleccionado")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                    Text(dayTitle(selection))
-                        .font(.system(.title3, design: .serif, weight: .semibold))
-                        .foregroundStyle(NidoTheme.ink)
-                        .lineLimit(2)
+    private var dayHeader: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    dayDateLabel
+                    navigationControls
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.down")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(NidoTheme.secondaryInk)
-                    .accessibilityHidden(true)
+            } else {
+                HStack(spacing: 6) {
+                    dayDateLabel
+                    Spacer(minLength: 2)
+                    navigationControls
+                }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .paperCard(cornerRadius: 20)
         }
-        .buttonStyle(PressScaleButtonStyle())
-        .accessibilityLabel("Elegir día, \(accessibleDayTitle(selection))")
-        .accessibilityHint("Abre el calendario mensual")
-        .accessibilityIdentifier("history-day-picker")
+        .foregroundStyle(NidoTheme.moss)
+    }
+
+    private var dayDateLabel: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(dynamicTypeSize.isAccessibilitySize
+                 ? selection.formatted(.dateTime.day().month(.abbreviated).year())
+                 : selection.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                .font(.system(dynamicTypeSize.isAccessibilitySize ? .headline : .title3, design: .serif, weight: .semibold))
+                .foregroundStyle(NidoTheme.ink)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.88)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("history-detail-date")
+                .accessibilityValue(dateIdentifier(selection))
+                .accessibilityLabel(selection.formatted(date: .complete, time: .omitted))
+            if !dynamicTypeSize.isAccessibilitySize {
+                Text(selection.formatted(.dateTime.year()))
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(NidoTheme.secondaryInk)
+            }
+        }
+    }
+
+    private var navigationControls: some View {
+        HStack(spacing: 6) {
+            Button { isPresentingCalendar = true } label: { Image(systemName: "calendar").font(dynamicTypeSize.isAccessibilitySize ? .system(size: 20) : .body).frame(width: 44, height: 44) }
+                .accessibilityLabel("Elegir día, \(selection.formatted(date: .complete, time: .omitted))")
+                .accessibilityHint("Abre el calendario mensual")
+                .accessibilityIdentifier("history-day-picker")
+            Button { select(today) } label: { Image(systemName: "calendar.badge.clock").font(dynamicTypeSize.isAccessibilitySize ? .system(size: 20) : .body).frame(width: 44, height: 44) }
+                .disabled(calendar.isDate(selection, inSameDayAs: today))
+                .accessibilityLabel("Ir a hoy")
+                .accessibilityIdentifier("history-jump-today")
+            Menu {
+                Section("Día") {
+                    Button("Día anterior", systemImage: "chevron.left") { stepDay(-1) }
+                        .accessibilityIdentifier("history-previous-day")
+                    Button("Día siguiente", systemImage: "chevron.right") { stepDay(1) }
+                        .disabled(calendar.isDate(selection, inSameDayAs: today))
+                        .accessibilityIdentifier("history-next-day")
+                }
+                Section("Semana") {
+                    Button("Semana anterior", systemImage: "chevron.left") { displayedWeekOffset -= 1 }
+                        .accessibilityIdentifier("history-previous-week")
+                    Button("Semana siguiente", systemImage: "chevron.right") { displayedWeekOffset += 1 }
+                        .disabled(!canShowNextWeek)
+                        .accessibilityIdentifier("history-next-week")
+                }
+            } label: { Image(systemName: "ellipsis").font(dynamicTypeSize.isAccessibilitySize ? .system(size: 20) : .body).frame(width: 44, height: 44) }
+                .accessibilityLabel("Más opciones de Historia")
+                .accessibilityIdentifier("history-navigation-menu")
+        }
     }
 
     private var weekStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 4) {
-                ForEach(HistoryPresentation.sevenDayDates(around: selection, through: today, calendar: calendar), id: \.self) { date in
-                    let isSelected = calendar.isDate(date, inSameDayAs: selection)
-                    let daySummary = HistoryPresentation.summary(on: date, entries: store.entries, now: store.now, calendar: calendar)
-                    Button { select(date) } label: {
-                        VStack(spacing: 7) {
-                            Text(date.formatted(.dateTime.weekday(.narrow)))
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(NidoTheme.secondaryInk)
-                            CompactHistoryRings(summary: daySummary, size: 35, lineWidth: 4)
-                                .overlay {
-                                    Text(date.formatted(.dateTime.day()))
-                                        .font(.caption2.weight(.bold).monospacedDigit())
-                                        .foregroundStyle(NidoTheme.ink)
-                                }
-                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .font(.caption2)
-                                .foregroundStyle(isSelected ? NidoTheme.moss : .clear)
-                                .accessibilityHidden(true)
+        GeometryReader { geometry in
+            ScrollViewReader { weekProxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(weekDates, id: \.self) { date in
+                        let isSelected = calendar.isDate(date, inSameDayAs: selection)
+                        let day = CircularTimeline.day(on: date, entries: store.entries, activeSleepStartedAt: store.activeSleepStartedAt, now: store.now, calendar: calendar)
+                        let isFuture = calendar.startOfDay(for: date) > today
+                        Button { select(date) } label: {
+                            VStack(spacing: 5) {
+                                Text(date.formatted(.dateTime.weekday(.narrow)).uppercased())
+                                    .font(.caption2.weight(.bold)).foregroundStyle(NidoTheme.secondaryInk)
+                                HistoryMiniClock(day: day, size: 28, goals: BabyCareMetrics.goals(on: date, state: store.babyCareState))
+                                Text(date.formatted(.dateTime.day()))
+                                    .font(.caption.weight(isSelected ? .bold : .medium).monospacedDigit())
+                                    .foregroundStyle(isSelected ? NidoTheme.moss : NidoTheme.ink)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .contentShape(Rectangle())
+                            .overlay(alignment: .bottom) {
+                                Capsule().fill(isSelected ? NidoTheme.moss : .clear).frame(width: 18, height: 3).offset(y: 4)
+                            }
+                            .opacity(isFuture ? 0.4 : 1)
                         }
-                        .frame(minWidth: 44)
-                        .padding(.vertical, 9)
-                        .contentShape(Rectangle())
-                        .background(isSelected ? NidoTheme.moss.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .stroke(isSelected ? NidoTheme.moss : .clear, lineWidth: 1.5)
-                        }
+                        .buttonStyle(.plain)
+                        .disabled(isFuture)
+                        .accessibilityLabel(weekAccessibilityLabel(date, day: day, selected: isSelected))
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                        .accessibilityIdentifier("history-week-day-\(dateIdentifier(date))")
+                        .id(dateIdentifier(date))
                     }
-                    .buttonStyle(.plain)
-                    .frame(minWidth: 44)
-                    .accessibilityLabel(dayAccessibilityLabel(date, summary: daySummary, isSelected: isSelected))
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    .accessibilityIdentifier("history-week-day-\(dateIdentifier(date))")
+                }
+                .frame(width: max(geometry.size.width, 7 * (dynamicTypeSize.isAccessibilitySize ? max(44, weekLabelLineHeight * 1.8) : 44)), alignment: .leading)
+                .padding(.vertical, 3)
+            }
+            .onAppear {
+                if dynamicTypeSize.isAccessibilitySize {
+                    weekProxy.scrollTo(dateIdentifier(selection), anchor: .center)
                 }
             }
-            .padding(.horizontal, 5)
-            .padding(.vertical, 7)
+            .onChange(of: selection) { _, date in
+                if dynamicTypeSize.isAccessibilitySize {
+                    weekProxy.scrollTo(dateIdentifier(date), anchor: .center)
+                }
+            }
+            }
         }
-        .defaultScrollAnchor(.trailing)
+        .frame(height: dynamicTypeSize.isAccessibilitySize ? weekLabelLineHeight * 2 + 44 : 62)
         .accessibilityIdentifier("history-week-strip")
-        .paperCard(cornerRadius: 20)
     }
+
+    private var canShowNextWeek: Bool {
+        guard let first = weekDates.first,
+              let nextWeek = calendar.date(byAdding: .day, value: 7, to: first) else { return false }
+        return calendar.startOfDay(for: nextWeek) <= today
+    }
+
+    private func dayClock(_ day: CircularTimeline.Day, onSelectCategory: @escaping (EntryKind) -> Void) -> some View {
+        VStack(spacing: 12) {
+            GoalDayPanel(date: day.date, size: min(availableRingWidth, dynamicTypeSize.isAccessibilitySize ? 250 : 294), onSelect: onSelectCategory)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("history-goal-rings")
+                .contentShape(Rectangle())
+                .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
+                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    stepDay(value.translation.width < 0 ? 1 : -1)
+                })
+        }
+        .padding(.top, 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("history-detail-day-\(dateIdentifier(day.date))")
+        .id("history-detail-top")
+    }
+
 
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 filterButton(title: "Todo", kind: nil)
-                ForEach(EntryKind.allCases) { kind in
-                    filterButton(title: kind.title, kind: kind)
-                }
+                ForEach(EntryKind.allCases) { kind in filterButton(title: kind.title, kind: kind) }
             }
         }
     }
 
-    private var records: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private func records(_ dayEntries: [Entry]) -> some View {
+        let rows = dayEntries.filter { filter == nil || $0.kind == filter }
+        let lastID = rows.last?.id
+        let emptyTitle = filter == nil
+            ? (store.isOffline ? "Sin registros guardados este día" : "Sin registros este día")
+            : (store.isOffline ? "Sin registros guardados de este tipo" : "Sin registros de \(filter?.title.lowercased() ?? "este tipo")")
+        let emptyDescription = store.isOffline
+            ? "Al volver a conectar comprobaremos si hay más registros."
+            : "Los registros guardados para este día aparecerán aquí."
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Registros del día")
-                    .font(.system(.title3, design: .serif, weight: .semibold))
+                Text("Registros del día").font(.system(.title3, design: .serif, weight: .semibold))
                 Spacer()
-                Text("\(selectedEntries.count)")
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(NidoTheme.secondaryInk)
+                Text("\(rows.count)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(NidoTheme.secondaryInk)
             }
-
-            if selectedEntries.isEmpty {
-                ContentUnavailableView(
-                    filter == nil ? "Sin registros este día" : "Sin registros de \(filter?.title.lowercased() ?? "este tipo")",
-                    systemImage: "book.closed",
-                    description: Text("Los registros guardados para este día aparecerán aquí.")
-                )
-                .foregroundStyle(NidoTheme.secondaryInk)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 38)
-                .paperCard()
+            if rows.isEmpty {
+                ContentUnavailableView(emptyTitle, systemImage: "book.closed", description: Text(emptyDescription))
+                    .foregroundStyle(NidoTheme.secondaryInk).frame(maxWidth: .infinity).padding(.vertical, 38).paperCard()
             } else {
                 VStack(spacing: 0) {
-                    ForEach(selectedEntries) { entry in
-                        Button { store.editingEntry = entry } label: {
-                            HistoryRow(entry: entry)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("history-entry-\(entry.id)")
-                        .contextMenu {
-                            Button { store.editingEntry = entry } label: { Label("Editar", systemImage: "pencil") }
-                            Button(role: .destructive) { Task { await store.deleteEntry(entry) } } label: { Label("Eliminar", systemImage: "trash") }
-                        }
-                        if entry.id != selectedEntries.last?.id {
-                            Divider().padding(.leading, 54)
-                        }
+                    ForEach(rows) { entry in
+                        Button { store.editingEntry = entry } label: { HistoryRow(entry: entry) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("history-entry-\(entry.id)")
+                            .contextMenu {
+                                Button { store.editingEntry = entry } label: { Label("Editar", systemImage: "pencil") }
+                                Button(role: .destructive) { Task { await store.deleteEntry(entry) } } label: { Label("Eliminar", systemImage: "trash") }
+                            }
+                        if entry.id != lastID { Divider().padding(.leading, 54) }
                     }
                 }
-                .padding(.horizontal, 14)
-                .paperCard()
+                .padding(.horizontal, 14).paperCard()
             }
         }
     }
 
     private func filterButton(title: String, kind: EntryKind?) -> some View {
-        let isSelected = filter == kind
-        return Button {
+        HistoryFilterButton(title: title, kind: kind, isSelected: filter == kind) {
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.16, extraBounce: 0)) { filter = kind }
-        } label: {
-            HStack(spacing: 6) {
-                if let kind { Image(systemName: kind.symbolName).symbolRenderingMode(.hierarchical) }
-                Text(title)
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(isSelected ? NidoTheme.textOnMoss : NidoTheme.secondaryInk)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(isSelected ? NidoTheme.moss : NidoTheme.surface, in: Capsule())
-            .overlay { Capsule().stroke(isSelected ? .clear : NidoTheme.separator.opacity(0.5), lineWidth: 0.5) }
         }
-        .buttonStyle(PressScaleButtonStyle())
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func stepDay(_ offset: Int) {
+        guard let date = calendar.date(byAdding: .day, value: offset, to: selection) else { return }
+        select(date)
     }
 
     private func select(_ date: Date) {
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.22, extraBounce: 0)) {
-            selectedDay = HistoryPresentation.select(date, through: today, calendar: calendar)
+            store.showHistory(on: HistoryPresentation.select(date, through: today, calendar: calendar))
+            displayedWeekOffset = 0
             isPresentingCalendar = false
         }
     }
 
-    private func dayTitle(_ date: Date) -> String {
-        if calendar.isDateInToday(date) { return "Hoy, \(date.formatted(.dateTime.day().month(.wide)))" }
-        return date.formatted(.dateTime.weekday(.wide).day().month(.wide))
-    }
-
-    private func accessibleDayTitle(_ date: Date) -> String {
-        date.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
-    }
-
-    private func dayAccessibilityLabel(_ date: Date, summary: HistoryPresentation.DaySummary, isSelected: Bool) -> String {
-        let selectionLabel = isSelected ? ", seleccionado" : ""
-        return "\(accessibleDayTitle(date))\(selectionLabel), \(DurationLabel.minutes(summary.sleepMinutes)) de sueño, \(summary.feedCount) tomas, \(summary.diaperCount) pañales"
-    }
-
     private func dateIdentifier(_ date: Date) -> String {
-        date.formatted(.iso8601.year().month().day().dateSeparator(.dash))
+        localDateIdentifier(date, calendar: calendar)
     }
+
+    private func weekAccessibilityLabel(_ date: Date, day: CircularTimeline.Day, selected: Bool) -> String {
+        let chosen = selected ? ", seleccionado" : ""
+        let empty = day.items.isEmpty ? ", sin registros" : ""
+        return "\(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))\(chosen)\(empty), \(duration(day.totalSleepSeconds)) de sueño, \(day.feedCount) tomas, \(day.diaperCount) pañales"
+    }
+
+    private func duration(_ seconds: Int) -> String {
+        let minutes = max(seconds, 0) / 60
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if hours == 0 { return "\(remainder) min" }
+        if remainder == 0 { return "\(hours) h" }
+        return "\(hours) h \(remainder) min"
+    }
+
+
 }
 
-private struct SelectedDaySummary: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    let date: Date
-    let summary: HistoryPresentation.DaySummary
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(spacing: 14) { rings; metrics }
-                        .frame(maxWidth: .infinity)
-                } else {
-                    HStack(spacing: 18) { rings; metrics }
-                }
-            }
-            Text("Escala visual: los anillos no representan objetivos médicos.")
-                .font(.caption2)
-                .foregroundStyle(NidoTheme.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(dynamicTypeSize.isAccessibilitySize ? 20 : 16)
-        .frame(maxWidth: .infinity)
-        .paperCard()
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).day().month(.wide))), \(DurationLabel.minutes(summary.sleepMinutes)) de sueño, \(summary.feedCount) tomas, \(summary.diaperCount) pañales. Los anillos usan una escala visual y no representan objetivos médicos.")
-        .accessibilityIdentifier("history-selected-day-summary")
-    }
-
-    private var rings: some View {
-        CompactHistoryRings(summary: summary, size: dynamicTypeSize.isAccessibilitySize ? 142 : 138, lineWidth: 11)
-            .overlay {
-                VStack(spacing: 2) {
-                    Text(date.formatted(.dateTime.day()))
-                        .font(.system(.largeTitle, design: .serif, weight: .semibold).monospacedDigit())
-                    Text(date.formatted(.dateTime.month(.abbreviated)))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                }
-            }
-            .accessibilityHidden(true)
-    }
-
-    private var metrics: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            metric(kind: .sleep, value: DurationLabel.minutes(summary.sleepMinutes), note: "duración registrada")
-            metric(kind: .feed, value: "\(summary.feedCount)", note: summary.feedCount == 1 ? "toma registrada" : "tomas registradas")
-            metric(kind: .diaper, value: "\(summary.diaperCount)", note: summary.diaperCount == 1 ? "pañal registrado" : "pañales registrados")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func metric(kind: EntryKind, value: String, note: String) -> some View {
-        HStack(spacing: 10) {
-            Circle().fill(NidoTheme.color(for: kind)).frame(width: 9, height: 9)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(kind.title).font(.caption.weight(.semibold)).foregroundStyle(NidoTheme.secondaryInk)
-                Text(value).font(.headline.monospacedDigit())
-                Text(note).font(.caption2).foregroundStyle(NidoTheme.secondaryInk)
-            }
-        }
-    }
+@MainActor
+private final class HistoryReadingContext {
+    // Navigation context is not rendered. Tracking scroll geometry must not redraw its producer.
+    var anchor = "history-detail-top"
 }
 
-private struct CompactHistoryRings: View {
-    let summary: HistoryPresentation.DaySummary
+struct HistoryMiniClock: View {
+    let day: CircularTimeline.Day
     let size: CGFloat
-    let lineWidth: CGFloat
+    var goals: CareGoalVersion? = nil
 
     var body: some View {
-        ZStack {
-            ring(fraction: summary.sleepFillFraction, color: NidoTheme.sleep, inset: 0)
-            ring(fraction: summary.feedFillFraction, color: NidoTheme.feed, inset: lineWidth * 1.25)
-            ring(fraction: summary.diaperFillFraction, color: NidoTheme.diaper, inset: lineWidth * 2.5)
-        }
-        .frame(width: size, height: size)
+        GoalRingsView(sleep: Double(day.totalSleepSeconds) / 60, sleepGoal: goals?.sleepMinutes.map(Double.init),
+            feed: Double(day.feedCount), feedGoal: goals?.feedCount.map(Double.init),
+            diaper: Double(day.diaperCount), diaperGoal: goals?.diaperCount.map(Double.init), size: size)
         .accessibilityHidden(true)
-    }
-
-    private func ring(fraction: Double, color: Color, inset: CGFloat) -> some View {
-        ZStack {
-            Circle().inset(by: inset).stroke(color.opacity(0.14), lineWidth: lineWidth)
-            Circle()
-                .inset(by: inset)
-                .trim(from: 0, to: fraction)
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
     }
 }
 
 private struct HistoryCalendarSheet: View {
+    @Environment(NidoStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @State private var visibleMonth: Date
+    @State private var visibleMonth: Date?
     let selectedDay: Date
     let today: Date
+    let now: Date
+    let activeSleepStartedAt: Date?
     let entries: [Entry]
     let onSelect: (Date) -> Void
+    private let entriesByDay: [Date: [Entry]]
+    private let calendar: Calendar
 
-    private var calendar: Calendar { .current }
-    private var month: HistoryPresentation.Month {
-        HistoryPresentation.month(containing: visibleMonth, through: today, calendar: calendar)
-    }
-
-    init(selectedDay: Date, today: Date, entries: [Entry], onSelect: @escaping (Date) -> Void) {
+    init(selectedDay: Date, today: Date, now: Date, activeSleepStartedAt: Date?, entries: [Entry], calendar: Calendar = .current, onSelect: @escaping (Date) -> Void) {
         self.selectedDay = selectedDay
         self.today = today
+        self.now = now
+        self.activeSleepStartedAt = activeSleepStartedAt
         self.entries = entries
+        self.calendar = calendar
         self.onSelect = onSelect
-        _visibleMonth = State(initialValue: selectedDay)
+        self.entriesByDay = Self.index(entries, calendar: calendar)
+        let components = calendar.dateComponents([.year, .month], from: selectedDay)
+        self._visibleMonth = State(initialValue: calendar.date(from: components))
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    monthControls
-                    weekdayHeader
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 14) {
-                        ForEach(month.cells) { cell in
-                            calendarCell(cell)
+                ScrollView {
+                    LazyVStack(spacing: 14, pinnedViews: .sectionHeaders) {
+                        ForEach(monthStarts, id: \.self) { monthStart in
+                            Section {
+                                monthPage(monthStart).padding(.bottom, 14)
+                            } header: {
+                                monthHeader(monthStart)
+                            }
+                            .id(monthStart)
                         }
                     }
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("history-calendar-grid")
-                    Text("Cada día muestra sueño, tomas y pañales con la escala visual de Historia.")
-                        .font(.footnote)
-                        .foregroundStyle(NidoTheme.secondaryInk)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .scrollTargetLayout()
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 16)
                 }
-                .padding(20)
-            }
-            .background(PaperBackground())
+                .scrollPosition(id: $visibleMonth, anchor: .top)
+                .accessibilityIdentifier("history-calendar-scroll")
+                .background(PaperBackground())
             .navigationTitle("Elegir día")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } }
-            }
-        }
-    }
-
-    private var monthControls: some View {
-        HStack {
-            Button { moveMonth(-1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
-                .accessibilityLabel("Mes anterior")
-            Spacer()
-            Text(month.monthStart.formatted(.dateTime.month(.wide).year()))
-                .font(.system(.title2, design: .serif, weight: .semibold))
-            Spacer()
-            Button { moveMonth(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
-                .accessibilityLabel("Mes siguiente")
-                .disabled(!canMoveToNextMonth)
-        }
-        .foregroundStyle(NidoTheme.moss)
-    }
-
-    private var weekdayHeader: some View {
-        HStack(spacing: 4) {
-            ForEach(calendar.veryShortWeekdaySymbols.shifted(by: calendar.firstWeekday - 1), id: \.self) { symbol in
-                Text(symbol.uppercased())
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(NidoTheme.secondaryInk)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func calendarCell(_ cell: HistoryPresentation.DayCell) -> some View {
-        if let date = cell.date {
-            let summary = HistoryPresentation.summary(on: date, entries: entries, now: today, calendar: calendar)
-            let isSelected = calendar.isDate(date, inSameDayAs: selectedDay)
-            Button {
-                guard cell.isSelectable else { return }
-                onSelect(date)
-            } label: {
-                VStack(spacing: 5) {
-                    CompactHistoryRings(summary: summary, size: 38, lineWidth: 4)
-                        .overlay {
-                            Text(date.formatted(.dateTime.day()))
-                                .font(.caption2.weight(.bold).monospacedDigit())
-                                .foregroundStyle(cell.isSelectable ? NidoTheme.ink : NidoTheme.secondaryInk)
-                        }
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.caption2)
-                        .foregroundStyle(isSelected ? NidoTheme.moss : .clear)
-                        .accessibilityHidden(true)
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { dismiss() }.accessibilityIdentifier("history-calendar-close")
                 }
-                .padding(.vertical, 5)
-                .frame(maxWidth: .infinity)
-                .background(isSelected ? NidoTheme.moss.opacity(0.11) : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isSelected ? NidoTheme.moss : .clear, lineWidth: 1.5) }
-                .opacity(cell.isSelectable ? 1 : 0.42)
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Hoy") { onSelect(today) }.accessibilityIdentifier("history-calendar-today")
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(!cell.isSelectable)
-            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).day().month(.wide))), \(DurationLabel.minutes(summary.sleepMinutes)) de sueño, \(summary.feedCount) tomas, \(summary.diaperCount) pañales")
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .accessibilityIdentifier("history-calendar-day-\(date.formatted(.iso8601.year().month().day().dateSeparator(.dash)))")
-        } else {
-            Color.clear.frame(height: 55).accessibilityHidden(true)
         }
     }
 
-    private var canMoveToNextMonth: Bool {
-        guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: month.monthStart) else { return false }
-        let currentMonth = HistoryPresentation.month(containing: today, through: today, calendar: calendar).monthStart
-        return nextMonth <= currentMonth
+    private var monthStarts: [Date] {
+        let firstRecordedDate = entries.compactMap { entry -> Date? in
+            guard entry.kind == .sleep, let duration = entry.durationMinutes, duration > 0 else { return entry.date }
+            return entry.date.addingTimeInterval(-TimeInterval(duration * 60))
+        }.min()
+        let fallback = calendar.date(byAdding: .year, value: -1, to: today) ?? selectedDay
+        let earliest = min(firstRecordedDate ?? fallback, selectedDay)
+        return HistoryPresentation.calendarMonths(from: earliest, through: today, calendar: calendar)
     }
 
-    private func moveMonth(_ offset: Int) {
-        guard let date = calendar.date(byAdding: .month, value: offset, to: month.monthStart) else { return }
-        visibleMonth = date
+    private func monthHeader(_ monthStartDate: Date) -> some View {
+        VStack(spacing: 14) {
+            Text(monthStartDate.formatted(.dateTime.month(.wide).year()))
+                .font(.system(.title2, design: .serif, weight: .semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .accessibilityIdentifier("history-calendar-month-\(monthIdentifier(monthStartDate))")
+            HStack(spacing: 0) {
+                ForEach(calendar.veryShortWeekdaySymbols.shifted(by: calendar.firstWeekday - 1), id: \.self) {
+                    Text($0.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(NidoTheme.secondaryInk).frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .foregroundStyle(NidoTheme.ink)
+        .background(.regularMaterial)
+    }
+
+    private func monthPage(_ monthStartDate: Date) -> some View {
+        let month = HistoryPresentation.month(containing: monthStartDate, through: today, calendar: calendar)
+        return VStack(spacing: 14) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 10) {
+                ForEach(month.cells) { cell in calendarCell(cell) }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(monthStartDate == monthStart(containing: selectedDay) ? "history-calendar-grid" : "history-calendar-grid-\(monthIdentifier(monthStartDate))")
+            if monthStartDate == monthStarts.last {
+                Text("Cada día muestra el progreso frente a los objetivos que tenía entonces. Los días sin objetivos conservan sus registros.")
+                    .font(.footnote).foregroundStyle(NidoTheme.secondaryInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+            }
+        }
+        .foregroundStyle(NidoTheme.ink)
+    }
+
+    private func monthStart(containing date: Date) -> Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? calendar.startOfDay(for: date)
+    }
+
+    private func monthIdentifier(_ date: Date) -> String {
+        let components = calendar.dateComponents([.year, .month], from: date)
+        return String(format: "%04d-%02d", components.year ?? 0, components.month ?? 0)
+    }
+
+    private static func index(_ entries: [Entry], calendar: Calendar) -> [Date: [Entry]] {
+        var result: [Date: [Entry]] = [:]
+        for entry in entries {
+            let intervalStart: Date
+            if entry.kind == .sleep, let duration = entry.durationMinutes, duration > 0 {
+                intervalStart = entry.date.addingTimeInterval(-TimeInterval(duration * 60))
+            } else {
+                intervalStart = entry.date
+            }
+            var dayStart = calendar.startOfDay(for: intervalStart)
+            while dayStart < entry.date || (entry.kind != .sleep && calendar.isDate(dayStart, inSameDayAs: entry.date)) {
+                result[dayStart, default: []].append(entry)
+                guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) else { break }
+                dayStart = nextDay
+            }
+        }
+        return result
+    }
+
+    @ViewBuilder private func calendarCell(_ cell: HistoryPresentation.DayCell) -> some View {
+        if let date = cell.date {
+            let day = CircularTimeline.day(
+                on: date,
+                entries: entriesByDay[calendar.startOfDay(for: date)] ?? [],
+                activeSleepStartedAt: activeSleepStartedAt,
+                now: now,
+                calendar: calendar
+            )
+            let selected = calendar.isDate(date, inSameDayAs: selectedDay)
+            Button { if cell.isSelectable { onSelect(date) } } label: {
+                VStack(spacing: 4) {
+                    HistoryMiniClock(day: day, size: 37, goals: BabyCareMetrics.goals(on: date, state: store.babyCareState))
+                    Text(date.formatted(.dateTime.day())).font(.caption2.weight(.medium).monospacedDigit()).foregroundStyle(NidoTheme.ink)
+                }
+                .frame(maxWidth: .infinity, minHeight: 57)
+                .contentShape(Rectangle())
+                .background(selected ? NidoTheme.moss.opacity(0.11) : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(selected ? NidoTheme.moss : .clear, lineWidth: 1.5) }
+                .opacity(cell.isSelectable ? 1 : 0.4)
+            }
+            .buttonStyle(.plain).disabled(!cell.isSelectable)
+            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).day().month(.wide))), \(day.items.isEmpty ? "sin registros, " : "")\(DurationLabel.minutes(day.totalSleepSeconds / 60)) de sueño, \(day.feedCount) tomas, \(day.diaperCount) pañales")
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .accessibilityIdentifier("history-calendar-day-\(localDateIdentifier(date, calendar: calendar))")
+        } else { Color.clear.frame(height: 57).accessibilityHidden(true) }
     }
 }
 
 private struct HistoryRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: Entry
-
     var body: some View {
         Group {
-            if dynamicTypeSize.isAccessibilitySize { accessibilityLayout } else { standardLayout }
-        }
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-        .accessibilityHint("Toca para editar este registro")
-    }
-
-    private var standardLayout: some View {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        EntryGlyph(kind: entry.kind, size: 19)
+                        Text(entry.title).font(.headline)
+                    }
+                    Text(entry.date.formatted(date: .omitted, time: .shortened))
+                        .font(.caption.monospacedDigit()).foregroundStyle(NidoTheme.secondaryInk)
+                    if !entry.summary.isEmpty {
+                        Text(entry.summary).font(.subheadline).foregroundStyle(NidoTheme.secondaryInk)
+                    }
+                    if let name = entry.caregiverName {
+                        Label("Registrado por \(name)", systemImage: "person.fill")
+                            .font(.caption).foregroundStyle(NidoTheme.secondaryInk)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
         HStack(spacing: 10) {
             EntryGlyph(kind: entry.kind, size: 19)
-            details
-            Spacer()
-            Text(entry.date.formatted(date: .omitted, time: .shortened))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(NidoTheme.secondaryInk)
-        }
-    }
-
-    private var accessibilityLayout: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                EntryGlyph(kind: entry.kind, size: 19)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title).font(.headline)
-                Spacer(minLength: 8)
-                Text(entry.date.formatted(date: .omitted, time: .shortened))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(NidoTheme.secondaryInk)
+                if !entry.summary.isEmpty { Text(entry.summary).font(.subheadline).foregroundStyle(NidoTheme.secondaryInk) }
+                if let name = entry.caregiverName { Label("Registrado por \(name)", systemImage: "person.fill").font(.caption).foregroundStyle(NidoTheme.secondaryInk) }
             }
-            if !entry.summary.isEmpty { Text(entry.summary).font(.body).foregroundStyle(NidoTheme.secondaryInk) }
-            if let caregiverName = entry.caregiverName {
-                Text("Registrado por \(caregiverName)").font(.caption).foregroundStyle(NidoTheme.secondaryInk)
+            Spacer(minLength: 8)
+            Text(entry.date.formatted(date: .omitted, time: .shortened)).font(.caption.monospacedDigit()).foregroundStyle(NidoTheme.secondaryInk)
+        }
             }
         }
+        .padding(.vertical, 12).contentShape(Rectangle()).accessibilityHint("Toca para editar este registro")
     }
+}
 
-    private var details: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(entry.title).font(.headline)
-            if !entry.summary.isEmpty { Text(entry.summary).font(.subheadline).foregroundStyle(NidoTheme.secondaryInk) }
-            if let caregiverName = entry.caregiverName {
-                Label("Registrado por \(caregiverName)", systemImage: "person.fill")
-                    .font(.caption)
-                    .foregroundStyle(NidoTheme.secondaryInk)
-            }
-        }
-    }
+private func localDateIdentifier(_ date: Date, calendar: Calendar) -> String {
+    let components = calendar.dateComponents([.year, .month, .day], from: date)
+    return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
 }
 
 private extension Array {

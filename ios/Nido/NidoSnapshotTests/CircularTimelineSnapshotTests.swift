@@ -221,7 +221,7 @@ final class CircularTimelineSnapshotTests: XCTestCase {
             as: .image(
                 precision: 0.99,
                 perceptualPrecision: 0.98,
-                layout: .fixed(width: 350, height: 350),
+                layout: .fixed(width: 350, height: 440),
                 traits: traits
             ),
             named: "circular-timeline-350pt-\(suffix)",
@@ -232,7 +232,7 @@ final class CircularTimelineSnapshotTests: XCTestCase {
             as: .image(
                 precision: 0.99,
                 perceptualPrecision: 0.98,
-                layout: .fixed(width: 280, height: 280),
+                layout: .fixed(width: 280, height: 400),
                 traits: traits
             ),
             named: "circular-timeline-280pt-\(suffix)",

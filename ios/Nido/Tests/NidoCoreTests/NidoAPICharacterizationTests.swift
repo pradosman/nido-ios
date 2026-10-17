@@ -5,6 +5,75 @@ import Testing
 @Suite(.serialized)
 struct NidoAPICharacterizationTests {
     @Test
+    func sharedSleepRequestsUseMillisecondsAndCompareThePreviousStart() async throws {
+        let recorder = RequestRecorder()
+        let api = makeAPI(recorder: recorder) { request in
+            response(for: request, body: #"{"activeSleepStartedAt":1792000000123}"#)
+        }
+        let start = Date(timeIntervalSince1970: 1792000000.123)
+        #expect(try await api.loadSleep(accessToken: "token") == start)
+        #expect(try await api.syncSleep(startedAt: start, expectedStartedAt: nil, accessToken: "token") == start)
+        _ = try await api.syncSleep(startedAt: nil, expectedStartedAt: start, accessToken: "token")
+        #expect(recorder.requests.map(\.httpMethod) == ["GET", "PUT", "PUT"])
+        #expect(recorder.requests.allSatisfy { $0.url?.path == "/api/nido/sleep" })
+        let begin = try decodedBody(recorder.requests[1])
+        #expect(begin["startedAt"] as? Int64 == 1792000000123)
+        #expect(begin["expectedStartedAt"] is NSNull)
+        let end = try decodedBody(recorder.requests[2])
+        #expect(end["startedAt"] is NSNull)
+        #expect(end["expectedStartedAt"] as? Int64 == 1792000000123)
+    }
+
+    @Test
+    func sharedSleepConflictReturnsTheCurrentFamilyStart() async throws {
+        let api = makeAPI(recorder: RequestRecorder()) { request in
+            response(for: request, status: 409, body: #"{"activeSleepStartedAt":1792000000000}"#)
+        }
+        let current = try await api.syncSleep(startedAt: nil, expectedStartedAt: .distantPast, accessToken: "token")
+        #expect(current == Date(timeIntervalSince1970: 1792000000))
+    }
+
+    @Test
+    func babyCareUsesItsOwnAuthenticatedRoutesAndCompareAndSetPayload() async throws {
+        let recorder = RequestRecorder()
+        let api = makeAPI(recorder: recorder) { request in
+            switch request.httpMethod {
+            case "GET":
+                response(for: request, body: #"{"state":{"revision":4,"timeZoneID":"Europe/Madrid","goalVersions":[],"measurements":[]}}"#)
+            case "PUT":
+                response(for: request, body: #"{"state":{"revision":5,"timeZoneID":"Europe/Madrid","goalVersions":[],"measurements":[]}}"#)
+            default:
+                response(for: request, status: 405, body: #"{"error":"method"}"#)
+            }
+        }
+
+        let state = try await api.loadBabyCare(accessToken: "private-token")
+        #expect(state?.revision == 4)
+        let updated = BabyCareState(revision: 4, timeZoneID: "Europe/Madrid")
+        let result = try await api.saveBabyCare(updated, expectedRevision: 4, accessToken: "private-token")
+        #expect(result == .saved(BabyCareState(revision: 5, timeZoneID: "Europe/Madrid")))
+        #expect(recorder.requests.map(\.url?.path) == ["/api/nido/baby-care", "/api/nido/baby-care"])
+        #expect(recorder.requests.map(\.httpMethod) == ["GET", "PUT"])
+        #expect(recorder.requests.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == "Bearer private-token" })
+        let payload = try decodedBody(recorder.requests[1])
+        #expect(payload["expectedRevision"] as? Int == 4)
+        #expect(payload["timeZoneID"] as? String == "Europe/Madrid")
+        #expect(payload["goalVersions"] != nil)
+        #expect(payload["measurements"] != nil)
+    }
+
+    @Test
+    func babyCareWriteSurfacesCasConflictState() async throws {
+        let current = BabyCareState(revision: 8, timeZoneID: "Europe/Madrid")
+        let api = makeAPI(recorder: RequestRecorder()) { request in
+            response(for: request, status: 409, body: #"{"error":"conflict","state":{"revision":8,"timeZoneID":"Europe/Madrid","goalVersions":[],"measurements":[]}}"#)
+        }
+
+        let result = try await api.saveBabyCare(current, expectedRevision: 7, accessToken: "token")
+        #expect(result == .conflict(current))
+    }
+
+    @Test
     func startupRequiresAppleIdentityBeforeCreatingOrJoiningAHome() {
         #expect(StartupDestination.withoutCredential == .signInWithApple)
     }
@@ -182,7 +251,12 @@ struct NidoAPICharacterizationTests {
         _ = try await api.joinCaregiver(code: "ABCD-1234", accessToken: "token")
         try await api.removeCaregiver(id: "caregiver-1", accessToken: "token")
         try await api.logout(accessToken: "token")
-        try await api.deleteAccount(accessToken: "token")
+        try await api.deleteAccount(
+            accessToken: "token",
+            challengeID: "deletion-challenge",
+            identityToken: "fresh-deletion-identity-token",
+            authorizationCode: "fresh-deletion-authorization-code"
+        )
 
         #expect(recorder.requests.map { $0.url?.path } == [
             "/api/nido/auth/apple/challenge",
@@ -204,6 +278,10 @@ struct NidoAPICharacterizationTests {
         #expect(recorder.requests[5].url?.query == "id=caregiver-1")
         #expect(recorder.requests[6].value(forHTTPHeaderField: "Authorization") == "Bearer token")
         #expect(recorder.requests[7].value(forHTTPHeaderField: "Authorization") == "Bearer token")
+        let deletionBody = try decodedBody(recorder.requests[7])
+        #expect(deletionBody["challengeID"] as? String == "deletion-challenge")
+        #expect(deletionBody["identityToken"] as? String == "fresh-deletion-identity-token")
+        #expect(deletionBody["authorizationCode"] as? String == "fresh-deletion-authorization-code")
     }
 
     @Test
