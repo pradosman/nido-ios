@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../../../db/index.ts";
-import { caregivers, profiles } from "../../../db/schema.ts";
+import { caregivers, households, profiles } from "../../../db/schema.ts";
 import { publicCaregiverFields, requireCaregiver } from "./auth.ts";
 import { DEFAULT_ENTRY_PAGE_SIZE, loadEntryPage } from "./entry-pagination.ts";
 
@@ -15,6 +15,9 @@ export async function GET(request: Request) {
       babyName: profiles.babyName,
       birthDate: profiles.birthDate,
     }).from(profiles).where(eq(profiles.householdId, householdId)).limit(1);
+    const [household] = await db.select({
+      activeSleepStartedAt: households.activeSleepStartedAt,
+    }).from(households).where(eq(households.id, householdId)).limit(1);
     const activity = await loadEntryPage(householdId, null, DEFAULT_ENTRY_PAGE_SIZE);
     const familyRows = await db.select(publicCaregiverFields).from(caregivers).where(and(
       eq(caregivers.householdId, householdId),
@@ -26,6 +29,7 @@ export async function GET(request: Request) {
       profile: profile ?? null,
       entries: activity.entries,
       nextCursor: activity.nextCursor,
+      activeSleepStartedAt: household?.activeSleepStartedAt ?? null,
       caregivers: family,
       currentCaregiverID: authorization.caregiver.id,
     });

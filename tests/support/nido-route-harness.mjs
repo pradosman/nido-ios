@@ -6,16 +6,19 @@ import * as challengeRoute from "../../app/api/nido/auth/apple/challenge/route.t
 import * as sessionRoute from "../../app/api/nido/auth/apple/session/route.ts";
 import * as logoutRoute from "../../app/api/nido/auth/logout/route.ts";
 import * as bootstrapRoute from "../../app/api/nido/caregivers/bootstrap/route.ts";
+import * as babyCareRoute from "../../app/api/nido/baby-care/route.ts";
 import * as inviteRoute from "../../app/api/nido/caregivers/invite/route.ts";
 import * as joinRoute from "../../app/api/nido/caregivers/join/route.ts";
 import * as entriesRoute from "../../app/api/nido/entries/route.ts";
 import * as nidoRoute from "../../app/api/nido/route.ts";
 import * as profileRoute from "../../app/api/nido/profile/route.ts";
+import * as sleepRoute from "../../app/api/nido/sleep/route.ts";
 import * as statusRoute from "../../app/api/nido/status/route.ts";
 
 const routes = new Map([
   ["/api/nido", nidoRoute],
   ["/api/nido/auth/account", { DELETE: accountDeletionHandler }],
+  ["/api/nido/baby-care", babyCareRoute],
   ["/api/nido/auth/apple/challenge", challengeRoute],
   ["/api/nido/auth/apple/session", sessionRoute],
   ["/api/nido/auth/logout", logoutRoute],
@@ -24,6 +27,7 @@ const routes = new Map([
   ["/api/nido/caregivers/join", joinRoute],
   ["/api/nido/entries", entriesRoute],
   ["/api/nido/profile", profileRoute],
+  ["/api/nido/sleep", sleepRoute],
   ["/api/nido/status", statusRoute],
 ]);
 

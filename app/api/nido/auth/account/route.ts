@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../../../db/index.ts";
-import { authChallenges, caregivers, households, users } from "../../../../../db/schema.ts";
+import { authChallenges, caregivers, entryAuthors, households, users } from "../../../../../db/schema.ts";
 import { requireSession } from "../../auth.ts";
 import { verifyOpaqueAppleChallenge } from "../../apple-challenge.ts";
 import { createAppleIdentityVerifier } from "../../apple-verifier.ts";
@@ -84,6 +84,18 @@ export function createAccountDeletionHandler(provider?: DeletionProofProvider) {
       });
     } else {
       await db.transaction(async tx => {
+        await tx.select({ id: users.id }).from(users)
+          .where(eq(users.id, authorization.session.userId)).limit(1).for("update");
+        const [membership] = await tx.select({
+          householdId: caregivers.householdId,
+          caregiverId: caregivers.id,
+        }).from(caregivers).where(eq(caregivers.userId, authorization.session.userId)).limit(1);
+        if (membership) {
+          await tx.delete(entryAuthors).where(and(
+            eq(entryAuthors.householdId, membership.householdId),
+            eq(entryAuthors.caregiverId, membership.caregiverId),
+          ));
+        }
         await tx.delete(users).where(eq(users.id, authorization.session.userId));
       });
     }

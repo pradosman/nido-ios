@@ -1,6 +1,6 @@
 import { getDb } from "../../../../db/index.ts";
 import { and, eq } from "drizzle-orm";
-import { entries, entryAuthors } from "../../../../db/schema.ts";
+import { entries, entryAuthors, users } from "../../../../db/schema.ts";
 import { requireCaregiver } from "../auth.ts";
 import { decodeEntryCursor, loadEntryPage, parseEntryPageLimit } from "../entry-pagination.ts";
 import {
@@ -58,12 +58,15 @@ export async function POST(request: Request) {
     if (!body) return Response.json({ error: "Registro incompleto" }, { status: 400 });
     const db = getDb();
     const result = await db.transaction(async tx => {
+      const [lockedUser] = await tx.select({ id: users.id }).from(users)
+        .where(eq(users.id, caregiver.userId)).limit(1).for("update");
+      if (!lockedUser) return { authorized: false as const };
       await tx.insert(entries).values({ ...body, householdId: caregiver.householdId }).onConflictDoNothing();
       const [entry] = await tx.select().from(entries).where(and(
         eq(entries.id, body.id),
         eq(entries.householdId, caregiver.householdId),
       )).limit(1).for("update");
-      if (!entry) return null;
+      if (!entry) return { authorized: true as const, entry: null };
       await tx.insert(entryAuthors).values({
         entryId: body.id,
         householdId: caregiver.householdId,
@@ -74,8 +77,9 @@ export async function POST(request: Request) {
         caregiverID: entryAuthors.caregiverId,
         caregiverName: entryAuthors.caregiverName,
       }).from(entryAuthors).where(eq(entryAuthors.entryId, body.id)).limit(1);
-      return { entry, author };
+      return { authorized: true as const, entry, author };
     });
+    if (!result.authorized) return Response.json({ error: "Authentication is required" }, { status: 401 });
     const entry = result?.entry;
     if (!entry) return Response.json({ error: "El registro ya existe en otro espacio" }, { status: 409 });
     return Response.json({ entry: { ...entry, ...result?.author } }, { status: 201 });

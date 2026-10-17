@@ -1,0 +1,2 @@
+ALTER TABLE "households" ADD COLUMN "active_sleep_started_at" bigint;--> statement-breakpoint
+ALTER TABLE "households" ADD CONSTRAINT "households_active_sleep_timestamp_check" CHECK ("households"."active_sleep_started_at" is null or "households"."active_sleep_started_at" between 946684800000 and 4102444800000);

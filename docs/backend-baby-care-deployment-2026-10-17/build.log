@@ -1,0 +1,119 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.01kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.32kB 0.0s done
+#2 DONE 0.1s
+
+#3 [internal] load metadata for docker.io/library/node:24.19.0-bookworm-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df
+#3 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 358B done
+#4 DONE 0.0s
+
+#5 [dependencies 1/4] FROM docker.io/library/node:24.19.0-bookworm-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 93.66kB 0.0s done
+#6 DONE 0.0s
+
+#7 [dependencies 2/4] WORKDIR /app
+#7 CACHED
+
+#8 [dependencies 3/4] COPY package.json package-lock.json ./
+#8 CACHED
+
+#9 [dependencies 4/4] RUN npm ci
+#9 CACHED
+
+#10 [build 1/2] COPY . .
+#10 DONE 0.2s
+
+#11 [build 2/2] RUN npm run build
+#11 1.771 
+#11 1.771 > site-creator-vinext-starter@0.1.0 build
+#11 1.771 > vinext build && npm run build:migrate
+#11 1.771 
+#11 4.351 
+#11 4.351   vinext build  (Vite 8.2.2)
+#11 4.351 
+#11 6.163 [1/5] analyze client references...
+#11 6.514 transforming...
+#11 9.510 ✓ 428 modules transformed.
+#11 9.522 rendering chunks...
+#11 9.537 ✓ built in 3.36s
+#11 9.549 [33m[PLUGIN_TIMINGS] [0mYour build spent 94% of 3.2s inside plugin hooks (3.0s).
+#11 9.549 Not measurable — 5 hooks whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+#11 9.549   - rsc:virtual-client-package resolveId (1511 calls)
+#11 9.549   - vinext:og-inline-fetch-assets resolveId (1570 calls)
+#11 9.549   - alias resolveId (1672 calls)
+#11 9.549   … and 2 more
+#11 9.549 See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+#11 9.549 
+#11 9.550 [2/5] analyze server references...
+#11 9.631 transforming...
+#11 9.894 ✓ 80 modules transformed.
+#11 9.901 rendering chunks...
+#11 9.904 ✓ built in 353ms
+#11 9.905 [3/5] build rsc environment...
+#11 9.938 transforming...
+#11 10.64 ✓ 420 modules transformed.
+#11 12.01 rendering chunks...
+#11 12.59 computing gzip size...
+#11 12.73 ✓ built in 2.82s
+#11 12.73 [4/5] build client environment...
+#11 12.94 transforming...
+#11 14.45 ✓ 129 modules transformed.
+#11 14.86 rendering chunks...
+#11 15.42 computing gzip size...
+#11 15.56 ✓ built in 2.83s
+#11 15.57 [5/5] build ssr environment...
+#11 15.70 transforming...
+#11 15.81 ✓ 81 modules transformed.
+#11 15.96 rendering chunks...
+#11 16.23 computing gzip size...
+#11 16.24 ✓ built in 667ms
+#11 19.83   Generated standalone output in dist/standalone/
+#11 19.83   Start it with: node dist/standalone/server.js
+#11 19.83 
+#11 20.03 
+#11 20.03 > site-creator-vinext-starter@0.1.0 build:migrate
+#11 20.03 > esbuild db/migrate.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/migrate.mjs
+#11 20.03 
+#11 20.25 
+#11 20.25   dist/migrate.mjs  290.7kb
+#11 20.25 
+#11 20.25 ⚡ Done in 112ms
+#11 DONE 20.4s
+
+#12 [runtime 3/8] RUN groupadd --system --gid 10001 nido     && useradd --system --uid 10001 --gid nido --home-dir /nonexistent --shell /usr/sbin/nologin nido
+#12 CACHED
+
+#13 [runtime 4/8] COPY --from=build --chown=root:root /app/dist/standalone ./dist/standalone
+#13 DONE 1.8s
+
+#14 [runtime 5/8] COPY --from=build --chown=root:root /app/dist/migrate.mjs ./dist/migrate.mjs
+#14 DONE 0.0s
+
+#15 [runtime 6/8] COPY --from=build --chown=root:root /app/drizzle-pg ./drizzle-pg
+#15 DONE 0.0s
+
+#16 [runtime 7/8] COPY --from=build --chown=root:root /app/deploy/entrypoint.sh ./deploy/entrypoint.sh
+#16 DONE 0.0s
+
+#17 [runtime 8/8] RUN chmod 0555 ./deploy/entrypoint.sh     && find /app -type d -exec chmod 0555 {} +     && find /app -type f ! -path '/app/deploy/entrypoint.sh' -exec chmod 0444 {} +
+#17 DONE 7.2s
+
+#18 exporting to image
+#18 exporting layers
+#18 exporting layers 0.5s done
+#18 writing image sha256:de15db54204960edc1791efeb30168faac9a68dcbd18b48c31363235c2fb9a94 done
+#18 naming to docker.io/library/nido-babycare:20261017-goals done
+#18 DONE 0.5s
+
+#19 resolving provenance for metadata file
+#19 DONE 0.0s
+ nido-babycare:20261017-goals  Built

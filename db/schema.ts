@@ -5,6 +5,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -25,7 +26,10 @@ export const households = pgTable("households", {
   id: text("id").primaryKey(),
   ...timestamps,
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  activeSleepStartedAt: bigint("active_sleep_started_at", { mode: "number" }),
+}, table => [
+  check("households_active_sleep_timestamp_check", sql`${table.activeSleepStartedAt} is null or ${table.activeSleepStartedAt} between 946684800000 and 4102444800000`),
+]);
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -43,6 +47,16 @@ export const profiles = pgTable("profiles", {
 }, table => [
   check("profiles_birth_date_check", sql`${table.birthDate} ~ '^\\d{4}-\\d{2}-\\d{2}$'`),
 ]);
+
+export const babyCareStates = pgTable("baby_care_states", {
+  householdId: text("household_id").primaryKey().references(() => households.id, { onDelete: "cascade" }),
+  revision: integer("revision").notNull().default(1),
+  timeZoneID: text("time_zone_id").notNull(),
+  goalVersions: jsonb("goal_versions").notNull().default([]),
+  measurements: jsonb("measurements").notNull().default([]),
+  ...timestamps,
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [check("baby_care_states_revision_check", sql`${table.revision} >= 1`)]);
 
 export const entries = pgTable("entries", {
   id: text("id").primaryKey(),
