@@ -1,0 +1,458 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -xctestrun /tmp/nido-baby-care-regression-derived/Build/Products/Nido_NidoOptIn_iphonesimulator26.5-arm64-x86_64.xctestrun -clonedSourcePackagesDirPath /tmp/nido-premium-derived/SourcePackages -disableAutomaticPackageResolution -skipPackageUpdates -derivedDataPath /private/tmp/nido-baby-care-regression-derived -destination "platform=iOS Simulator,id=516B4FA1-D8C4-4389-9836-79095056D5CB" -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 -resultBundlePath /tmp/nido-fullgate-shard-0-api-retry-2026-10-17.xcresult "-only-testing:NidoUITests/NidoUITests/testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby" "-only-testing:NidoUITests/NidoUITests/testRealBackendHistoryLoadsAndDisplaysAnEntryBeyondTheFirstFiveHundred" "-only-testing:NidoUITests/NidoUITests/testRealBackendCaregiverPermissionsAndRevocation" CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+2026-10-17 20:20:16.103 xcodebuild[39812:7247978] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+Writing result bundle at path:
+	/tmp/nido-fullgate-shard-0-api-retry-2026-10-17.xcresult
+
+2026-10-17 20:20:16.125 xcodebuild[39812:7247978] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-10-17 20:20:17.292 xcodebuild[39812:7247978] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-10-17 20:20:17.587 xcodebuild[39812:7247978] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-10-17 20:20:18.528907+0200 NidoUITests-Runner[39848:7248356] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-17 20:20:19.201.
+Test Suite 'NidoUITests.xctest' started at 2026-10-17 20:20:19.201.
+Test Suite 'NidoUITests' started at 2026-10-17 20:20:19.202.
+Test Case '-[NidoUITests.NidoUITests testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby]' started.
+    t =     0.00s Start Test at 2026-10-17 20:20:19.203
+    t =     0.05s Set Up
+    t =     0.15s Open com.momentumia.nido
+    t =     0.15s     Launch com.momentumia.nido
+2026-10-17 20:20:19.515 xcodebuild[39812:7247978] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-17 20:20:19.515 xcodebuild[39812:7247978] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     0.94s         Setting up automation session
+    t =     1.77s         Wait for com.momentumia.nido to idle
+    t =     3.00s Waiting 5.0s for "El día a día de vuestro bebé." StaticText to exist
+    t =     4.08s     Checking `Expect predicate `existsNoRetry == 1` for object "El día a día de vuestro bebé." StaticText`
+    t =     4.08s         Checking existence of `"El día a día de vuestro bebé." StaticText`
+    t =     4.15s Tap "Tu nombre" TextField
+    t =     4.15s     Wait for com.momentumia.nido to idle
+    t =     4.15s     Find the "Tu nombre" TextField
+    t =     4.16s     Check for interrupting elements affecting "Tu nombre" TextField
+    t =     4.19s     Synthesize event
+    t =     4.49s     Wait for com.momentumia.nido to idle
+    t =     5.04s Type 'Owner B' into "Tu nombre" TextField
+    t =     5.04s     Wait for com.momentumia.nido to idle
+    t =     5.06s     Find the "Tu nombre" TextField
+    t =     5.11s     Check for interrupting elements affecting "Tu nombre" TextField
+    t =     5.13s     Synthesize event
+    t =     5.46s     Wait for com.momentumia.nido to idle
+    t =     5.59s Tap "Nombre del bebé" TextField
+    t =     5.59s     Wait for com.momentumia.nido to idle
+    t =     5.59s     Find the "Nombre del bebé" TextField
+    t =     5.64s     Check for interrupting elements affecting "Nombre del bebé" TextField
+    t =     5.66s     Synthesize event
+    t =     5.98s     Wait for com.momentumia.nido to idle
+    t =     6.42s Type 'Baby B' into "Nombre del bebé" TextField
+    t =     6.42s     Wait for com.momentumia.nido to idle
+    t =     6.42s     Find the "Nombre del bebé" TextField
+    t =     6.45s     Check for interrupting elements affecting "Nombre del bebé" TextField
+    t =     6.47s     Synthesize event
+    t =     6.77s     Wait for com.momentumia.nido to idle
+    t =     6.91s Tap "Crear espacio" Button
+    t =     6.91s     Wait for com.momentumia.nido to idle
+    t =     6.91s     Find the "Crear espacio" Button
+    t =     6.94s     Check for interrupting elements affecting "Crear espacio" Button
+    t =     6.96s     Synthesize event
+    t =     6.96s         Scroll element to visible
+    t =     6.97s         Find the "Crear espacio" Button
+    t =     7.00s         Computed hit point {201, 417} after scrolling to visible
+    t =     7.28s     Wait for com.momentumia.nido to idle
+    t =     7.50s Waiting 8.0s for "Hoy con Baby B" StaticText to exist
+    t =     8.58s     Checking `Expect predicate `existsNoRetry == 1` for object "Hoy con Baby B" StaticText`
+    t =     8.58s         Checking existence of `"Hoy con Baby B" StaticText`
+    t =     8.63s Checking existence of `"Baby A" StaticText`
+    t =     8.66s Tap "registration-action-button" Button
+    t =     8.66s     Wait for com.momentumia.nido to idle
+    t =     8.66s     Find the "registration-action-button" Button
+    t =     8.68s     Check for interrupting elements affecting "registration-action-button" Button
+    t =     8.70s     Synthesize event
+    t =     8.99s     Wait for com.momentumia.nido to idle
+    t =    11.00s Tap "Registrar pañal" Button
+    t =    11.00s     Wait for com.momentumia.nido to idle
+    t =    11.01s     Find the "Registrar pañal" Button
+    t =    11.04s     Check for interrupting elements affecting "drop.fill" Button
+    t =    11.07s     Synthesize event
+    t =    11.36s     Wait for com.momentumia.nido to idle
+    t =    12.47s Waiting 5.0s for "Registrar pañal · Pis" Button to exist
+    t =    13.54s     Checking `Expect predicate `existsNoRetry == 1` for object "Registrar pañal · Pis" Button`
+    t =    13.54s         Checking existence of `"Registrar pañal · Pis" Button`
+    t =    13.61s Tap "Registrar pañal · Pis" Button
+    t =    13.61s     Wait for com.momentumia.nido to idle
+    t =    13.61s     Find the "Registrar pañal · Pis" Button
+    t =    13.65s     Check for interrupting elements affecting "Registrar pañal · Pis" Button
+    t =    13.68s     Synthesize event
+    t =    13.97s     Wait for com.momentumia.nido to idle
+objc[39848]: Class UIAccessibilityLoaderWebShared is implemented in both /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebCore.axbundle/WebCore (0x108958310) and /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebKit.axbundle/WebKit (0x108230398). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+    t =    15.49s Checking `Expect predicate `exists == 0` for object "Registrar pañal · Pis" Button`
+    t =    15.50s     Checking existence of `"Registrar pañal · Pis" Button`
+    t =    16.59s Checking `Expect predicate `exists == 1 AND hittable == 1` for object "Historia" Button`
+    t =    16.60s     Checking existence of `"Historia" Button`
+    t =    16.64s     Find the "Historia" Button
+    t =    16.67s Tap "Historia" Button
+    t =    16.67s     Wait for com.momentumia.nido to idle
+    t =    16.68s     Find the "Historia" Button
+    t =    16.70s     Check for interrupting elements affecting "Historia" Button
+    t =    16.73s     Synthesize event
+    t =    17.01s     Wait for com.momentumia.nido to idle
+    t =    18.09s Waiting 5.0s for "Historia" NavigationBar to exist
+    t =    19.16s     Checking `Expect predicate `existsNoRetry == 1` for object "Historia" NavigationBar`
+    t =    19.16s         Checking existence of `"Historia" NavigationBar`
+    t =    19.23s Get all elements bound by index for: Descendants matching type ScrollView
+    t =    19.26s Find the ScrollView (Element at index 0)
+    t =    19.30s Find the "history-week-strip" ScrollView
+    t =    19.33s Find the ScrollView (Element at index 1)
+    t =    19.37s Find the "history-detail-scroll" ScrollView
+    t =    19.41s Find the "history-detail-scroll" ScrollView
+    t =    19.44s Find the ScrollView (Element at index 2)
+    t =    19.48s Checking existence of `"history-detail-scroll" ScrollView`
+    t =    19.50s Find the "Pis" StaticText
+    t =    19.55s Swipe up "history-detail-scroll" ScrollView
+    t =    19.55s     Wait for com.momentumia.nido to idle
+    t =    19.55s     Find the "history-detail-scroll" ScrollView
+    t =    19.58s     Check for interrupting elements affecting "history-detail-scroll" ScrollView
+    t =    19.62s     Synthesize event
+    t =    20.07s     Wait for com.momentumia.nido to idle
+    t =    22.19s Find the "Pis" StaticText
+    t =    22.25s Swipe up "history-detail-scroll" ScrollView
+    t =    22.25s     Wait for com.momentumia.nido to idle
+    t =    22.25s     Find the "history-detail-scroll" ScrollView
+    t =    22.29s     Check for interrupting elements affecting "history-detail-scroll" ScrollView
+    t =    22.32s     Synthesize event
+    t =    22.77s     Wait for com.momentumia.nido to idle
+    t =    23.26s Find the "Pis" StaticText
+    t =    23.33s Find the "Pis" StaticText
+    t =    23.37s Find the "Pis" StaticText
+    t =    23.42s Find the "Pis" StaticText
+    t =    23.46s Find the "Pis" StaticText
+    t =    23.51s Find the "Pis" StaticText
+    t =    23.55s Find the "Pis" StaticText
+    t =    23.60s Find the "Pis" StaticText
+    t =    23.65s Find the "Pis" StaticText
+    t =    23.69s Find the "Pis" StaticText
+    t =    23.74s Find the "Pis" StaticText
+    t =    23.78s Waiting 5.0s for "Pis" StaticText to exist
+    t =    24.86s     Checking `Expect predicate `existsNoRetry == 1` for object "Pis" StaticText`
+    t =    24.86s         Checking existence of `"Pis" StaticText`
+    t =    24.91s Tear Down
+Test Case '-[NidoUITests.NidoUITests testFreshInstallationCreatesAnIndependentHouseholdAndOnlySeesItsOwnBaby]' passed (25.264 seconds).
+Test Case '-[NidoUITests.NidoUITests testRealBackendCaregiverPermissionsAndRevocation]' started.
+    t =     0.00s Start Test at 2026-10-17 20:20:44.467
+    t =     0.02s Set Up
+    t =     0.08s Open com.momentumia.nido
+    t =     0.08s     Launch com.momentumia.nido
+    t =     0.08s         Terminate com.momentumia.nido:39876
+2026-10-17 20:20:45.589 xcodebuild[39812:7247978] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-17 20:20:45.589 xcodebuild[39812:7247978] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.33s         Setting up automation session
+    t =     2.02s         Wait for com.momentumia.nido to idle
+    t =     3.23s Waiting 8.0s for "Hoy con UI Baby" StaticText to exist
+    t =     4.30s     Checking `Expect predicate `existsNoRetry == 1` for object "Hoy con UI Baby" StaticText`
+    t =     4.30s         Checking existence of `"Hoy con UI Baby" StaticText`
+    t =     4.40s Tap "Ajustes" Button
+    t =     4.40s     Wait for com.momentumia.nido to idle
+    t =     4.40s     Find the "Ajustes" Button
+    t =     4.42s     Check for interrupting elements affecting "Ajustes" Button
+    t =     4.44s     Synthesize event
+    t =     4.73s     Wait for com.momentumia.nido to idle
+    t =     5.59s Waiting 5.0s for "settings-profile-button" Button to exist
+    t =     6.67s     Checking `Expect predicate `existsNoRetry == 1` for object "settings-profile-button" Button`
+    t =     6.67s         Checking existence of `"settings-profile-button" Button`
+    t =     6.75s Find the "settings-profile-button" Button
+    t =     6.78s Checking existence of `"settings-invite-caregiver" Button`
+    t =     6.80s Checking existence of `"Familiares" StaticText`
+    t =     6.82s Checking existence of `"Administrador del hogar" StaticText`
+    t =     6.85s Checking existence of `"Familiar" StaticText`
+    t =     6.88s Checking existence of `"Solo el administrador del hogar puede gestionar familiares y editar el perfil. Los familiares comparten el mismo historial." StaticText`
+    t =     6.90s Checking existence of `"UI Owner" StaticText`
+    t =     6.93s Swipe left "UI Owner" StaticText
+    t =     6.93s     Wait for com.momentumia.nido to idle
+    t =     6.93s     Find the "UI Owner" StaticText
+    t =     6.96s     Check for interrupting elements affecting "caregiver-row-5a2db69d-df37-4dd3-a579-07a2d23ce58c" StaticText
+    t =     6.98s     Synthesize event
+    t =     7.31s     Wait for com.momentumia.nido to idle
+    t =     7.31s Checking existence of `"Retirar" Button`
+    t =     7.35s Checking existence of `"Cancelar" Button`
+    t =     7.38s Checking existence of `"Restaurar desde un archivo" Button`
+    t =     7.40s Swipe up Target Application 'com.momentumia.nido'
+    t =     7.40s     Wait for com.momentumia.nido to idle
+    t =     7.41s     Find the Target Application 'com.momentumia.nido'
+    t =     7.43s     Check for interrupting elements affecting "Nido" Application
+    t =     7.45s     Synthesize event
+    t =     7.87s     Wait for com.momentumia.nido to idle
+    t =     9.98s Checking existence of `"Restaurar desde un archivo" Button`
+    t =    10.04s Checking existence of `"Restaurar desde un archivo" Button`
+    t =    10.07s Checking existence of `"Restaurar desde un archivo" Button`
+    t =    10.10s Checking existence of `"Preparar informe de 30 días" Button`
+    t =    10.14s Checking existence of `"Restaurar desde un archivo" Button`
+    t =    10.18s Checking existence of `"Preparar copia de seguridad" Button`
+    t =    10.22s Tap "Historia" Button
+    t =    10.22s     Wait for com.momentumia.nido to idle
+    t =    10.22s     Find the "Historia" Button
+    t =    10.26s     Check for interrupting elements affecting "Historia" Button
+    t =    10.29s     Synthesize event
+    t =    10.57s     Wait for com.momentumia.nido to idle
+    t =    11.60s Waiting 5.0s for "Historia" NavigationBar to exist
+    t =    12.63s     Checking `Expect predicate `existsNoRetry == 1` for object "Historia" NavigationBar`
+    t =    12.63s         Checking existence of `"Historia" NavigationBar`
+    t =    12.70s Get all elements bound by index for: Descendants matching type ScrollView
+    t =    12.73s Find the ScrollView (Element at index 0)
+    t =    12.76s Find the "history-week-strip" ScrollView
+    t =    12.79s Find the ScrollView (Element at index 1)
+    t =    12.83s Find the "history-detail-scroll" ScrollView
+    t =    12.86s Find the "history-detail-scroll" ScrollView
+    t =    12.89s Find the ScrollView (Element at index 2)
+    t =    12.95s Checking existence of `"history-detail-scroll" ScrollView`
+    t =    12.98s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    13.03s Swipe up "history-detail-scroll" ScrollView
+    t =    13.03s     Wait for com.momentumia.nido to idle
+    t =    13.03s     Find the "history-detail-scroll" ScrollView
+    t =    13.06s     Check for interrupting elements affecting "history-detail-scroll" ScrollView
+    t =    13.09s     Synthesize event
+    t =    13.54s     Wait for com.momentumia.nido to idle
+    t =    15.76s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    15.81s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    15.86s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    15.91s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    15.96s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.01s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.05s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.10s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.15s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.19s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.25s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.29s Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    16.34s Waiting 5.0s for "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button to exist
+    t =    17.40s     Checking `Expect predicate `existsNoRetry == 1` for object "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button`
+    t =    17.40s         Checking existence of `"history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button`
+    t =    17.44s Tap "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    17.44s     Wait for com.momentumia.nido to idle
+    t =    17.44s     Find the "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    17.48s     Check for interrupting elements affecting "history-entry-ui-owner-entry-B9E4B821-F422-476A-81C3-9C8BE7948AEB" Button
+    t =    17.51s     Synthesize event
+    t =    17.80s     Wait for com.momentumia.nido to idle
+    t =    17.89s Waiting 3.0s for "Editar registro" NavigationBar to exist
+    t =    18.94s     Checking `Expect predicate `existsNoRetry == 1` for object "Editar registro" NavigationBar`
+    t =    18.95s         Checking existence of `"Editar registro" NavigationBar`
+    t =    19.05s Waiting 3.0s for TextField (First Match) to exist
+    t =    20.12s     Checking `Expect predicate `existsNoRetry == 1` for object TextField (First Match)`
+    t =    20.12s         Checking existence of `TextField (First Match)`
+    t =    20.25s Find the TextField (First Match)
+    t =    20.40s Tap "Owner original detail" TextField
+    t =    20.40s     Wait for com.momentumia.nido to idle
+    t =    20.40s     Find the "Owner original detail" TextField
+    t =    20.48s     Check for interrupting elements affecting "Owner original detail" TextField
+    t =    20.53s     Synthesize event
+    t =    20.83s     Wait for com.momentumia.nido to idle
+    t =    20.94s Find the "Owner original detail" TextField
+    t =    21.05s Tap "Owner original detail" TextField[0.99, 0.50]
+    t =    21.05s     Wait for com.momentumia.nido to idle
+    t =    21.05s     Find the "Owner original detail" TextField
+    t =    21.15s     Check for interrupting elements affecting "Owner original detail" TextField
+    t =    21.21s     Synthesize event
+    t =    21.21s         Find the "Owner original detail" TextField
+    t =    21.31s         Find the "Owner original detail" TextField
+    t =    21.40s         Find the "Owner original detail" TextField
+    t =    21.77s     Wait for com.momentumia.nido to idle
+    t =    21.78s Type '...' into "Owner original detail" TextField
+    t =    21.78s     Wait for com.momentumia.nido to idle
+    t =    21.78s     Find the "Owner original detail" TextField
+    t =    21.88s     Check for interrupting elements affecting "Owner original detail" TextField
+    t =    21.94s     Synthesize event
+    t =    22.50s     Wait for com.momentumia.nido to idle
+    t =    23.75s Type 'Corrected by invit...' into "Owner original detail" TextField
+    t =    23.75s     Wait for com.momentumia.nido to idle
+    t =    23.76s     Find the "Owner original detail" TextField
+    t =    23.86s     Check for interrupting elements affecting "Detalle del registro" TextField
+    t =    23.92s     Synthesize event
+    t =    24.62s     Wait for com.momentumia.nido to idle
+    t =    25.68s Checking `Expect predicate `value == "Corrected by invited caregiver"` for object "Detalle del registro" TextField`
+    t =    25.68s     Find the "Detalle del registro" TextField
+    t =    25.78s Find the "Corrected by invited caregiver" TextField
+    t =    25.87s Tap "Guardar" Button
+    t =    25.87s     Wait for com.momentumia.nido to idle
+    t =    25.87s     Find the "Guardar" Button
+    t =    25.95s     Check for interrupting elements affecting "Guardar" Button
+    t =    26.01s     Synthesize event
+    t =    26.30s     Wait for com.momentumia.nido to idle
+    t =    26.97s Waiting 5.0s for "Historia" NavigationBar to exist
+    t =    28.00s     Checking `Expect predicate `existsNoRetry == 1` for object "Historia" NavigationBar`
+    t =    28.00s         Checking existence of `"Historia" NavigationBar`
+    t =    28.08s Pressing Home button
+    t =    28.55s Open com.momentumia.nido
+    t =    28.55s     Activate com.momentumia.nido
+    t =    28.79s         Wait for com.momentumia.nido to idle
+    t =    29.19s Waiting 5.0s for "El cuidado familiar, en privado." StaticText to exist
+    t =    30.26s     Checking `Expect predicate `existsNoRetry == 1` for object "El cuidado familiar, en privado." StaticText`
+    t =    30.26s         Checking existence of `"El cuidado familiar, en privado." StaticText`
+    t =    30.28s Waiting 5.0s for "Vuelve a iniciar sesión para acceder." StaticText to exist
+    t =    31.34s     Checking `Expect predicate `existsNoRetry == 1` for object "Vuelve a iniciar sesión para acceder." StaticText`
+    t =    31.34s         Checking existence of `"Vuelve a iniciar sesión para acceder." StaticText`
+    t =    35.37s Checking existence of `"Vuelve a iniciar sesión para acceder." StaticText`
+    t =    35.38s Checking existence of `"XXXX-XXXX-XXXX" TextField`
+    t =    35.39s Checking existence of `"Historia" Button`
+    t =    35.39s Tear Down
+Test Case '-[NidoUITests.NidoUITests testRealBackendCaregiverPermissionsAndRevocation]' passed (35.771 seconds).
+Test Case '-[NidoUITests.NidoUITests testRealBackendHistoryLoadsAndDisplaysAnEntryBeyondTheFirstFiveHundred]' started.
+    t =     0.00s Start Test at 2026-10-17 20:21:20.239
+    t =     0.02s Set Up
+    t =     4.15s Open com.momentumia.nido
+    t =     4.15s     Launch com.momentumia.nido
+    t =     4.15s         Terminate com.momentumia.nido:40197
+2026-10-17 20:21:25.432 xcodebuild[39812:7247978] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-17 20:21:25.432 xcodebuild[39812:7247978] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     5.41s         Setting up automation session
+    t =     6.09s         Wait for com.momentumia.nido to idle
+    t =     7.28s Waiting 12.0s for "timeline-day-heading" StaticText to exist
+    t =     8.30s     Checking `Expect predicate `existsNoRetry == 1` for object "timeline-day-heading" StaticText`
+    t =     8.30s         Checking existence of `"timeline-day-heading" StaticText`
+    t =     8.37s Find the "timeline-day-heading" StaticText
+    t =     8.39s Tap "Historia" Button
+    t =     8.39s     Wait for com.momentumia.nido to idle
+    t =     8.39s     Find the "Historia" Button
+    t =     8.41s     Check for interrupting elements affecting "Historia" Button
+    t =     8.43s     Synthesize event
+    t =     8.72s     Wait for com.momentumia.nido to idle
+    t =     9.75s Waiting 5.0s for "Historia" NavigationBar to exist
+    t =    10.77s     Checking `Expect predicate `existsNoRetry == 1` for object "Historia" NavigationBar`
+    t =    10.77s         Checking existence of `"Historia" NavigationBar`
+    t =    10.85s Tap "history-day-picker" Button
+    t =    10.85s     Wait for com.momentumia.nido to idle
+    t =    10.85s     Find the "history-day-picker" Button
+    t =    10.89s     Check for interrupting elements affecting "history-day-picker" Button
+    t =    10.92s     Synthesize event
+    t =    11.21s     Wait for com.momentumia.nido to idle
+    t =    11.38s Waiting 3.0s for "Elegir día" NavigationBar to exist
+    t =    12.41s     Checking `Expect predicate `existsNoRetry == 1` for object "Elegir día" NavigationBar`
+    t =    12.42s         Checking existence of `"Elegir día" NavigationBar`
+    t =    12.58s Get all elements bound by index for: Descendants matching type ScrollView
+    t =    12.65s Find the ScrollView (Element at index 0)
+    t =    12.74s Find the "history-calendar-scroll" ScrollView
+    t =    12.81s Find the "history-calendar-scroll" ScrollView
+    t =    12.89s Find the "history-calendar-day-2026-07-15" Button
+    t =    13.99s     Find the "history-calendar-day-2026-07-15" Button (retry 1)
+    t =    15.11s     Find the "history-calendar-day-2026-07-15" Button (retry 2)
+    t =    15.22s Swipe down "history-calendar-scroll" ScrollView
+    t =    15.22s     Wait for com.momentumia.nido to idle
+    t =    15.23s     Find the "history-calendar-scroll" ScrollView
+    t =    15.30s     Check for interrupting elements affecting "history-calendar-scroll" ScrollView
+    t =    15.39s     Synthesize event
+    t =    15.83s     Wait for com.momentumia.nido to idle
+    t =    17.91s Find the "history-calendar-day-2026-07-15" Button
+    t =    19.02s     Find the "history-calendar-day-2026-07-15" Button (retry 1)
+    t =    20.14s     Find the "history-calendar-day-2026-07-15" Button (retry 2)
+    t =    20.27s Swipe down "history-calendar-scroll" ScrollView
+    t =    20.27s     Wait for com.momentumia.nido to idle
+    t =    20.27s     Find the "history-calendar-scroll" ScrollView
+    t =    20.35s     Check for interrupting elements affecting "history-calendar-scroll" ScrollView
+    t =    20.43s     Synthesize event
+    t =    20.87s     Wait for com.momentumia.nido to idle
+    t =    22.98s Find the "history-calendar-day-2026-07-15" Button
+    t =    24.10s     Find the "history-calendar-day-2026-07-15" Button (retry 1)
+    t =    25.21s     Find the "history-calendar-day-2026-07-15" Button (retry 2)
+    t =    25.31s Swipe down "history-calendar-scroll" ScrollView
+    t =    25.31s     Wait for com.momentumia.nido to idle
+    t =    25.31s     Find the "history-calendar-scroll" ScrollView
+    t =    25.38s     Check for interrupting elements affecting "history-calendar-scroll" ScrollView
+    t =    25.46s     Synthesize event
+    t =    25.89s     Wait for com.momentumia.nido to idle
+    t =    26.54s Find the "history-calendar-day-2026-07-15" Button
+    t =    26.66s Find the "history-calendar-day-2026-07-15" Button
+    t =    26.80s Find the "history-calendar-day-2026-07-15" Button
+    t =    26.91s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.02s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.13s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.23s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.33s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.44s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.55s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.65s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.75s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.86s Find the "history-calendar-day-2026-07-15" Button
+    t =    27.96s Waiting 3.0s for "history-calendar-day-2026-07-15" Button to exist
+    t =    29.02s     Checking `Expect predicate `existsNoRetry == 1` for object "history-calendar-day-2026-07-15" Button`
+    t =    29.02s         Checking existence of `"history-calendar-day-2026-07-15" Button`
+    t =    29.15s Find the "history-calendar-day-2026-07-15" Button
+    t =    29.25s Tap "history-calendar-day-2026-07-15" Button
+    t =    29.25s     Wait for com.momentumia.nido to idle
+    t =    29.25s     Find the "history-calendar-day-2026-07-15" Button
+    t =    29.35s     Check for interrupting elements affecting "history-calendar-day-2026-07-15" Button
+    t =    29.43s     Synthesize event
+    t =    29.72s     Wait for com.momentumia.nido to idle
+    t =    29.76s Waiting 5.0s for "Elegir día" NavigationBar to not exist
+    t =    30.81s     Checking `Expect predicate `existsNoRetry == 0` for object "Elegir día" NavigationBar`
+    t =    30.81s         Checking existence of `"Elegir día" NavigationBar`
+    t =    30.85s Get all elements bound by index for: Descendants matching type ScrollView
+    t =    30.88s Find the ScrollView (Element at index 0)
+    t =    30.91s Find the "history-week-strip" ScrollView
+    t =    30.94s Find the ScrollView (Element at index 1)
+    t =    30.99s Find the "history-detail-scroll" ScrollView
+    t =    31.02s Find the "history-detail-scroll" ScrollView
+    t =    31.05s Find the ScrollView (Element at index 2)
+    t =    31.09s Checking existence of `"history-detail-scroll" ScrollView`
+    t =    31.12s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    31.16s Swipe up "history-detail-scroll" ScrollView
+    t =    31.16s     Wait for com.momentumia.nido to idle
+    t =    31.16s     Find the "history-detail-scroll" ScrollView
+    t =    31.19s     Check for interrupting elements affecting "history-detail-scroll" ScrollView
+    t =    31.22s     Synthesize event
+    t =    31.67s     Wait for com.momentumia.nido to idle
+    t =    33.78s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    33.84s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    33.89s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    33.93s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    33.97s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.02s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.06s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.11s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.15s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.20s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.24s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.28s Find the "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button
+    t =    34.33s Waiting 5.0s for "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button to exist
+    t =    35.38s     Checking `Expect predicate `existsNoRetry == 1` for object "history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button`
+    t =    35.38s         Checking existence of `"history-entry-distinctive-oldest-entry-1ACD492E-3225-4CD3-B22C-7DB54C8E775E" Button`
+    t =    35.43s Get all elements bound by index for: Descendants matching type ScrollView
+    t =    35.45s Find the ScrollView (Element at index 0)
+    t =    35.49s Find the "history-week-strip" ScrollView
+    t =    35.52s Find the ScrollView (Element at index 1)
+    t =    35.56s Find the "history-detail-scroll" ScrollView
+    t =    35.59s Find the "history-detail-scroll" ScrollView
+    t =    35.62s Find the ScrollView (Element at index 2)
+    t =    35.65s Find the ScrollView at {{20.0, 563.0}, {362.0, 38.3}}
+    t =    35.68s Checking existence of `"history-detail-scroll" ScrollView`
+    t =    35.71s Find the "Más allá de la primera página" StaticText
+    t =    35.75s Find the "Más allá de la primera página" StaticText
+    t =    35.79s Find the "Más allá de la primera página" StaticText
+    t =    35.84s Find the "Más allá de la primera página" StaticText
+    t =    35.88s Find the "Más allá de la primera página" StaticText
+    t =    35.92s Find the "Más allá de la primera página" StaticText
+    t =    35.97s Find the "Más allá de la primera página" StaticText
+    t =    36.01s Find the "Más allá de la primera página" StaticText
+    t =    36.05s Find the "Más allá de la primera página" StaticText
+    t =    36.10s Find the "Más allá de la primera página" StaticText
+    t =    36.14s Find the "Más allá de la primera página" StaticText
+    t =    36.18s Find the "Más allá de la primera página" StaticText
+    t =    36.23s Find the "Más allá de la primera página" StaticText
+    t =    36.27s Checking existence of `"Más allá de la primera página" StaticText`
+    t =    36.32s Tear Down
+Test Case '-[NidoUITests.NidoUITests testRealBackendHistoryLoadsAndDisplaysAnEntryBeyondTheFirstFiveHundred]' passed (36.749 seconds).
+Test Suite 'NidoUITests' passed at 2026-10-17 20:21:56.989.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 97.785 (97.787) seconds
+Test Suite 'NidoUITests.xctest' passed at 2026-10-17 20:21:56.989.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 97.785 (97.788) seconds
+Test Suite 'Selected tests' passed at 2026-10-17 20:21:56.989.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 97.785 (97.788) seconds
+2026-10-17 20:21:57.317 xcodebuild[39812:7247978] [MT] IDETestOperationsObserverDebug: 100.012 elapsed -- Testing started completed.
+2026-10-17 20:21:57.317 xcodebuild[39812:7247978] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-17 20:21:57.317 xcodebuild[39812:7247978] [MT] IDETestOperationsObserverDebug: 100.012 sec, +100.012 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/nido-fullgate-shard-0-api-retry-2026-10-17.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

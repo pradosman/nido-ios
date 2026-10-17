@@ -1,0 +1,10 @@
+$ node --test tests/legal-pages.contract.test.mjs
+✔ privacy page is unavailable until real controller and support email are configured (517.0605ms)
+✔ privacy page publishes the declared data practices and safely encodes contact links (0.75325ms)
+✔ support page is public, safely links to the configured contact, and reflects no auth data (1.31175ms)
+✔ legal pages fail closed for invalid contact configuration (0.380042ms)
+✔ legal pages do not publish reserved example addresses or placeholder identities (1.099083ms)
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ duration_ms 930.715042

@@ -1,0 +1,11 @@
+# Verificación de las páginas legales
+
+Las rutas públicas `/api/nido/legal/privacy` y `/api/nido/legal/support` generan HTML en español sin autenticación. Devuelven `503` y `Cache-Control: no-store` si falta el nombre real de la persona o entidad responsable, el email de soporte no es válido, o los valores contienen marcadores habituales de ejemplo. Con valores válidos devuelven `200`, `text/html; charset=utf-8` y `Cache-Control: no-store`.
+
+La política describe únicamente los datos y comportamientos confirmados para Nido: nombres de cuidadores y bebé, fecha de nacimiento, registros con notas de salud, identificadores de cuenta/sesión, acceso con Apple, API autogestionada, ausencia de publicidad/seguimiento publicitario, eliminación por propietario e integrante, registros compartidos sin atribución al integrante eliminado y exportación iniciada desde las opciones disponibles en la aplicación. No fija plazos de conservación ni promete prácticas de seguridad o de terceros que no se hayan verificado.
+
+La prueba contractual se escribió antes de las rutas. El primer rojo fue `404` frente al `503`/`200` esperado porque las rutas todavía no existían; evidencia: [privacy-pages-contract-red.log](privacy-pages-contract-red.log). Después de añadir las rutas, una prueba detectó que el email de la política no codificaba `+`, `?` y `&` en el destino `mailto:`; evidencia: [privacy-pages-mailto-red.log](privacy-pages-mailto-red.log). Se corrigió el destino y se volvió a ejecutar la prueba: 5/5 pasaron; evidencia: [privacy-pages-contract-green.log](privacy-pages-contract-green.log).
+
+ESLint se ejecutó sobre las cinco unidades nuevas y terminó con código 0, sin diagnósticos. No se ejecutaron aquí la compilación ni la suite completa; quedan para la validación integrada. El estado de revisión operativa y jurídica sigue pendiente.
+
+El editor David Prados Mancilla confirmó que su nombre y `pradosman@gmail.com` son el nombre público del responsable/editor y el contacto de soporte. Compose los aplica como valores públicos predeterminados del servicio `nido`, y permite reemplazarlos mediante variables de entorno. Si el proceso de la aplicación se inicia sin estos valores, las rutas siguen fallando de forma cerrada con `503`.

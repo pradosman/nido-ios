@@ -1,0 +1,40 @@
+✔ the phase plan covers every baseline once and splits only the three mixed cases (1.390333ms)
+✔ the planner rejects a duplicated or incomplete baseline rather than silently dropping coverage (0.213709ms)
+✔ each appearance is verified before its phase starts and the original mode is restored (0.120625ms)
+✔ a phase failure stops later phases, propagates the error, and restores the original mode (0.137ms)
+✔ a rejected appearance preset prevents the test phase from starting (0.075917ms)
+✖ a phase failure is reported when simulator appearance cleanup cannot restore the original mode (0.3155ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38.907125
+
+✖ failing tests:
+
+test at ios/Nido/Scripts/appearance-phase-plan.test.mjs:93:1
+✖ a phase failure is reported when simulator appearance cleanup cannot restore the original mode (0.3155ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /could not restore original simulator appearance dark/. Input:
+  
+  'Error: xcodebuild failed'
+  
+      at async TestContext.<anonymous> (file:///Users/pradosman/Documents/ChatGPT/App%20Marco/ios/Nido/Scripts/appearance-phase-plan.test.mjs:95:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: xcodebuild failed
+        at runPhase (file:///Users/pradosman/Documents/ChatGPT/App%20Marco/ios/Nido/Scripts/appearance-phase-plan.test.mjs:100:35)
+        at runAppearancePhases (file:///Users/pradosman/Documents/ChatGPT/App%20Marco/ios/Nido/Scripts/appearance-phase-plan.mjs:119:13)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///Users/pradosman/Documents/ChatGPT/App%20Marco/ios/Nido/Scripts/appearance-phase-plan.test.mjs:95:3)
+        at async Test.run (node:internal/test_runner/test:1389:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:960:7),
+    expected: /could not restore original simulator appearance dark/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

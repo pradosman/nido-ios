@@ -1,0 +1,11 @@
+$ node --test tests/legal-pages.contract.test.mjs
+✖ privacy page is unavailable until real controller and support email are configured
+✖ privacy page publishes the declared data practices and safely encodes contact links
+✖ support page is public, safely links to the configured contact, and reflects no auth data
+✖ legal pages fail closed for invalid contact configuration
+✖ legal pages do not publish reserved example addresses or placeholder identities
+ℹ tests 5
+ℹ pass 0
+ℹ fail 5
+
+First failure: Expected status 503, actual status 404. The legal route files had not yet been added.

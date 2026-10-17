@@ -1,0 +1,5 @@
+Temporary XCTest query matched CredentialStore's generic-password service/account/update/add flow, with a unique service identifier and cleanup.
+SecItemUpdate status: -34018 (errSecMissingEntitlement)
+SecItemAdd status: -34018 (errSecMissingEntitlement)
+The temporary diagnostic method was removed before the signed snapshot rerun. No CredentialStore production code was changed.
+Signed simulator rerun: 7/7 AccountDeletionSessionFenceTests passed; full Snapshot target 43/43 passed with CODE_SIGN_IDENTITY=-.

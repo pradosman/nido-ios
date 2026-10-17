@@ -1,11 +1,20 @@
 # Estrategia de pruebas de Nido para iPhone
 
+## Actualización del 17 de octubre de 2026
+
+La rama premium tiene una pasada de 167 métodos nativos aprobados sin omisiones: 111 UI claros, 3 integraciones HTTP con PostgreSQL aislado, 43 Snapshot y 10 UI oscuros. Los contratos del ejecutor aprobaron 20/20. Las dos auditorías nativas completas de contraste están resueltas; el modo oscuro se acredita con píxeles de la captura real. El [cierre de contraste y apariencia](contrast-appearance-closeout-2026-10-17/validation.md) conserva resultados, incidencias intermitentes y las instrucciones reproducibles con el esquema `NidoAppearanceValidation`.
+
+El estado del 8 de octubre que sigue se conserva como historial; sus recuentos y omisiones no describen la pasada premium actual. La validación física y la identidad real con Apple siguen pendientes y no se sustituyen con sesiones sintéticas.
+
 ## Estado verificado (8 de octubre de 2026)
 
-La aplicación cuenta con dos capas automatizadas:
+La aplicación cuenta con pruebas automatizadas, pero la evidencia más reciente no cubre todos los dispositivos ni las integraciones reales:
 
-- 115 pruebas del paquete Swift superadas en la última ejecución completa registrada tras las correcciones del timeline y de las pruebas de interfaz. Se usó un directorio de compilación aislado tras un error en la base de compilación local del repositorio. Cubren modelos, métricas, formularios, caché, copias de seguridad y contratos HTTP, entre otras áreas.
-- 41 pruebas de interfaz XCTest en cada simulador aislado, iPhone SE (3.ª generación) e iPhone 17 Pro: 38 superadas, 0 fallidas y 3 omitidas por requerir credenciales en cada dispositivo. Resultados: `/tmp/nido-au12b-full-se.xcresult` y `/tmp/nido-au12b-full-pro.xcresult`, después del commit `73e0e1c`. Incluyen navegación, registro, edición, controles compactos y cancelación de una restauración sintética.
+- Paquete Swift (8 de octubre de 2026): 116 pruebas superadas en 15 suites desde la copia de fuentes de AU27 cotejada por SHA-256, con directorio de compilación aislado. No es una ejecución nueva desde el árbol de trabajo activo.
+- Esquema completo en iPhone 17 Pro (8 de octubre de 2026, iOS 26.5): 54 pruebas totales, 49 superadas, 5 omitidas y 0 fallidas (`/tmp/au27-ui-full.6lVdIv/results/iphone17pro-full-scheme.xcresult`). El destino UI ejecutó 52 pruebas; las omisiones incluyen dos diagnósticos nativos `.all` optativos y tres casos que requieren credenciales. Una omisión no equivale a una aprobación.
+- iPhone SE (3.ª generación), suite completa corregida (8 de octubre de 2026, iOS 26.5): 52 pruebas totales, 46 superadas, 6 omitidas y 0 fallidas (`/tmp/au27-ui-full.6lVdIv/results/iphone-se3-full-latest.xcresult`). El resultado confirma el modelo `iPhone SE (3rd generation)`. Las omisiones fueron 3 pruebas de backend real que requieren credenciales, 2 diagnósticos `.all` optativos sin filtrar y 1 prueba de hit regions en modo oscuro porque no se pudo confirmar el renderizado oscuro. La comprobación enfocada anterior pasó 2/2 (`/tmp/au27-ui-full.6lVdIv/results/iphone-se3-focused.xcresult`).
+- La ejecución completa SE3 anterior fue una RED y no debe citarse como aprobada: 52 pruebas, 45 superadas, 2 fallidas y 5 omitidas (`/tmp/au27-ui-full.6lVdIv/results/se3.xcresult`). Las dos fallas detectaron problemas del arnés de prueba antes de su corrección.
+- Como antecedente histórico posterior al commit `73e0e1c`, las ejecuciones del 8 de octubre a las 00:42 CEST (iPhone SE 3.ª generación) y 00:49 CEST (iPhone 17 Pro) registraron 41 pruebas cada una, con 38 superadas, 3 omitidas por credenciales y 0 fallidas (`/tmp/nido-au12b-full-se.xcresult` y `/tmp/nido-au12b-full-pro.xcresult`). Esos recuentos son anteriores a AU27 y no resuelven la suite completa SE3.
 - 2 pruebas de snapshots existentes superadas; inspección visual de las 12 presentaciones modales; compilación del esquema `Nido` para el simulador superada.
 - 18 pruebas de contratos y sesión de la API superadas en un proceso local sintético, sin variables de conexión ni servicio desplegado. Por separado, las migraciones y el contrato con PostgreSQL real superaron una ejecución local aislada; no se conservó el recuento TAP individual de esa prueba.
 
@@ -39,12 +48,16 @@ xcodebuild test \
   -scheme Nido \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:NidoUITests \
-  CODE_SIGNING_ALLOWED=NO
+  CODE_SIGN_IDENTITY=-
 ```
 
 También pueden ejecutarse desde Xcode con `⌘U` usando el esquema **Nido**.
 
-Las 3 pruebas omitidas en cada simulador requieren credenciales y un backend reales; un resultado verde en el simulador no equivale a haber comprobado esos recorridos. El ensayo de medicación con teclado a tamaños Large y XXXL pasó 2/2 en una comprobación temporal aislada: dosis y notas eran alcanzables mediante desplazamiento dentro del formulario. Esa comprobación no se incorporó a la suite del repositorio.
+La firma ad hoc del simulador permite que las pruebas que usan el llavero real conserven sus permisos. Desactivar la firma con `CODE_SIGNING_ALLOWED=NO` produjo `errSecMissingEntitlement` y cinco fallos de preparación de sesiones; el mismo target Snapshot pasó 43/43 con firma habilitada.
+
+Los tres recorridos que antes se omitían por credenciales ya se ejecutaron con sesiones sintéticas de Nido, HTTP local y PostgreSQL aislado: 3/3 aprobados. Esto verifica el contrato de Nido y no sustituye una autenticación real con Apple. El [cierre de simuladores](simulator-closeout-2026-10-17/validation.md) conserva el historial de resultados y las auditorías de accesibilidad sin filtros. El ajuste posterior de «Ver todo» a `.body` pasó las dos auditorías completas clara y oscura; la evidencia y la comprobación de apariencia se recogen en [el cierre de contraste y apariencia](contrast-appearance-closeout-2026-10-17/validation.md).
+
+El ensayo de medicación con teclado a tamaños Large y XXXL pasó 2/2 en una comprobación temporal aislada: dosis y notas eran alcanzables mediante desplazamiento dentro del formulario. Esa comprobación no se incorporó a la suite del repositorio.
 
 ### Contratos locales de API
 
@@ -84,5 +97,7 @@ Antes de afirmar que la versión está lista para producción, falta verificar y
 - persistencia de credenciales en Keychain tras reinstalaciones y cambios de firma;
 - invitación de otro familiar y sincronización entre dos dispositivos contra la API real;
 - funcionamiento sin conexión, reconexión y resolución de cambios pendientes.
+
+Aunque la suite completa SE3 pasó, sus seis omisiones siguen sin verificarse y la pasada no demuestra que el modo oscuro se haya renderizado correctamente. Tampoco hay evidencia de navegación real con VoiceOver, de los estados tintado/transparente de widgets, de un iPhone físico ni de API desplegada o identidad Apple real; el diagnóstico `.all` permanece abierto.
 
 La restauración sintética en simulador sí comprobó que «Cancelar» es visible, cierra la alerta y conserva los dos registros originales; no ejecutó «Restaurar». La captura de una Live Activity sintética de más de diez horas comprobó segundos completos en Dynamic Island y legibilidad en modo oscuro, pero no sustituye las verificaciones de dispositivo, servidor y accesibilidad anteriores. Los contratos locales de API y PostgreSQL anteriores tampoco constituyen una ejecución de integración con el servicio real en esta pasada.

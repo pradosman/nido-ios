@@ -1,0 +1,58 @@
+{
+  "light-1": {
+    "result": "Passed",
+    "totalTestCount": 37,
+    "passedTests": 37,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  },
+  "light-2": {
+    "result": "Passed",
+    "totalTestCount": 37,
+    "passedTests": 37,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  },
+  "light-3": {
+    "result": "Passed",
+    "totalTestCount": 37,
+    "passedTests": 37,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  },
+  "local-api-qa": {
+    "result": "Passed",
+    "totalTestCount": 3,
+    "passedTests": 3,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  },
+  "snapshots": {
+    "result": "Passed",
+    "totalTestCount": 43,
+    "passedTests": 43,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  },
+  "dark-ui": {
+    "result": "Passed",
+    "totalTestCount": 10,
+    "passedTests": 10,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  },
+  "contrast-body-recheck": {
+    "result": "Passed",
+    "totalTestCount": 2,
+    "passedTests": 2,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "expectedFailures": 0
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "configurations": [
+    {
+      "id": "D0333839-9B73-47D4-97B0-FC13C80C8E43",
+      "name": "Opt In",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "environmentVariableEntries": [
+      {
+        "key": "NIDO_RUN_NATIVE_ACCESSIBILITY_AUDIT",
+        "value": "1"
+      },
+      {
+        "key": "NIDO_AUDIT_SCROLL_ACTIVITY_CAPTION",
+        "value": "1"
+      },
+      {
+        "key": "NIDO_WIDGET_GALLERY_TEST",
+        "value": "1"
+      },
+      {
+        "key": "TEST_RUNNER_NIDO_WIDGET_GALLERY_TEST",
+        "value": "1"
+      },
+      {
+        "key": "TEST_RUNNER_NIDO_WIDGET_APPEARANCE_TEST",
+        "value": "1"
+      }
+    ]
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Nido.xcodeproj",
+        "identifier": "666666666666666666666668",
+        "name": "NidoUITests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Nido.xcodeproj",
+        "identifier": "F99999999999999999999999",
+        "name": "NidoSnapshotTests"
+      }
+    }
+  ],
+  "version": 1
+}

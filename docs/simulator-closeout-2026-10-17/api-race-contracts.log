@@ -1,0 +1,14 @@
+✔ baby care rejects a write when caregiver membership is revoked after authorization (933.082708ms)
+✔ baby care state is authenticated, household shared, role guarded and revision checked (615.610541ms)
+✔ baby care rejects malformed dates, duplicate IDs, unbounded values and incomplete measurements (492.612875ms)
+✔ stale caregiver growth writes conflict with owner goal edits and rebase cleanly (484.008917ms)
+✔ active sleep is shared by household and stale finish cannot clear a newer sleep (946.126708ms)
+✔ active sleep rejects a write when caregiver membership is removed after authorization (580.427833ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2879.775416

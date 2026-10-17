@@ -1,0 +1,48 @@
+✖ baby care rejects a write when caregiver membership is revoked after authorization (955.590083ms)
+✖ active sleep rejects a write when caregiver membership is removed after authorization (958.827459ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1310.1095
+
+✖ failing tests:
+
+test at tests/baby-care.contract.test.mjs:20:1
+✖ baby care rejects a write when caregiver membership is revoked after authorization (955.590083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 403
+  
+      at file:///private/var/folders/s3/2n7g330n7jq18yr7ts85tjsh0000gn/T/nido-backend-validation-q5rdf34g/tests/baby-care.contract.test.mjs:65:12
+      at async withRouteDatabase (file:///private/var/folders/s3/2n7g330n7jq18yr7ts85tjsh0000gn/T/nido-backend-validation-q5rdf34g/tests/support/nido-route-harness.mjs:45:5)
+      at async TestContext.<anonymous> (file:///private/var/folders/s3/2n7g330n7jq18yr7ts85tjsh0000gn/T/nido-backend-validation-q5rdf34g/tests/baby-care.contract.test.mjs:21:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/sleep.contract.test.mjs:121:1
+✖ active sleep rejects a write when caregiver membership is removed after authorization (958.827459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 403
+  
+      at TestContext.<anonymous> (file:///private/var/folders/s3/2n7g330n7jq18yr7ts85tjsh0000gn/T/nido-backend-validation-q5rdf34g/tests/sleep.contract.test.mjs:135:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
