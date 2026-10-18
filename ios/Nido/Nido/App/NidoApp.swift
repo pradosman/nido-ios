@@ -155,6 +155,10 @@ struct NidoApp: App {
                 .task {
                     #if DEBUG
                     if let uiTestScenario {
+                        if uiTestScenario == "live-activity-cleanup" {
+                            await NidoLiveActivity.endAll()
+                            return
+                        }
                         await store.prepareForUITesting(scenario: uiTestScenario)
                         if uiTestScenario == "live-activity-ten-hour-sleep" {
                             await NidoLiveActivity.endAll()
@@ -162,6 +166,13 @@ struct NidoApp: App {
                                 kind: "sleep",
                                 babyName: "Test",
                                 startedAt: .now.addingTimeInterval(-10 * 60 * 60)
+                            )
+                        } else if uiTestScenario == "live-activity-ten-minute-feed" {
+                            await NidoLiveActivity.endAll()
+                            NidoLiveActivity.start(
+                                kind: "feed",
+                                babyName: "Test",
+                                startedAt: .now.addingTimeInterval(-600)
                             )
                         }
                         return

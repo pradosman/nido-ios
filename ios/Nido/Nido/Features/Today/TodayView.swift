@@ -145,7 +145,15 @@ struct TodayView: View {
     private func selectedRecord(_ item: CircularTimeline.Item) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Label(item.entry.title, systemImage: item.entry.kind.symbolName)
+                Label {
+                    Text(item.entry.title)
+                } icon: {
+                    CareCategoryIcon(
+                        category: item.entry.kind.careCategory,
+                        size: 16,
+                        tint: NidoTheme.color(for: item.entry.kind)
+                    )
+                }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(NidoTheme.color(for: item.entry.kind))
                 Spacer(minLength: 8)

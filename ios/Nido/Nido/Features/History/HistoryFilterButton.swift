@@ -10,7 +10,11 @@ struct HistoryFilterButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let kind {
-                    Image(systemName: kind.symbolName).symbolRenderingMode(.hierarchical)
+                    CareCategoryIcon(
+                        category: kind.careCategory,
+                        size: 15,
+                        tint: isSelected ? NidoTheme.textOnMoss : NidoTheme.color(for: kind)
+                    )
                 }
                 Text(title)
             }

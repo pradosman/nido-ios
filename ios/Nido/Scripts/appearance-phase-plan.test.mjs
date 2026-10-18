@@ -14,22 +14,85 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const ledger = JSON.parse(readFileSync(resolve(here, 'appearance-test-baseline.json'), 'utf8'));
 
+test('the phase ledger includes the palette, glyph, widget and native menu regression checks', () => {
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  const required = [
+    'NidoSnapshotTests/SettingsContrastTests/testChartAccentsUseTheNidoPaletteInSRGB',
+    'NidoSnapshotTests/SettingsContrastTests/testStaticCategoryColorsMatchSmallTextPaletteInEveryAppearance',
+    'NidoSnapshotTests/SettingsContrastTests/testCareCategoryGlyphsKeepShortcutFallbackSeparate',
+    'NidoSnapshotTests/SettingsContrastTests/testCategorySmallTextInksMeetContrastForEveryAppearance',
+    'NidoSnapshotTests/NidoDayWidgetContentTests/testLegacyWidgetSnapshotPayloadDecodesWithoutNewGoalFields',
+    'NidoSnapshotTests/NidoDayWidgetContentTests/testWidgetSnapshotKeepsTheV1PayloadKeysAndValues',
+    'NidoSnapshotTests/NidoDayWidgetContentTests/testSmallAndMediumWidgetsRenderAllCareCategoryLabels',
+    'NidoSnapshotTests/CareCategoryIconTests/testDiaperGlyphIsVisuallyDistinctFromItsShortcutDropletFallback',
+    'NidoUITests/NidoUITests/testRegistrationMenuShowsTheDiaperActionForVisualGlyphReview',
+    'NidoUITests/NidoUITests/testTenMinuteFeedActivityAppearsOnDynamicIsland',
+  ];
+  for (const identifier of required) {
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing regression case: ${identifier}`);
+    assert.deepEqual(plan.originalToExecutions.get(identifier), [identifier]);
+  }
+});
+
 test('the phase plan covers every baseline once and splits only the three mixed cases', () => {
   const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
-  assert.equal(plan.baselineCount, 164);
-  assert.equal(plan.executionCount, 167);
+  assert.equal(plan.baselineCount, 174);
+  assert.equal(plan.executionCount, 177);
   assert.deepEqual(plan.phases.map(({ name }) => name), ['light-ui', 'local-api-ui', 'snapshots', 'dark-ui']);
-  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [111, 3, 43, 10]);
+  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [113, 3, 51, 10]);
 
   const phaseIDs = plan.phases.flatMap(({ identifiers }) => identifiers);
-  assert.equal(new Set(phaseIDs).size, 167);
-  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 43);
+  assert.equal(new Set(phaseIDs).size, 177);
+  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 51);
   assert.deepEqual(plan.phases[1].identifiers, [...API_TESTS]);
   assert.deepEqual(plan.phases[3].identifiers.slice(0, 7), [...DARK_ONLY_TESTS]);
 
   for (const [baselineID, split] of Object.entries(MIXED_APPEARANCE_TESTS)) {
     assert.deepEqual(plan.originalToExecutions.get(baselineID), [split.light, split.dark]);
   }
+});
+
+test('Reduce Motion is enabled only for Snapshot and normal UI retains the initial setting', async () => {
+  let appearance = 'light';
+  let reduceMotion = false;
+  const observed = [];
+  await runAppearancePhases(['light-ui', 'local-api-ui', 'snapshots', 'dark-ui'].map((name) => ({
+    name, appearance: name === 'dark-ui' ? 'dark' : 'light',
+  })), {
+    getAppearance: async () => appearance,
+    setAppearance: async (value) => { appearance = value; },
+    getReduceMotion: async () => reduceMotion,
+    setReduceMotion: async (value) => { reduceMotion = value; },
+    runPhase: async ({ name }) => { observed.push([name, reduceMotion]); },
+  });
+  assert.deepEqual(observed, [
+    ['light-ui', false], ['local-api-ui', false], ['snapshots', true], ['dark-ui', false],
+  ]);
+  assert.equal(reduceMotion, false);
+});
+
+test('a Snapshot failure restores the original Reduce Motion setting', async () => {
+  let reduceMotion = false;
+  await assert.rejects(runAppearancePhases([{ name: 'snapshots', appearance: 'light' }], {
+    getAppearance: async () => 'light',
+    setAppearance: async () => {},
+    getReduceMotion: async () => reduceMotion,
+    setReduceMotion: async (value) => { reduceMotion = value; },
+    runPhase: async () => { reduceMotion = true; throw new Error('Snapshot failed'); },
+  }), /Snapshot failed/);
+  assert.equal(reduceMotion, false);
+});
+
+test('a rejected Reduce Motion preset prevents Snapshot from starting', async () => {
+  let started = false;
+  await assert.rejects(runAppearancePhases([{ name: 'snapshots', appearance: 'light' }], {
+    getAppearance: async () => 'light',
+    setAppearance: async () => {},
+    getReduceMotion: async () => false,
+    setReduceMotion: async () => {},
+    runPhase: async () => { started = true; },
+  }), /Reduce Motion/);
+  assert.equal(started, false);
 });
 
 test('the planner rejects a duplicated or incomplete baseline rather than silently dropping coverage', () => {
@@ -39,7 +102,7 @@ test('the planner rejects a duplicated or incomplete baseline rather than silent
   );
   assert.throws(
     () => buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers.slice(1)),
-    /Expected the 164-test baseline ledger/
+    /Expected the 174-test baseline ledger/
   );
 });
 

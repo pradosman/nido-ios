@@ -39,7 +39,7 @@ export function buildAppearancePhasePlan(baselineIdentifiers) {
   assert(Array.isArray(baselineIdentifiers), 'Baseline identifiers must be an array.');
   const baseline = baselineIdentifiers.map((identifier) => String(identifier).trim()).filter(Boolean);
   assert(baseline.length === new Set(baseline).size, 'Baseline identifiers must not contain duplicates.');
-  assert(baseline.length === 164, `Expected the 164-test baseline ledger, received ${baseline.length}.`);
+  assert(baseline.length === 174, `Expected the 174-test baseline ledger, received ${baseline.length}.`);
 
   const baselineSet = new Set(baseline);
   const splitNames = new Set(Object.keys(MIXED_APPEARANCE_TESTS));
@@ -82,12 +82,12 @@ export function buildAppearancePhasePlan(baselineIdentifiers) {
 
   const phaseIDs = [...lightUI, ...apiUI, ...snapshots, ...darkUI];
   assert(phaseIDs.length === new Set(phaseIDs).size, 'Phase selector lists overlap or contain duplicates.');
-  assert(lightUI.length === 111, `Expected 111 non-API Light UI cases, got ${lightUI.length}.`);
+  assert(lightUI.length === 113, `Expected 113 non-API Light UI cases, got ${lightUI.length}.`);
   assert(apiUI.length === 3, `Expected 3 API UI cases, got ${apiUI.length}.`);
-  assert(snapshots.length === 43, `Expected 43 Snapshot cases, got ${snapshots.length}.`);
+  assert(snapshots.length === 51, `Expected 51 Snapshot cases, got ${snapshots.length}.`);
   assert(darkUI.length === 10, `Expected 10 Dark UI cases, got ${darkUI.length}.`);
-  assert(phaseIDs.length === 167, `Expected 167 phase executions, got ${phaseIDs.length}.`);
-  assert(originalToExecutions.size === 164, 'Every baseline test must map to a phase execution.');
+  assert(phaseIDs.length === 177, `Expected 177 phase executions, got ${phaseIDs.length}.`);
+  assert(originalToExecutions.size === 174, 'Every baseline test must map to a phase execution.');
 
   return Object.freeze({
     baselineCount: baseline.length,
@@ -108,19 +108,36 @@ export function readBaselineLedger(path) {
   return parsed.baselineUniqueTestIdentifiers;
 }
 
-export async function runAppearancePhases(phases, { getAppearance, setAppearance, runPhase }) {
+export async function runAppearancePhases(phases, { getAppearance, setAppearance, getReduceMotion, setReduceMotion, runPhase }) {
   const initial = await getAppearance();
   assert(initial === 'light' || initial === 'dark', `Cannot restore unknown simulator appearance: ${initial}`);
+  const controlsMotion = getReduceMotion !== undefined || setReduceMotion !== undefined;
+  assert(!controlsMotion || (typeof getReduceMotion === 'function' && typeof setReduceMotion === 'function'),
+    'Reduce Motion requires both read and write hooks.');
+  const initialMotion = controlsMotion ? await getReduceMotion() : undefined;
+  assert(!controlsMotion || typeof initialMotion === 'boolean', 'Cannot restore unknown Reduce Motion state.');
   try {
     for (const phase of phases) {
       await setAppearance(phase.appearance);
       const observed = await getAppearance();
       assert(observed === phase.appearance, `Simulator did not enter ${phase.appearance} before ${phase.name}; observed ${observed}.`);
+      if (controlsMotion) {
+        const requiredMotion = phase.name === 'snapshots' ? true : initialMotion;
+        if (await getReduceMotion() !== requiredMotion) await setReduceMotion(requiredMotion);
+        assert(await getReduceMotion() === requiredMotion, `Reduce Motion preset was not applied before ${phase.name}.`);
+      }
       await runPhase(phase);
     }
   } finally {
-    if (await getAppearance() !== initial) await setAppearance(initial);
-    const restored = await getAppearance();
-    assert(restored === initial, `Could not restore original simulator appearance ${initial}; observed ${restored}.`);
+    try {
+      if (await getAppearance() !== initial) await setAppearance(initial);
+      const restored = await getAppearance();
+      assert(restored === initial, `Could not restore original simulator appearance ${initial}; observed ${restored}.`);
+    } finally {
+      if (controlsMotion) {
+        if (await getReduceMotion() !== initialMotion) await setReduceMotion(initialMotion);
+        assert(await getReduceMotion() === initialMotion, 'Could not restore original Reduce Motion state.');
+      }
+    }
   }
 }

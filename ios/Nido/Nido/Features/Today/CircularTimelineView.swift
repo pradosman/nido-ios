@@ -251,9 +251,11 @@ struct CircularTimelineDayView: View {
                         height: selectedEntryID == item.entry.id ? visualDiameter + 4 : visualDiameter
                     )
                     .overlay {
-                        Image(systemName: item.entry.kind.symbolName)
-                            .font(.system(size: visualDiameter * 0.48, weight: .semibold))
-                            .foregroundStyle(NidoTheme.textOnEvent)
+                        CareCategoryIcon(
+                            category: item.entry.kind.careCategory,
+                            size: visualDiameter * 0.48,
+                            tint: NidoTheme.textOnEvent
+                        )
                     }
                     .overlay {
                         Circle().stroke(
@@ -400,10 +402,12 @@ private struct ExpandedTimelineCluster: View {
                             onClose()
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: item.entry.kind.symbolName)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(NidoTheme.color(for: item.entry.kind))
-                                    .frame(width: 24)
+                                CareCategoryIcon(
+                                    category: item.entry.kind.careCategory,
+                                    size: 15,
+                                    tint: NidoTheme.color(for: item.entry.kind)
+                                )
+                                .frame(width: 24)
                                 Text(item.entry.title)
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(NidoTheme.ink)
@@ -518,7 +522,7 @@ private struct SleepArc: View {
                 strokeWidth: strokeWidth
             )
             let endAngle = Double(arc.endFraction) * 2 * .pi - .pi / 2
-            let highlight = contrast == .increased ? NidoTheme.sleep : endColor
+            let highlight = contrast == .increased ? NidoTheme.chartAccent(for: .sleep) : endColor
 
             ZStack {
                 Circle()
@@ -526,7 +530,7 @@ private struct SleepArc: View {
                     .stroke(
                         AngularGradient(
                             colors: contrast == .increased
-                                ? [NidoTheme.sleep, NidoTheme.sleep]
+                                ? [NidoTheme.chartAccent(for: .sleep), NidoTheme.chartAccent(for: .sleep)]
                                 : [startColor, endColor],
                             center: .center,
                             startAngle: .degrees(Double(arc.startFraction) * 360),
@@ -556,11 +560,11 @@ private struct SleepArc: View {
     }
 
     private var startColor: Color {
-        Color(.displayP3, red: 224.0 / 255, green: 58.0 / 255, blue: 94.0 / 255)
+        NidoTheme.chartAccent(for: .sleep)
     }
 
     private var endColor: Color {
-        Color(.displayP3, red: 233.0 / 255, green: 71.0 / 255, blue: 131.0 / 255)
+        NidoTheme.chartAccent(for: .sleep)
     }
 }
 
@@ -612,8 +616,7 @@ private struct TimelineDayTotals: View {
             Label {
                 Text(title)
             } icon: {
-                Image(systemName: kind.symbolName)
-                    .foregroundStyle(NidoTheme.chartAccent(for: kind))
+                CareCategoryIcon(category: kind.careCategory, size: 14, tint: NidoTheme.color(for: kind))
             }
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
@@ -652,8 +655,7 @@ struct TimelineCareSummary: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: EntryKind.health.symbolName)
-                .font(.caption.weight(.semibold))
+            CareCategoryIcon(category: EntryKind.health.careCategory, size: 13, tint: NidoTheme.color(for: .health))
             Text(count == 1 ? "1 cuidado" : "\(count) cuidados")
                 .font(.caption.weight(.medium))
         }
@@ -715,9 +717,11 @@ private struct TimelineCategoryLegend: View {
 
     private func compactLegendColumn(_ lane: TimelineLane) -> some View {
         VStack(spacing: 2) {
-            Image(systemName: lane.kind.symbolName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(NidoTheme.color(for: lane.kind))
+            CareCategoryIcon(
+                category: lane.kind.careCategory,
+                size: 13,
+                tint: NidoTheme.color(for: lane.kind)
+            )
             Text(lane.title)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(NidoTheme.ink)
@@ -733,7 +737,15 @@ private struct TimelineCategoryLegend: View {
 
     private func accessibilityLegendRow(_ lane: TimelineLane) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label(lane.title, systemImage: lane.kind.symbolName)
+            Label {
+                Text(lane.title)
+            } icon: {
+                CareCategoryIcon(
+                    category: lane.kind.careCategory,
+                    size: 17,
+                    tint: NidoTheme.color(for: lane.kind)
+                )
+            }
                 .font(.body.weight(.semibold))
                 .foregroundStyle(NidoTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
@@ -829,32 +841,7 @@ private struct DialCenterContent: View {
 
 private struct TimelineNestMark: View {
     var body: some View {
-        Canvas { context, size in
-            let unit = min(size.width, size.height)
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-
-            var crescent = Path()
-            crescent.addEllipse(in: CGRect(x: center.x - unit * 0.19, y: center.y - unit * 0.27, width: unit * 0.40, height: unit * 0.40))
-            crescent.addEllipse(in: CGRect(x: center.x - unit * 0.07, y: center.y - unit * 0.32, width: unit * 0.36, height: unit * 0.36))
-            context.fill(crescent, with: .color(NidoTheme.moss), style: FillStyle(eoFill: true))
-
-            for radius in [unit * 0.24, unit * 0.34] {
-                var nest = Path()
-                nest.addArc(
-                    center: CGPoint(x: center.x, y: center.y + unit * 0.03),
-                    radius: radius,
-                    startAngle: .degrees(28),
-                    endAngle: .degrees(152),
-                    clockwise: false
-                )
-                context.stroke(
-                    nest,
-                    with: .color(NidoTheme.moss.opacity(radius > unit * 0.3 ? 0.58 : 0.82)),
-                    style: StrokeStyle(lineWidth: max(1, unit * 0.05), lineCap: .round)
-                )
-            }
-        }
-        .accessibilityHidden(true)
+        NidoBrandSymbol(tint: NidoTheme.moss)
     }
 }
 
@@ -867,8 +854,7 @@ private struct AccessibilityTimelineDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: symbolName)
-                    .foregroundStyle(color)
+                categoryIcon
                     .frame(width: 32, height: 44)
                 Text(title)
                     .font(.headline)
@@ -912,9 +898,16 @@ private struct AccessibilityTimelineDetail: View {
         return [moment, item.entry.summary].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
-    private var symbolName: String {
-        if let item { return item.entry.kind.symbolName }
-        return isSleeping ? EntryKind.sleep.symbolName : "ellipsis"
+    @ViewBuilder
+    private var categoryIcon: some View {
+        if let item {
+            CareCategoryIcon(category: item.entry.kind.careCategory, size: 20, tint: color)
+        } else if isSleeping {
+            CareCategoryIcon(category: EntryKind.sleep.careCategory, size: 20, tint: color)
+        } else {
+            Image(systemName: "ellipsis")
+                .foregroundStyle(color)
+        }
     }
 
     private var color: Color {

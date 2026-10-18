@@ -1,4 +1,5 @@
 import XCTest
+import Vision
 
 @MainActor
 final class NidoUITests: XCTestCase {
@@ -33,6 +34,98 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Administrador del hogar"].exists)
         XCTAssertTrue(app.staticTexts["Familiar"].exists)
         XCTAssertTrue(app.staticTexts["Solo el administrador del hogar puede gestionar familiares y editar el perfil. Los familiares comparten el mismo historial."].exists)
+    }
+
+    func testRegistrationMenuShowsTheDiaperActionForVisualGlyphReview() {
+        launch(scenario: "today")
+
+        let registration = app.buttons["registration-action-button"]
+        XCTAssertTrue(registration.waitForExistence(timeout: 5))
+        registration.tap()
+
+        let deadline = Date().addingTimeInterval(5)
+        var screenshotImage = app.screenshot().image
+        var menuLines: [(text: String, box: CGRect)] = []
+        while Date() < deadline {
+            screenshotImage = app.screenshot().image
+            menuLines = try! recognizedMenuLines(in: screenshotImage)
+            if menuLines.contains(where: { normalizedMenuText($0.text) == "panal" }) { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        }
+
+        let screenshot = XCTAttachment(image: screenshotImage)
+        screenshot.name = "Today registration menu with diaper glyph"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Registration menu accessibility hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+
+        let diaper = menuLines.first { normalizedMenuText($0.text) == "panal" }
+        XCTAssertNotNil(diaper, "The open registration menu should visibly render the Pañal action.")
+        let sleep = menuLines.first { normalizedMenuText($0.text) == "sueno" }
+        let feed = menuLines.first { normalizedMenuText($0.text) == "toma" }
+        XCTAssertNotNil(sleep, "The menu screenshot should contain the Sueño reference row.")
+        XCTAssertNotNil(feed, "The menu screenshot should contain the Toma reference row.")
+        let diaperInk = try! leadingGlyphInkCount(in: screenshotImage, labelBox: diaper!.box)
+        let referenceInk = min(
+            try! leadingGlyphInkCount(in: screenshotImage, labelBox: sleep!.box),
+            try! leadingGlyphInkCount(in: screenshotImage, labelBox: feed!.box)
+        )
+        print("NIDO_MENU_GLYPH_INK: diaper=\(diaperInk) reference=\(referenceInk)")
+        XCTAssertGreaterThan(diaperInk, max(5, referenceInk / 8), "The Pañal menu row should render a glyph alongside its label.")
+    }
+
+    private func recognizedMenuLines(in image: UIImage) throws -> [(text: String, box: CGRect)] {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["es-ES"]
+        try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
+        return (request.results ?? []).compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            return (candidate.string, observation.boundingBox)
+        }
+    }
+
+    private func normalizedMenuText(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es_ES"))
+    }
+
+    private func leadingGlyphInkCount(in image: UIImage, labelBox: CGRect) throws -> Int {
+        let source = try XCTUnwrap(image.cgImage)
+        let width = source.width
+        let height = source.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+        context?.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let glyphHeight = max(10, CGFloat(labelBox.height) * CGFloat(height))
+        let glyphWidth = glyphHeight * 0.8
+        let gap = glyphHeight * 0.25
+        let centerX = CGFloat(labelBox.minX) * CGFloat(width) - gap - glyphWidth / 2
+        let centerY = (1 - CGFloat(labelBox.midY)) * CGFloat(height)
+        let x0 = max(0, Int(centerX - glyphWidth / 2))
+        let x1 = min(width, Int(centerX + glyphWidth / 2))
+        let y0 = max(0, Int(centerY - glyphHeight * 0.65))
+        let y1 = min(height, Int(centerY + glyphHeight * 0.65))
+        var count = 0
+        for y in y0..<y1 {
+            for x in x0..<x1 {
+                let offset = (y * width + x) * 4
+                let luminance = (Int(pixels[offset]) * 212 + Int(pixels[offset + 1]) * 715 + Int(pixels[offset + 2]) * 72) / 999
+                if luminance < 100 { count += 1 }
+            }
+        }
+        return count
     }
 
     func testOwnerAccountActionsRequireDestructiveConfirmationAndSignOutReturnsToAppleIdentity() {
@@ -268,16 +361,36 @@ final class NidoUITests: XCTestCase {
         let monthsBack = max(
             0, Calendar.current.dateComponents([.month], from: targetMonth, to: .now).month ?? 0
         )
-        let calendarScrollView = app.scrollViews.allElementsBoundByIndex.first {
-            $0.isHittable && $0.frame.height > 200 && $0.frame.width > 200
-        }
-        XCTAssertNotNil(calendarScrollView, "The open month sheet needs a visible vertical scroll view.")
+        let calendarScrollView = app.scrollViews["history-calendar-scroll"]
+        XCTAssertTrue(
+            calendarScrollView.waitForExistence(timeout: 3),
+            "The open month sheet needs a visible vertical scroll view."
+        )
+        let dayPickerNavigationBar = app.navigationBars["Elegir día"]
         let monthScrollLimit = min(24, monthsBack * 4 + 4)
-        for _ in 0..<monthScrollLimit where !oldDate.isHittable {
-            calendarScrollView?.swipeDown()
+        func dateCellHasUnobstructedViewportFrame() -> Bool {
+            guard oldDate.exists, dayPickerNavigationBar.exists else { return false }
+            let frame = oldDate.frame
+            return frame.minY >= dayPickerNavigationBar.frame.maxY + 8
+                && frame.maxY <= app.frame.maxY - 8
+                && frame.minX >= app.frame.minX
+                && frame.maxX <= app.frame.maxX
+        }
+        for _ in 0..<monthScrollLimit where !dateCellHasUnobstructedViewportFrame() {
+            let dragStart = calendarScrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+            let dragEnd = calendarScrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            dragStart.press(forDuration: 0.05, thenDragTo: dragEnd, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
         XCTAssertTrue(oldDate.waitForExistence(timeout: 3))
         XCTAssertTrue(oldDate.isHittable)
+        XCTAssertTrue(
+            dateCellHasUnobstructedViewportFrame(),
+            "The fixture date must be fully below the picker navigation bar and inside the calendar viewport before tapping."
+        )
+        let beforeDateSelection = XCTAttachment(image: app.screenshot().image)
+        beforeDateSelection.name = "History fixture date fully visible below picker navigation bar"
+        beforeDateSelection.lifetime = .keepAlways
+        add(beforeDateSelection)
         oldDate.tap()
         XCTAssertTrue(
             app.navigationBars["Elegir día"].waitForNonExistence(timeout: 5),
@@ -1262,7 +1375,12 @@ final class NidoUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(ring.frame.width, 240)
     }
     func testPremiumTodayVisualReviewCapturesInLightAppearance() throws {
-        launch(scenario: "circular-timeline")
+        defer {
+            app.terminate()
+            launch(scenario: "live-activity-cleanup")
+            app.terminate()
+        }
+        launch(scenario: "baby-care")
         XCTAssertTrue(app.staticTexts["timeline-day-heading"].waitForExistence(timeout: 5))
         assertRenderedAppearance(.light)
         captureUnobstructedToday(named: "hoy-claro")
@@ -1302,10 +1420,36 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(dial.waitForExistence(timeout: 5))
         scrollElementIntoViewport(dial, in: app.scrollViews.firstMatch)
         captureUnobstructedToday(named: "hoy-texto-accesibilidad")
+
+        app.terminate()
+        launch(scenario: "live-activity-ten-hour-sleep")
+        XCTAssertTrue(app.staticTexts["timeline-day-heading"].waitForExistence(timeout: 8))
+        let activitySpringboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        activitySpringboard.activate()
+        activitySpringboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.035)).press(forDuration: 1.0)
+        let liveActivityDeadline = Date().addingTimeInterval(5)
+        var liveActivityScreenshot = activitySpringboard.screenshot()
+        var liveActivityText = ""
+        while Date() < liveActivityDeadline {
+            liveActivityScreenshot = activitySpringboard.screenshot()
+            liveActivityText = try recognizedMenuLines(in: liveActivityScreenshot.image)
+                .map { normalizedMenuText($0.text) }
+                .joined(separator: " ")
+            if liveActivityText.contains("en curso para test") { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        }
+        let liveActivityAttachment = XCTAttachment(screenshot: liveActivityScreenshot)
+        liveActivityAttachment.name = "Live Activity · sueño · Dynamic Island expanded"
+        liveActivityAttachment.lifetime = .keepAlways
+        add(liveActivityAttachment)
+        XCTAssertTrue(
+            liveActivityText.contains("en curso para test"),
+            "Expanded system Live Activity should show the active sleep label and baby name; OCR saw: \(liveActivityText)"
+        )
     }
 
     func testPremiumTodayVisualReviewCapturesInDarkAppearance() throws {
-        launch(scenario: "circular-timeline")
+        launch(scenario: "baby-care")
         XCTAssertTrue(app.staticTexts["timeline-day-heading"].waitForExistence(timeout: 5))
         assertRenderedAppearance(.dark)
         captureUnobstructedToday(named: "hoy-oscuro")
@@ -1648,6 +1792,41 @@ final class NidoUITests: XCTestCase {
     func testTenHourSleepActivityFixtureLoads() {
         launch(scenario: "live-activity-ten-hour-sleep")
         XCTAssertTrue(app.staticTexts["timeline-day-heading"].waitForExistence(timeout: 5))
+    }
+
+    func testTenMinuteFeedActivityAppearsOnDynamicIsland() throws {
+        defer {
+            app.terminate()
+            launch(scenario: "live-activity-cleanup")
+            app.terminate()
+        }
+        launch(scenario: "live-activity-ten-minute-feed")
+        XCTAssertTrue(app.staticTexts["timeline-day-heading"].waitForExistence(timeout: 8))
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        springboard.activate()
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.035)).press(forDuration: 1.0)
+
+        let deadline = Date().addingTimeInterval(5)
+        var screenshot = springboard.screenshot()
+        var recognizedText = ""
+        while Date() < deadline {
+            screenshot = springboard.screenshot()
+            recognizedText = try recognizedMenuLines(in: screenshot.image)
+                .map { normalizedMenuText($0.text) }
+                .joined(separator: " ")
+            if recognizedText.contains("lactancia") { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        }
+
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "Live Activity · lactancia · Dynamic Island expanded"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTAssertTrue(
+            recognizedText.contains("lactancia"),
+            "Expanded system Live Activity should show the lactation label; OCR saw: \(recognizedText)"
+        )
     }
 
     func testSleepActionsMeetTheMinimumTouchTarget() {

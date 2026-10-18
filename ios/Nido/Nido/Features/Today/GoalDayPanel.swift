@@ -46,8 +46,12 @@ struct GoalDayPanel: View {
         let name = kind == .sleep ? "Sueño" : kind == .feed ? "Tomas" : "Pañales"
         return Button { onSelect(kind) } label: {
             VStack(alignment: .leading, spacing: 7) {
-                Label(name, systemImage: kind.symbolName)
-                    .labelStyle(GoalMetricLabelStyle(kind: kind))
+                Label {
+                    Text(name)
+                } icon: {
+                    CareCategoryIcon(category: kind.careCategory, size: 17, tint: NidoTheme.color(for: kind))
+                }
+                    .labelStyle(GoalMetricLabelStyle())
                     .font(.subheadline.weight(.semibold))
                 quantity(kind, value: value)
                     .font(.system(.largeTitle, design: .rounded, weight: .medium))
@@ -76,10 +80,9 @@ struct GoalDayPanel: View {
 }
 
 private struct GoalMetricLabelStyle: LabelStyle {
-    let kind: EntryKind
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 6) {
-            configuration.icon.foregroundStyle(NidoTheme.chartAccent(for: kind))
+            configuration.icon
             configuration.title
         }
     }

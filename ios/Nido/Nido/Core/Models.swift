@@ -68,14 +68,17 @@ nonisolated enum EntryKind: String, Codable, CaseIterable, Identifiable, Sendabl
         }
     }
 
-    var symbolName: String {
+    var careCategory: CareCategory {
         switch self {
-        case .sleep: "moon.fill"
-        case .feed: "waterbottle.fill"
-        case .diaper: "drop.fill"
-        case .health: "heart.fill"
+        case .sleep: .sleep
+        case .feed: .feed
+        case .diaper: .diaper
+        case .health: .health
         }
     }
+
+    /// SF Symbol fallback for APIs that cannot render the shared category glyph.
+    var symbolName: String { careCategory.shortcutSystemImageName }
 }
 
 nonisolated enum FeedType: String, CaseIterable, Identifiable, Sendable {

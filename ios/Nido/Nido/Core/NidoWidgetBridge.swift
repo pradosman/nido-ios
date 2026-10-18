@@ -1,18 +1,6 @@
 import Foundation
 import WidgetKit
 
-nonisolated private struct NidoWidgetSnapshot: Codable, Sendable {
-    let babyName: String
-    let sleepMinutes: Int
-    let feeds: Int
-    let diapers: Int
-    let latestKind: String?
-    let latestDate: Date?
-    let activeKind: String?
-    let activeStartedAt: Date?
-    let updatedAt: Date
-}
-
 nonisolated enum NidoWidgetBridge {
     static let appGroupIdentifier = "group.com.momentumia.nido"
     static let snapshotKey = "nido.widget.snapshot.v1"

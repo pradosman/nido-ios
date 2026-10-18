@@ -267,7 +267,13 @@ private struct MainTabView: View {
                                 store.presentedEntryKind = kind
                             }
                         } label: {
-                            Label(kind.title, systemImage: kind.symbolName)
+                            Label {
+                                Text(kind.title)
+                            } icon: {
+                                CareCategoryIcon.menuImage(for: kind.careCategory, size: 17)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(NidoTheme.color(for: kind))
+                            }
                         }
                         .accessibilityLabel("Registrar \(kind.title.lowercased())")
                     }

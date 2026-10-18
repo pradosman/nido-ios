@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A11111111111111111111112 /* Nido/Core/CareCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22222222222222222222222 /* Nido/Core/CareCategory.swift */; };
+		A11111111111111111111113 /* Nido/Core/NidoWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22222222222222222222223 /* Nido/Core/NidoWidgetSnapshot.swift */; };
+		A11111111111111111111114 /* Nido/Design/NidoDayWidgetContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22222222222222222222224 /* Nido/Design/NidoDayWidgetContent.swift */; };
 		E11111111111111111111111 /* NidoLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 555555555555555555555556 /* NidoLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F11111111111111111111111 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = F22222222222222222222222 /* SnapshotTesting */; };
 /* End PBXBuildFile section */
@@ -53,6 +56,9 @@
 		555555555555555555555555 /* Nido.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nido.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		555555555555555555555556 /* NidoLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NidoLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		555555555555555555555557 /* NidoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NidoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A22222222222222222222222 /* Nido/Core/CareCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nido/Core/CareCategory.swift; sourceTree = "<group>"; };
+		A22222222222222222222223 /* Nido/Core/NidoWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nido/Core/NidoWidgetSnapshot.swift; sourceTree = "<group>"; };
+		A22222222222222222222224 /* Nido/Design/NidoDayWidgetContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nido/Design/NidoDayWidgetContent.swift; sourceTree = "<group>"; };
 		F44444444444444444444444 /* NidoSnapshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NidoSnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -60,6 +66,7 @@
 		444444444444444444444444 /* Nido */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Nido; sourceTree = "<group>"; };
 		444444444444444444444445 /* NidoLiveActivity */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoLiveActivity; sourceTree = "<group>"; };
 		444444444444444444444446 /* NidoUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoUITests; sourceTree = "<group>"; };
+		444444444444444444444447 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
 		F55555555555555555555555 /* NidoSnapshotTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NidoSnapshotTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -103,7 +110,9 @@
 				444444444444444444444445 /* NidoLiveActivity */,
 				444444444444444444444446 /* NidoUITests */,
 				F55555555555555555555555 /* NidoSnapshotTests */,
+				444444444444444444444447 /* Shared */,
 				333333333333333333333333 /* Products */,
+				6624AA893084C4BE00F148B6 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -116,6 +125,16 @@
 				F44444444444444444444444 /* NidoSnapshotTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6624AA893084C4BE00F148B6 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				A22222222222222222222222 /* Nido/Core/CareCategory.swift */,
+				A22222222222222222222223 /* Nido/Core/NidoWidgetSnapshot.swift */,
+				A22222222222222222222224 /* Nido/Design/NidoDayWidgetContent.swift */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -138,6 +157,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				444444444444444444444444 /* Nido */,
+				444444444444444444444447 /* Shared */,
 			);
 			name = Nido;
 			packageProductDependencies = (
@@ -160,6 +180,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				444444444444444444444445 /* NidoLiveActivity */,
+				444444444444444444444447 /* Shared */,
 			);
 			name = NidoLiveActivity;
 			packageProductDependencies = (
@@ -334,6 +355,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A11111111111111111111112 /* Nido/Core/CareCategory.swift in Sources */,
+				A11111111111111111111113 /* Nido/Core/NidoWidgetSnapshot.swift in Sources */,
+				A11111111111111111111114 /* Nido/Design/NidoDayWidgetContent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

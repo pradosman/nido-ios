@@ -217,9 +217,128 @@ final class SettingsContrastTests: XCTestCase {
         }
     }
 
+    func testChartAccentsUseTheNidoPaletteInSRGB() throws {
+        let expected: [(CareCategory, EntryKind, UInt32)] = [
+            (.sleep, .sleep, 0xF43B83),
+            (.feed, .feed, 0xFFB02E),
+            (.diaper, .diaper, 0x00BFAE),
+            (.health, .health, 0xC26BFF),
+        ]
+
+        for (category, entryKind, hex) in expected {
+            let paletteColor = NidoCarePalette.accent(for: category)
+            XCTAssertEqual(paletteColor.hex, hex)
+            XCTAssertEqual(paletteColor.red, Double((hex >> 16) & 0xFF) / 255, accuracy: 0.000_001)
+            XCTAssertEqual(paletteColor.green, Double((hex >> 8) & 0xFF) / 255, accuracy: 0.000_001)
+            XCTAssertEqual(paletteColor.blue, Double(hex & 0xFF) / 255, accuracy: 0.000_001)
+
+            let actual = try sRGBComponents(of: UIColor(NidoTheme.chartAccent(for: entryKind)))
+            XCTAssertEqual(actual[0], CGFloat(paletteColor.red), accuracy: 1 / 255, "\(category) chart accent must use the Core sRGB palette.")
+            XCTAssertEqual(actual[1], CGFloat(paletteColor.green), accuracy: 1 / 255, "\(category) chart accent must use the Core sRGB palette.")
+            XCTAssertEqual(actual[2], CGFloat(paletteColor.blue), accuracy: 1 / 255, "\(category) chart accent must use the Core sRGB palette.")
+        }
+    }
+
+    func testStaticCategoryColorsMatchSmallTextPaletteInEveryAppearance() throws {
+        let cases: [(CareCategory, Color)] = [
+            (.sleep, NidoTheme.sleep),
+            (.feed, NidoTheme.feed),
+            (.diaper, NidoTheme.diaper),
+            (.health, NidoTheme.care),
+        ]
+        let appearances: [(CareAppearance, UIUserInterfaceStyle, UIAccessibilityContrast)] = [
+            (.light, .light, .normal),
+            (.dark, .dark, .normal),
+            (.highContrastLight, .light, .high),
+            (.highContrastDark, .dark, .high),
+        ]
+
+        for (appearance, style, contrast) in appearances {
+            let traits = UITraitCollection(mutations: { traits in
+                traits.userInterfaceStyle = style
+                traits.accessibilityContrast = contrast
+            })
+            for (category, color) in cases {
+                let actual = try resolvedSRGB(color, with: traits)
+                let expected = NidoCarePalette.ink(for: category, appearance: appearance)
+                XCTAssertEqual(actual[0], CGFloat(expected.red), accuracy: 1 / 255, "\(category) static tint is stale in \(appearance).")
+                XCTAssertEqual(actual[1], CGFloat(expected.green), accuracy: 1 / 255, "\(category) static tint is stale in \(appearance).")
+                XCTAssertEqual(actual[2], CGFloat(expected.blue), accuracy: 1 / 255, "\(category) static tint is stale in \(appearance).")
+            }
+        }
+    }
+
+    func testCareCategoryGlyphsKeepShortcutFallbackSeparate() {
+        XCTAssertEqual(CareCategory.sleep.glyph, .system("moon.fill"))
+        XCTAssertEqual(CareCategory.feed.glyph, .system("waterbottle.fill"))
+        XCTAssertEqual(CareCategory.diaper.glyph, .diaper)
+        XCTAssertEqual(CareCategory.health.glyph, .system("heart.fill"))
+
+        XCTAssertEqual(CareCategory.sleep.shortcutSystemImageName, "moon.fill")
+        XCTAssertEqual(CareCategory.feed.shortcutSystemImageName, "waterbottle.fill")
+        XCTAssertEqual(CareCategory.diaper.shortcutSystemImageName, "drop.fill")
+        XCTAssertEqual(CareCategory.health.shortcutSystemImageName, "heart.fill")
+    }
+
+    func testCategorySmallTextInksMeetContrastForEveryAppearance() throws {
+        let expectedInks: [(CareAppearance, UIUserInterfaceStyle, UIAccessibilityContrast, [CareCategory: UInt32])] = [
+            (.light, .light, .normal, [.sleep: 0xB31557, .feed: 0x875000, .diaper: 0x006D63, .health: 0x8031BB]),
+            (.dark, .dark, .normal, [.sleep: 0xF43B83, .feed: 0xFFB02E, .diaper: 0x00BFAE, .health: 0xD5A3FF]),
+            (.highContrastLight, .light, .high, [.sleep: 0x85003B, .feed: 0x583000, .diaper: 0x004C45, .health: 0x5A168F]),
+            (.highContrastDark, .dark, .high, [.sleep: 0xFF9ABB, .feed: 0xFFD18B, .diaper: 0x7DEBDD, .health: 0xE5C4FF]),
+        ]
+        let categories = CareCategory.allCases
+
+        for (appearance, style, contrast, expected) in expectedInks {
+            let traits = UITraitCollection(mutations: { traits in
+                traits.userInterfaceStyle = style
+                traits.accessibilityContrast = contrast
+            })
+            let background = try resolvedSRGB(NidoTheme.paper, with: traits)
+
+            for category in categories {
+                let ink = NidoCarePalette.ink(for: category, appearance: appearance)
+                XCTAssertEqual(ink.hex, expected[category], "Unexpected \(category) ink for \(appearance).")
+                let foreground = [CGFloat(ink.red), CGFloat(ink.green), CGFloat(ink.blue)]
+                XCTAssertGreaterThanOrEqual(
+                    contrastRatio(foreground, background),
+                    4.5,
+                    "Small \(category) labels need 4.5:1 against the \(appearance) page surface."
+                )
+            }
+        }
+    }
+
     private func contrastRatio(_ first: UIColor, _ second: UIColor) -> CGFloat {
         let luminances = [relativeLuminance(first), relativeLuminance(second)].sorted(by: >)
         return (luminances[0] + 0.05) / (luminances[1] + 0.05)
+    }
+
+    private func contrastRatio(_ first: [CGFloat], _ second: [CGFloat]) -> CGFloat {
+        let luminances = [relativeLuminance(first), relativeLuminance(second)].sorted(by: >)
+        return (luminances[0] + 0.05) / (luminances[1] + 0.05)
+    }
+
+    private func relativeLuminance(_ rgb: [CGFloat]) -> CGFloat {
+        func linearize(_ component: CGFloat) -> CGFloat {
+            component <= 0.04045 ? component / 12.92 : pow((component + 0.055) / 1.055, 2.4)
+        }
+
+        return 0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2])
+    }
+
+    private func resolvedSRGB(_ color: Color, with traits: UITraitCollection) throws -> [CGFloat] {
+        try sRGBComponents(of: UIColor(color).resolvedColor(with: traits))
+    }
+
+    private func sRGBComponents(of color: UIColor) throws -> [CGFloat] {
+        let sRGB = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let converted = try XCTUnwrap(
+            color.cgColor.converted(to: sRGB, intent: .relativeColorimetric, options: nil)
+        )
+        let components = try XCTUnwrap(converted.components)
+        XCTAssertGreaterThanOrEqual(components.count, 3)
+        return Array(components.prefix(3))
     }
 
     private func relativeLuminance(_ color: UIColor) -> CGFloat {

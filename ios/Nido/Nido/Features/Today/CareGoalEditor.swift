@@ -36,9 +36,9 @@ struct CareGoalEditor: View {
         NavigationStack {
             Form {
                 Section {
-                    field("Sueño", symbol: "moon.fill", text: $sleepHours, unit: "horas", id: "sleep", kind: .sleep)
-                    field("Tomas", symbol: "waterbottle.fill", text: $feeds, unit: "al día", id: "feed", kind: .feed)
-                    field("Pañales", symbol: "drop.fill", text: $diapers, unit: "al día", id: "diaper", kind: .diaper)
+                    field("Sueño", text: $sleepHours, unit: "horas", id: "sleep", kind: .sleep)
+                    field("Tomas", text: $feeds, unit: "al día", id: "feed", kind: .feed)
+                    field("Pañales", text: $diapers, unit: "al día", id: "diaper", kind: .diaper)
                 } header: { Text("A vuestro ritmo") } footer: {
                     Text("Elige vuestras propias referencias. Deja una casilla vacía para no fijar ese objetivo. No son recomendaciones médicas.")
                 }
@@ -97,9 +97,14 @@ struct CareGoalEditor: View {
         return date.formatted(style)
     }
 
-    private func field(_ title: String, symbol: String, text: Binding<String>, unit: String, id: String, kind: EntryKind) -> some View {
+    private func field(_ title: String, text: Binding<String>, unit: String, id: String, kind: EntryKind) -> some View {
         HStack {
-            Label(title, systemImage: symbol).foregroundStyle(NidoTheme.ink)
+            Label {
+                Text(title)
+            } icon: {
+                CareCategoryIcon(category: kind.careCategory, size: 17, tint: NidoTheme.color(for: kind))
+            }
+            .foregroundStyle(NidoTheme.ink)
             Spacer(minLength: 16)
             TextField("Sin objetivo", text: text)
                 .multilineTextAlignment(.trailing)

@@ -112,6 +112,7 @@ function usage() {
     '  --derived-data-path PATH --results-dir PATH --cloned-source-packages-dir PATH --api-root PATH',
     'Uses one simulator serially: Light UI, local HTTP API UI, Snapshot, then Dark UI.',
     'The previous simulator appearance is restored even when a phase fails.',
+    'Reduce Motion is enabled for Snapshot only, then restored to its initial setting.',
   ].join('\n');
 }
 
@@ -129,17 +130,28 @@ async function main() {
   const results = [];
   const getAppearance = async () => run('xcrun', ['simctl', 'ui', options['device-id'], 'appearance']);
   const setAppearance = async (appearance) => { run('xcrun', ['simctl', 'ui', options['device-id'], 'appearance', appearance]); };
+  const getReduceMotion = async () => {
+    const value = run('xcrun', ['simctl', 'spawn', options['device-id'], 'defaults', 'read', 'com.apple.Accessibility', 'ReduceMotionEnabled']);
+    if (value !== '0' && value !== '1') throw new Error(`Unknown Reduce Motion state: ${value}`);
+    return value === '1';
+  };
+  const setReduceMotion = async (enabled) => {
+    run('xcrun', ['simctl', 'spawn', options['device-id'], 'defaults', 'write', 'com.apple.Accessibility', 'ReduceMotionEnabled', '-bool', String(enabled)]);
+  };
+  const initialMotion = await getReduceMotion();
 
   const describePlan = {
     baselineTestCount: plan.baselineCount,
     executionCount: plan.executionCount,
-    phases: phases.map(({ name, appearance, identifiers }) => ({ name, appearance, count: identifiers.length, identifiers })),
+    phases: phases.map(({ name, appearance, identifiers }) => ({ name, appearance, reduceMotion: name === 'snapshots' ? true : initialMotion, count: identifiers.length, identifiers })),
   };
   writeFileSync(resolve(options['results-dir'], 'appearance-plan.json'), `${JSON.stringify(describePlan, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
 
   await runAppearancePhases(phases, {
     getAppearance,
     setAppearance,
+    getReduceMotion,
+    setReduceMotion,
     runPhase: async (phase) => {
       console.log(`Starting ${phase.name} (${phase.appearance}; ${phase.identifiers.length} selectors).`);
       results.push(phase.kind === 'api-helper'

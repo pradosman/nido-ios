@@ -63,48 +63,17 @@ enum NidoTheme {
         highContrastLight: UIColor(red: 0.08, green: 0.17, blue: 0.12, alpha: 1),
         highContrastDark: UIColor(red: 0.79, green: 0.94, blue: 0.83, alpha: 1)
     )
-    static let sleep = Color(
-        light: UIColor(red: 0.72, green: 0.035, blue: 0.29, alpha: 1),
-        dark: UIColor(displayP3Red: 228.0 / 255, green: 62.0 / 255, blue: 108.0 / 255, alpha: 1),
-        highContrastLight: UIColor(red: 0.65, green: 0.02, blue: 0.26, alpha: 1),
-        highContrastDark: UIColor(red: 1, green: 0.55, blue: 0.70, alpha: 1)
-    )
-    static let feed = Color(
-        light: UIColor(red: 0.23, green: 0.37, blue: 0, alpha: 1),
-        dark: UIColor(displayP3Red: 186.0 / 255, green: 249.0 / 255, blue: 78.0 / 255, alpha: 1)
-    )
-    static let activeSleepFill = Color(
-        light: UIColor(red: 0.66, green: 0.02, blue: 0.26, alpha: 1),
-        dark: UIColor(red: 0.56, green: 0.02, blue: 0.23, alpha: 1),
-        highContrastLight: UIColor(red: 0.48, green: 0.02, blue: 0.20, alpha: 1),
-        highContrastDark: UIColor(red: 0.48, green: 0.02, blue: 0.20, alpha: 1)
-    )
-    static let activeFeedFill = Color(
-        light: UIColor(red: 0.23, green: 0.37, blue: 0, alpha: 1),
-        dark: UIColor(red: 0.19, green: 0.30, blue: 0, alpha: 1),
-        highContrastLight: UIColor(red: 0.17, green: 0.27, blue: 0, alpha: 1),
-        highContrastDark: UIColor(red: 0.17, green: 0.27, blue: 0, alpha: 1)
-    )
-    static let diaper = Color(
-        light: UIColor(red: 0, green: 0.365, blue: 0.404, alpha: 1),
-        dark: UIColor(displayP3Red: 100.0 / 255, green: 218.0 / 255, blue: 214.0 / 255, alpha: 1)
-    )
-    static let care = Color(
-        light: UIColor(red: 0.718, green: 0.235, blue: 0.459, alpha: 1),
-        dark: UIColor(red: 0.98, green: 0.50, blue: 0.69, alpha: 1)
-    )
+    static let sleep = categoryInk(.sleep)
+    static let feed = categoryInk(.feed)
+    static let diaper = categoryInk(.diaper)
+    static let care = categoryInk(.health)
     static let textOnEvent = Color(
         light: UIColor(red: 0.06, green: 0.07, blue: 0.065, alpha: 1),
         dark: UIColor(red: 0.06, green: 0.07, blue: 0.065, alpha: 1)
     )
 
     static func chartAccent(for kind: EntryKind) -> Color {
-        switch kind {
-        case .sleep: Color(.displayP3, red: 228.0 / 255, green: 62.0 / 255, blue: 108.0 / 255)
-        case .feed: Color(.displayP3, red: 186.0 / 255, green: 249.0 / 255, blue: 78.0 / 255)
-        case .diaper: Color(.displayP3, red: 100.0 / 255, green: 218.0 / 255, blue: 214.0 / 255)
-        case .health: Color(red: 0.76, green: 0.42, blue: 1)
-        }
+        Color(NidoCarePalette.accent(for: kind.careCategory))
     }
 
     static let backdropLavender = Color(
@@ -127,12 +96,21 @@ enum NidoTheme {
     )
 
     static func color(for kind: EntryKind) -> Color {
-        switch kind {
-        case .sleep: sleep
-        case .feed: feed
-        case .diaper: diaper
-        case .health: care
-        }
+        categoryInk(kind.careCategory)
+    }
+
+    private static func categoryInk(_ category: CareCategory) -> Color {
+        Color(uiColor: UIColor { traits in
+            let appearance: CareAppearance
+            switch (traits.userInterfaceStyle, traits.accessibilityContrast) {
+            case (.light, .high): appearance = .highContrastLight
+            case (.dark, .high): appearance = .highContrastDark
+            case (.dark, _): appearance = .dark
+            default: appearance = .light
+            }
+            let ink = NidoCarePalette.ink(for: category, appearance: appearance)
+            return UIColor(red: ink.red, green: ink.green, blue: ink.blue, alpha: 1)
+        })
     }
 }
 
@@ -171,44 +149,9 @@ struct PaperBackground: View {
 
 struct NidoMark: View {
     var body: some View {
-        Canvas { context, size in
-            let unit = min(size.width, size.height)
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-
-            var crescent = Path()
-            crescent.addEllipse(in: CGRect(
-                x: center.x - unit * 0.20,
-                y: center.y - unit * 0.28,
-                width: unit * 0.42,
-                height: unit * 0.42
-            ))
-            crescent.addEllipse(in: CGRect(
-                x: center.x - unit * 0.09,
-                y: center.y - unit * 0.32,
-                width: unit * 0.38,
-                height: unit * 0.38
-            ))
-            context.fill(crescent, with: .color(.white), style: FillStyle(eoFill: true))
-
-            for radius in [unit * 0.24, unit * 0.34] {
-                var nest = Path()
-                nest.addArc(
-                    center: CGPoint(x: center.x, y: center.y + unit * 0.03),
-                    radius: radius,
-                    startAngle: .degrees(28),
-                    endAngle: .degrees(152),
-                    clockwise: false
-                )
-                context.stroke(
-                    nest,
-                    with: .color(.white.opacity(radius > unit * 0.3 ? 0.58 : 0.82)),
-                    style: StrokeStyle(lineWidth: max(1.5, unit * 0.055), lineCap: .round)
-                )
-            }
-        }
+        NidoBrandSymbol(tint: .white)
         .padding(5)
         .background(NidoTheme.moss, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityHidden(true)
     }
 }
 
@@ -251,93 +194,10 @@ struct EntryGlyph: View {
     var size: CGFloat = 20
 
     var body: some View {
-        glyph
+        CareCategoryIcon(category: kind.careCategory, size: size, tint: NidoTheme.color(for: kind))
             .frame(width: max(44, size + 20), height: max(44, size + 20))
             .contentShape(Rectangle())
             .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private var glyph: some View {
-        if kind == .diaper {
-            DiaperGlyph(color: NidoTheme.diaper, size: size)
-        } else {
-            Image(systemName: kind.symbolName)
-                .font(.system(size: size, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(NidoTheme.color(for: kind))
-        }
-    }
-}
-
-struct DiaperGlyph: View {
-    let color: Color
-    var size: CGFloat = 20
-
-    var body: some View {
-        Canvas { context, canvasSize in
-            let point: (CGFloat, CGFloat) -> CGPoint = { x, y in
-                CGPoint(x: canvasSize.width * x / 24, y: canvasSize.height * y / 24)
-            }
-
-            var silhouette = Path()
-            silhouette.move(to: point(3.25, 5.4))
-            silhouette.addLine(to: point(20.75, 5.4))
-            silhouette.addLine(to: point(20.75, 12.65))
-            silhouette.addCurve(
-                to: point(12, 21.4),
-                control1: point(20.75, 17.48),
-                control2: point(16.83, 21.4)
-            )
-            silhouette.addCurve(
-                to: point(3.25, 12.65),
-                control1: point(7.17, 21.4),
-                control2: point(3.25, 17.48)
-            )
-            silhouette.closeSubpath()
-            context.fill(silhouette, with: .color(color))
-
-            var frontPanel = Path()
-            frontPanel.move(to: point(3.25, 8.45))
-            frontPanel.addLine(to: point(7.45, 8.45))
-            frontPanel.addLine(to: point(9.47, 10.47))
-            frontPanel.addCurve(
-                to: point(14.53, 10.47),
-                control1: point(10.87, 11.87),
-                control2: point(13.13, 11.87)
-            )
-            frontPanel.addLine(to: point(16.55, 8.45))
-            frontPanel.addLine(to: point(20.75, 8.45))
-            frontPanel.addLine(to: point(20.75, 12.65))
-            frontPanel.addCurve(
-                to: point(19.75, 16.67),
-                control1: point(20.75, 14.1),
-                control2: point(20.39, 15.47)
-            )
-            frontPanel.addCurve(
-                to: point(4.25, 16.67),
-                control1: point(15.22, 12.8),
-                control2: point(8.78, 12.8)
-            )
-            frontPanel.addCurve(
-                to: point(3.25, 12.65),
-                control1: point(3.61, 15.47),
-                control2: point(3.25, 14.1)
-            )
-            frontPanel.closeSubpath()
-            context.fill(frontPanel, with: .color(.white.opacity(0.34)))
-
-            for x in [6.6, 17.4] {
-                let tab = Path(ellipseIn: CGRect(
-                    x: canvasSize.width * (x - 0.85) / 24,
-                    y: canvasSize.height * 6.15 / 24,
-                    width: canvasSize.width * 1.7 / 24,
-                    height: canvasSize.height * 1.7 / 24
-                ))
-                context.fill(tab, with: .color(.white.opacity(0.72)))
-            }
-        }
-        .frame(width: size, height: size)
     }
 }
 

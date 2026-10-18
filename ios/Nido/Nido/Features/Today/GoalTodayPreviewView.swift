@@ -118,9 +118,7 @@ struct GoalTodayPreviewView: View {
         Button { isEditingGoals = true } label: {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
-                    Image(systemName: kind.symbolName)
-                        .foregroundStyle(NidoTheme.chartAccent(for: kind))
-                        .accessibilityHidden(true)
+                    CareCategoryIcon(category: kind.careCategory, size: 16, tint: NidoTheme.color(for: kind))
                     Text(kind == .sleep ? "Sueño" : kind == .feed ? "Tomas" : "Pañales")
                         .foregroundStyle(NidoTheme.ink)
                 }
@@ -187,12 +185,9 @@ struct GoalTodayPreviewView: View {
 
     private func activityRow(_ kind: EntryKind, title: String, detail: String, time: String) -> some View {
         HStack(alignment: .center, spacing: 13) {
-            Image(systemName: kind.symbolName)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(NidoTheme.color(for: kind))
+            CareCategoryIcon(category: kind.careCategory, size: 18, tint: NidoTheme.color(for: kind))
                 .frame(width: 38, height: 38)
                 .background(NidoTheme.chartAccent(for: kind).opacity(0.10), in: Circle())
-                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(NidoTheme.ink)
                 Text(detail).font(.caption).foregroundStyle(NidoTheme.readableSupportingInk)

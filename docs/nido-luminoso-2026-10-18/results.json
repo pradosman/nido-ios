@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-18",
+  "status": "validated",
+  "nativeFocused": [
+    {
+      "path": "/tmp/nido-palette-tdd-red-2026-10-18b.xcresult",
+      "result": "Failed",
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-static-alias-red-2026-10-18-sixth.xcresult",
+      "result": "Failed",
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-diaper-glyph-ink-red-2026-10-18.xcresult",
+      "result": "Failed",
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-diaper-glyph-ink-green-verified-2026-10-18.xcresult",
+      "result": "Passed",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-feed-activity-red-2026-10-18.xcresult",
+      "result": "Failed",
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-feed-activity-green-2026-10-18.xcresult",
+      "result": "Passed",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-widget-content-date-circular-final-2026-10-18.xcresult",
+      "result": "Passed",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/tmp/nido-widget-tinted-clear-native-2026-10-18.xcresult",
+      "result": "Passed",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "nodeScripts": {
+    "passed": 16,
+    "failed": 0
+  },
+  "core": {
+    "passed": 209,
+    "suites": 31,
+    "log": "/tmp/nido-luminous-core-tests-2026-10-18.log"
+  },
+  "fullNativeGate": {
+    "kind": "consolidated-final-phase-results",
+    "passed": 177,
+    "failed": 0,
+    "skipped": 0,
+    "phases": [
+      {"name": "light-ui", "passed": 113, "path": "/tmp/nido-luminous-fullgate-2026-10-18/light-ui.xcresult"},
+      {"name": "local-api-ui", "passed": 3, "path": "/tmp/nido-api-clean-qa-final-2026-10-18.xcresult"},
+      {"name": "snapshots", "passed": 51, "path": "/tmp/nido-luminous-fullgate-2026-10-18/snapshots-final.xcresult"},
+      {"name": "dark-ui", "passed": 10, "path": "/tmp/nido-luminous-fullgate-2026-10-18/dark-ui.xcresult"}
+    ]
+  },
+  "releaseBuild": {
+    "result": "Succeeded",
+    "destination": "iOS Simulator",
+    "targets": ["Nido", "NidoLiveActivity"],
+    "debugActivityScenariosAbsentFromBothBinaries": true,
+    "log": "/tmp/nido-luminous-release-build-2026-10-18.log"
+  },
+  "retainedAttempts": [
+    {"path": "/tmp/nido-luminous-fullgate-2026-10-18/snapshots.xcresult", "passed": 49, "failed": 2, "reason": "Four old visual references reviewed and updated; precision unchanged"},
+    {"path": "/tmp/nido-luminous-fullgate-2026-10-18/local-api-ui-final.xcresult", "passed": 2, "failed": 1, "reason": "History test tapped a date under the navigation bar"},
+    {"path": "/tmp/nido-history-safe-tap-focused-v2-2026-10-18.xcresult", "passed": 1, "failed": 0, "reason": "History safe-tap and beyond-500 assertion verified"},
+    {"path": "/tmp/nido-api-final-3-pass-2026-10-18.xcresult", "passed": 1, "failed": 2, "reason": "Intermittent menu selection and missing reauthentication notice; both passed later on clean QA without production changes; cause unproven"}
+  ],
+  "limitations": [
+    "Native evidence covers the documented sizes and scenarios, not every system surface or VoiceOver traversal",
+    "Intermittent API UI failures are retained; a possible reauthentication reason race remains unconfirmed",
+    "No App Store archive, submission, production backend or migration changes"
+  ]
+}

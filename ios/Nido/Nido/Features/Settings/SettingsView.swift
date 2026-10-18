@@ -95,7 +95,7 @@ struct SettingsView: View {
 
                 Section("Estado") {
                     Label(store.isOffline ? "Sin conexión" : "Actualizado", systemImage: store.isOffline ? "wifi.slash" : "checkmark.icloud.fill")
-                        .foregroundStyle(store.isOffline ? NidoTheme.feed : NidoTheme.moss)
+                        .foregroundStyle(store.isOffline ? NidoTheme.warning : NidoTheme.moss)
                     Button("Actualizar") { Task { await store.refresh() } }
                 }
 
@@ -359,7 +359,7 @@ private struct CaregiverRow: View {
                     : invitationText
                 ShareLink(item: shareText) {
                     Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(NidoTheme.feed)
+                        .foregroundStyle(NidoTheme.moss)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }

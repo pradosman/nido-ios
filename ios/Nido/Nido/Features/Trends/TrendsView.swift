@@ -51,7 +51,7 @@ struct TrendsView: View {
                                 x: .value("Día", value.date, unit: .day),
                                 y: .value("Minutos", value.minutes)
                             )
-                            .foregroundStyle(NidoTheme.sleep.gradient)
+                            .foregroundStyle(NidoTheme.chartAccent(for: .sleep).gradient)
                             .cornerRadius(5)
                         }
                         .chartYAxis {
@@ -118,7 +118,7 @@ struct TrendsView: View {
             }
 
             if growth.contains(where: { $0.weightKilograms != nil }) {
-                growthChart(title: "Peso", unit: "kg", color: NidoTheme.care) { $0.weightKilograms }
+                growthChart(title: "Peso", unit: "kg", color: NidoTheme.chartAccent(for: .health)) { $0.weightKilograms }
             }
             if growth.contains(where: { $0.heightCentimeters != nil }) {
                 growthChart(title: "Altura", unit: "cm", color: NidoTheme.moss) { $0.heightCentimeters }

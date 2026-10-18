@@ -24,7 +24,7 @@ enum GrowthMetric: String, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .weight: NidoTheme.care
+        case .weight: NidoTheme.chartAccent(for: .health)
         case .height: NidoTheme.moss
         }
     }

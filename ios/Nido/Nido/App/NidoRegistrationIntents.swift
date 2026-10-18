@@ -154,6 +154,7 @@ struct NidoRegistrationShortcuts: AppShortcutsProvider {
                 "Registra un pañal en \(.applicationName)",
             ],
             shortTitle: "Registrar pañal",
+            // AppShortcut's macro requires a literal SF Symbol; drop is the documented fallback for the custom diaper glyph.
             systemImageName: "drop.fill"
         )
         AppShortcut(
