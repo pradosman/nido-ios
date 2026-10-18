@@ -1,5 +1,12 @@
 import SwiftUI
 import UIKit
+#if DEBUG
+import os
+
+private enum RegistrationRoutingDiagnostics {
+    static let logger = Logger(subsystem: "com.momentumia.nido", category: "RegistrationRouting")
+}
+#endif
 
 struct RootView: View {
     @Environment(NidoStore.self) private var store
@@ -169,7 +176,7 @@ private struct MainTabView: View {
             deletedEntryID: store.recentlyDeletedEntry?.id,
             createdEntryID: store.recentlyCreatedEntry?.id
         )) {
-            guard store.notice != nil,
+            guard let expectedNotice = store.notice,
                   store.recentlyDeletedEntry == nil,
                   store.recentlyCreatedEntry == nil
             else { return }
@@ -182,17 +189,31 @@ private struct MainTabView: View {
             guard !Task.isCancelled else { return }
 
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
-                store.dismissNotice()
+                store.dismissNoticeAutomatically(matching: expectedNotice)
             }
         }
         .sheet(item: $store.presentedEntryKind) { kind in
             EntrySheet(kind: kind)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+                .onAppear {
+                    #if DEBUG
+                    RegistrationRoutingDiagnostics.logger.debug(
+                        "sheet_appeared destination=detailed kind=\(kind.rawValue, privacy: .public)"
+                    )
+                    #endif
+                }
         }
         .sheet(item: $quickRegistrationKind) { kind in
             QuickRegistrationSheet(kind: kind)
                 .presentationDragIndicator(.visible)
+                .onAppear {
+                    #if DEBUG
+                    RegistrationRoutingDiagnostics.logger.debug(
+                        "sheet_appeared destination=quick kind=\(kind.rawValue, privacy: .public)"
+                    )
+                    #endif
+                }
         }
         .sheet(isPresented: $store.isEditingProfile) {
             ProfileEditorView()
@@ -261,7 +282,14 @@ private struct MainTabView: View {
                 Menu {
                     ForEach(EntryKind.allCases) { kind in
                         Button {
-                            if kind == .diaper || (kind == .feed && RegistrationQuickAction.feed(entries: store.entries, at: store.now) != nil) {
+                            let presentsQuickRegistration = kind == .diaper
+                                || (kind == .feed && RegistrationQuickAction.feed(entries: store.entries, at: store.now) != nil)
+                            #if DEBUG
+                            RegistrationRoutingDiagnostics.logger.debug(
+                                "menu_action kind=\(kind.rawValue, privacy: .public) destination=\(presentsQuickRegistration ? "quick" : "detailed", privacy: .public)"
+                            )
+                            #endif
+                            if presentsQuickRegistration {
                                 quickRegistrationKind = kind
                             } else {
                                 store.presentedEntryKind = kind

@@ -131,6 +131,22 @@ final class NidoStore: RegistrationMutationEventReceiver {
 
     var now: Date { nowProvider() }
 
+    #if DEBUG
+    private func logAuthenticationNoticeState(_ event: String) {
+        let phaseName: String
+        switch phase {
+        case .loading: phaseName = "loading"
+        case .authentication: phaseName = "authentication"
+        case .onboarding: phaseName = "onboarding"
+        case .caregiverAccess: phaseName = "caregiverAccess"
+        case .ready: phaseName = "ready"
+        }
+        logger.debug(
+            "authNotice event=\(event, privacy: .public) phase=\(phaseName, privacy: .public) noticePresent=\(self.notice != nil, privacy: .public) reasonPreserved=\(self.preservesReauthenticationReason, privacy: .public)"
+        )
+    }
+    #endif
+
     var canEditGoals: Bool {
         accessToken != nil && currentCaregiver?.status == .active && currentCaregiver?.role == .owner
     }
@@ -623,7 +639,17 @@ final class NidoStore: RegistrationMutationEventReceiver {
     #endif
 
     func load() async {
-        guard let credential = sessionCredential, !credential.isExpired(at: now) else {
+        guard let credential = sessionCredential else {
+            if phase != .authentication {
+                await invalidateSession(message: nil)
+            } else {
+                #if DEBUG
+                logAuthenticationNoticeState("load.noCredential.authenticationReturn")
+                #endif
+            }
+            return
+        }
+        guard !credential.isExpired(at: now) else {
             await invalidateSession(message: nil)
             return
         }
@@ -1198,13 +1224,33 @@ final class NidoStore: RegistrationMutationEventReceiver {
     func prepareAppleSignIn() async {
         isPreparingAppleSignIn = true
         defer { isPreparingAppleSignIn = false }
+        #if DEBUG
+        logAuthenticationNoticeState("appleChallenge.start")
+        #endif
         do {
             appleSignInChallenge = try await api.appleSignInChallenge()
             if !preservesReauthenticationReason { notice = nil }
+            #if DEBUG
+            logAuthenticationNoticeState("appleChallenge.success")
+            #endif
         } catch {
+            #if DEBUG
+            let errorCategory: String
+            if case APIError.server(status: let status, message: _) = error {
+                errorCategory = "server-\(status)"
+            } else {
+                errorCategory = "other"
+            }
+            logger.debug(
+                "authNotice event=appleChallenge.failure.before errorCategory=\(errorCategory, privacy: .public) noticePresent=\(self.notice != nil, privacy: .public) reasonPreserved=\(self.preservesReauthenticationReason, privacy: .public)"
+            )
+            #endif
             appleSignInChallenge = nil
             preservesReauthenticationReason = false
             notice = error.localizedDescription
+            #if DEBUG
+            logAuthenticationNoticeState("appleChallenge.failure")
+            #endif
         }
     }
 
@@ -1346,6 +1392,29 @@ final class NidoStore: RegistrationMutationEventReceiver {
     }
 
     func dismissNotice() {
+        #if DEBUG
+        logAuthenticationNoticeState("dismissNotice.manual")
+        #endif
+        clearNoticeState()
+    }
+
+    func dismissNoticeAutomatically(matching expectedNotice: String) {
+        #if DEBUG
+        let matchesCurrentNotice = notice == expectedNotice
+        logger.debug(
+            "authNotice event=dismissNotice.automatic phase=\(String(describing: self.phase), privacy: .public) noticePresent=\(self.notice != nil, privacy: .public) matchesExpected=\(matchesCurrentNotice, privacy: .public) reasonPreserved=\(self.preservesReauthenticationReason, privacy: .public)"
+        )
+        #endif
+        guard phase == .ready,
+              !preservesReauthenticationReason,
+              notice == expectedNotice,
+              recentlyDeletedEntry == nil,
+              recentlyCreatedEntry == nil
+        else { return }
+        clearNoticeState()
+    }
+
+    private func clearNoticeState() {
         notice = nil
         preservesReauthenticationReason = false
         recentlyDeletedEntry = nil
@@ -1772,13 +1841,24 @@ final class NidoStore: RegistrationMutationEventReceiver {
         credentialStore.delete()
         accountDeletionChallenge = nil
         sessionCredential = nil
-        await registrationService.clearPrivateData()
-        try? babyCareCache.remove()
-        guard sessionCredential == nil else { return }
+        let generation = sessionGeneration
         phase = .authentication
         notice = message
         preservesReauthenticationReason = message != nil
         isOffline = false
+        #if DEBUG
+        logAuthenticationNoticeState("invalidateSession.beforeCleanup")
+        #endif
+        await clearHouseholdData()
+        guard sessionGeneration == generation, sessionCredential == nil else { return }
+        try? babyCareCache.remove()
+        phase = .authentication
+        notice = message
+        preservesReauthenticationReason = message != nil
+        isOffline = false
+        #if DEBUG
+        logAuthenticationNoticeState("invalidateSession.afterCleanup")
+        #endif
     }
 
     private func clearHouseholdData() async {

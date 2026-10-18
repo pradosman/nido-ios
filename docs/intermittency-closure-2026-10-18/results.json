@@ -1,0 +1,47 @@
+{
+  "status": "partial_closure",
+  "branch": "codex/nido-premium-design",
+  "baseCommit": "3e8f4ffa2134218f5f4c8e4e7f8795d61c11005b",
+  "causalRedCases": [
+    { "bundle": "/tmp/nido-auth-notice-red-2026-10-18.xcresult", "failed": 1, "cause": "Repeated load without credential erased protected notice" },
+    { "bundle": "/tmp/nido-auth-eventhub-red-2026-10-18.xcresult", "failed": 1, "cause": "Store-owned cleanup emitted redundant external invalidation" },
+    { "bundle": "/tmp/nido-auth-auto-dismiss-red-2026-10-18.xcresult", "failed": 3, "cause": "Automatic dismissal erased protected, replacement or actionable notices" },
+    { "bundle": "/tmp/nido-auth-ready-phase-red-2026-10-18.xcresult", "failed": 1, "cause": "Automatic dismissal outside ready phase" }
+  ],
+  "focusedSession": { "passed": 15, "failed": 0, "skipped": 0, "bundle": "/tmp/nido-auth-dismiss-final-focused-2026-10-18.xcresult" },
+  "menuRepetitions": { "executions": 5, "passed": 5, "failed": 0, "retryOnFailure": false, "historicalCauseProven": false, "log": "/tmp/nido-registration-menu-iterations5-test.log" },
+  "fullNativeValidation": {
+    "uniqueTests": 183,
+    "executions": 186,
+    "passed": 185,
+    "failed": 1,
+    "skipped": 0,
+    "phases": [
+      { "name": "light-ui", "passed": 114, "failed": 0, "bundle": "/tmp/nido-final-auth-menu-gate-2026-10-18/light-ui.xcresult" },
+      { "name": "local-api-ui", "passed": 2, "failed": 1, "bundle": "/tmp/nido-final-auth-menu-gate-2026-10-18/local-api-ui.xcresult" },
+      { "name": "snapshots", "passed": 59, "failed": 0, "bundle": "/tmp/nido-auth-menu-remaining-phases-2026-10-18/snapshots.xcresult" },
+      { "name": "dark-ui", "passed": 10, "failed": 0, "bundle": "/tmp/nido-auth-menu-remaining-phases-2026-10-18/dark-ui.xcresult" }
+    ]
+  },
+  "core": { "passed": 209, "suites": 31, "log": "/tmp/nido-core-209-31-final-2026-10-18.log" },
+  "runnerContracts": { "passed": 16, "failed": 0, "log": "/tmp/nido-appearance-ledger-green-2026-10-18.log" },
+  "release": { "buildSucceeded": true, "appAndEmbeddedExtension": true, "debugMarkersAbsentInBothBinaries": true, "log": "/tmp/nido-auth-menu-release-build-2026-10-18.log" },
+  "calendarDiagnostic": {
+    "repositorySourceChanged": false,
+    "instrumentedIntegrationPassed": 3,
+    "freshHistoryOnlyRuns": 5,
+    "freshHistoryOnlyPassed": 5,
+    "retryOnFailure": false,
+    "failureReproduced": false,
+    "causeProven": false,
+    "originalFailurePreserved": true,
+    "bundlesDirectory": "/tmp/nido-history-selection-stress-2026-10-18",
+    "restoredHistorySHA256": "fd5cbf7d31c5313a76cd67188bc52e0e98a33bf793d344a336bb81bc413fbbc7"
+  },
+  "remaining": [
+    "Historical menu failure has not been causally reproduced",
+    "Capture failed calendar selection with action and presentation traces before proposing a fix"
+  ],
+  "ownedQA": { "uuid": "4A7A40BF-4FEE-41F7-9019-1D1F5F5B04AD", "shutdown": true, "preservedForDiagnosis": true, "appearance": "light", "reduceMotion": false, "userDevicesTouched": false },
+  "rollback": "Revert the single session-correction and regression-coverage commit based on baseCommit"
+}

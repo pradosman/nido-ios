@@ -36,6 +36,132 @@ final class AccountDeletionSessionFenceTests: XCTestCase {
         )
     }
 
+    func testLoadWithoutCredentialPreservesAccountRevocationNotice() async throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false, unauthorizedLoad: true)
+        defer { fixture.cleanup() }
+        let revocationNotice = "Vuelve a iniciar sesión para acceder."
+
+        await fixture.store.load()
+        XCTAssertEqual(fixture.store.phase, .authentication)
+        XCTAssertEqual(fixture.store.notice, revocationNotice)
+
+        await fixture.store.load()
+
+        XCTAssertEqual(
+            fixture.store.notice,
+            revocationNotice,
+            "A later load with no credential must not erase the reason the session was revoked."
+        )
+    }
+
+    func testStoreOwnedSessionInvalidationDoesNotReenterEventHub() async throws {
+        let cleanupProbe = AccountDeletionCleanupProbe()
+        let fixture = try makeFixture(
+            delaysFirstChallenge: false,
+            unauthorizedLoad: true,
+            cleanupProbe: cleanupProbe
+        )
+        defer { fixture.cleanup() }
+        await fixture.store.load()
+
+        XCTAssertEqual(fixture.store.phase, .authentication)
+        XCTAssertEqual(fixture.store.notice, "Vuelve a iniciar sesión para acceder.")
+        XCTAssertFalse(
+            cleanupProbe.didPublishInvalidation,
+            "The store already owns this invalidation and must not publish it back through its event hub."
+        )
+
+        await signInNewAccount(fixture.store)
+        XCTAssertEqual(fixture.credentialStore.load()?.accessToken, "new-nido-session")
+        XCTAssertTrue(fixture.store.hasAccountSession)
+        XCTAssertEqual(fixture.store.phase, .onboarding)
+        XCTAssertNotEqual(fixture.store.notice, "Vuelve a iniciar sesión para acceder.")
+
+        fixture.eventHub.invalidate()
+        XCTAssertFalse(fixture.store.hasAccountSession)
+        XCTAssertEqual(fixture.store.phase, .authentication)
+        XCTAssertEqual(fixture.store.notice, "Vuelve a iniciar sesión para acceder.")
+    }
+
+    func testAutomaticDismissalCannotClearReauthenticationReason() async throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false, unauthorizedLoad: true)
+        defer { fixture.cleanup() }
+        let revocationNotice = "Vuelve a iniciar sesión para acceder."
+        await fixture.store.load()
+
+        fixture.store.dismissNoticeAutomatically(matching: revocationNotice)
+
+        XCTAssertEqual(fixture.store.notice, revocationNotice)
+    }
+
+    func testAutomaticDismissalRequiresReadyPhase() throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false)
+        defer { fixture.cleanup() }
+        fixture.store.phase = .authentication
+        fixture.store.notice = "Aviso actual"
+
+        fixture.store.dismissNoticeAutomatically(matching: "Aviso actual")
+
+        XCTAssertEqual(fixture.store.notice, "Aviso actual")
+    }
+
+    func testAutomaticDismissalDoesNotClearReplacementNotice() throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false)
+        defer { fixture.cleanup() }
+        fixture.store.phase = .ready
+        fixture.store.notice = "Perfil actualizado"
+
+        fixture.store.dismissNoticeAutomatically(matching: "Aviso anterior")
+
+        XCTAssertEqual(fixture.store.notice, "Perfil actualizado")
+    }
+
+    func testAutomaticDismissalClearsMatchingTransientNotice() throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false)
+        defer { fixture.cleanup() }
+        fixture.store.phase = .ready
+        fixture.store.notice = "Perfil actualizado"
+
+        fixture.store.dismissNoticeAutomatically(matching: "Perfil actualizado")
+
+        XCTAssertNil(fixture.store.notice)
+    }
+
+    func testAutomaticDismissalPreservesUndoableNotice() throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false)
+        defer { fixture.cleanup() }
+        let deletedEntry = Entry(
+            id: "undoable", kind: .diaper, title: "Pañal", detail: "Pis",
+            occurredAt: 1_000, durationMinutes: nil, amountMl: nil
+        )
+        fixture.store.phase = .ready
+        fixture.store.notice = "Pañal eliminado"
+        fixture.store.recentlyDeletedEntry = deletedEntry
+
+        fixture.store.dismissNoticeAutomatically(matching: "Pañal eliminado")
+
+        XCTAssertEqual(fixture.store.notice, "Pañal eliminado")
+        XCTAssertEqual(fixture.store.recentlyDeletedEntry, deletedEntry)
+
+        fixture.store.recentlyDeletedEntry = nil
+        fixture.store.recentlyCreatedEntry = deletedEntry
+        fixture.store.notice = "Pañal registrado"
+        fixture.store.dismissNoticeAutomatically(matching: "Pañal registrado")
+
+        XCTAssertEqual(fixture.store.notice, "Pañal registrado")
+        XCTAssertEqual(fixture.store.recentlyCreatedEntry, deletedEntry)
+    }
+
+    func testManualDismissalStillClearsReauthenticationReason() async throws {
+        let fixture = try makeFixture(delaysFirstChallenge: false, unauthorizedLoad: true)
+        defer { fixture.cleanup() }
+        await fixture.store.load()
+
+        fixture.store.dismissNotice()
+
+        XCTAssertNil(fixture.store.notice)
+    }
+
     func testRegistrationServiceInvalidationNoticeSurvivesAppleChallenge() async throws {
         let fixture = try makeFixture(delaysFirstChallenge: false)
         defer { fixture.cleanup() }
@@ -174,7 +300,8 @@ final class AccountDeletionSessionFenceTests: XCTestCase {
         unauthorizedLoad: Bool = false,
         delaysDeletion: Bool = false,
         delaysLogout: Bool = false,
-        appleUserID: String? = nil
+        appleUserID: String? = nil,
+        cleanupProbe: AccountDeletionCleanupProbe? = nil
     ) throws -> Fixture {
         let identifier = UUID().uuidString
         let suiteName = "nido.account-deletion-session.\(identifier)"
@@ -199,17 +326,48 @@ final class AccountDeletionSessionFenceTests: XCTestCase {
         let session = URLSession(configuration: configuration)
         let api = NidoAPI(baseURL: try XCTUnwrap(URL(string: "https://account-deletion.test")), session: session)
         let eventHub = RegistrationMutationEventHub()
-        let registrationService = NidoRegistrationServices.make(
-            api: api,
-            cache: LocalCache(fileURL: directory.appending(path: "cache.json")),
-            credentialStore: credentialStore,
-            stateDefaults: defaults,
-            legacyDefaults: defaults,
-            stateStore: RegistrationStateFileStore(fileURL: directory.appending(path: "state.json")),
-            eventHub: eventHub,
-            credentialOverride: oldCredential,
-            loadSleep: { _ in nil }
-        )
+        let cache = LocalCache(fileURL: directory.appending(path: "cache.json"))
+        let stateStore = RegistrationStateFileStore(fileURL: directory.appending(path: "state.json"))
+        let registrationService: RegistrationMutationService
+        if let cleanupProbe {
+            registrationService = RegistrationMutationService(
+                cache: cache,
+                stateStore: stateStore,
+                legacyDefaults: RegistrationStateDefaults(durable: defaults, legacy: defaults),
+                dependencies: RegistrationMutationDependencies(
+                    loadCredential: { oldCredential },
+                    deleteCredential: { credentialStore.delete() },
+                    createEntry: { entry, token in try await api.create(entry: entry, accessToken: token) },
+                    publishLocalCommit: { commit in await eventHub.publish(commit) },
+                    clearExternalState: {
+                        cleanupProbe.recordInvalidation()
+                        await eventHub.invalidate()
+                    },
+                    now: { .now },
+                    makeID: { UUID().uuidString },
+                    syncSleep: { startedAt, expectedStartedAt, token in
+                        try await api.syncSleep(
+                            startedAt: startedAt,
+                            expectedStartedAt: expectedStartedAt,
+                            accessToken: token
+                        )
+                    },
+                    loadSleep: { _ in nil }
+                )
+            )
+        } else {
+            registrationService = NidoRegistrationServices.make(
+                api: api,
+                cache: cache,
+                credentialStore: credentialStore,
+                stateDefaults: defaults,
+                legacyDefaults: defaults,
+                stateStore: stateStore,
+                eventHub: eventHub,
+                credentialOverride: oldCredential,
+                loadSleep: { _ in nil }
+            )
+        }
         let store = NidoStore(
             api: api,
             credentialStore: credentialStore,
@@ -248,6 +406,21 @@ final class AccountDeletionSessionFenceTests: XCTestCase {
             defaults.removePersistentDomain(forName: suiteName)
             credentialStore.delete()
             try? FileManager.default.removeItem(at: directory)
+        }
+    }
+}
+
+private final class AccountDeletionCleanupProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didRecordInvalidation = false
+
+    var didPublishInvalidation: Bool {
+        lock.withLock { didRecordInvalidation }
+    }
+
+    func recordInvalidation() {
+        lock.withLock {
+            didRecordInvalidation = true
         }
     }
 }

@@ -14,7 +14,7 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const ledger = JSON.parse(readFileSync(resolve(here, 'appearance-test-baseline.json'), 'utf8'));
 
-test('the phase ledger includes the palette, glyph, widget and native menu regression checks', () => {
+test('the phase ledger includes palette, widget, menu and authentication regressions', () => {
   const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
   const required = [
     'NidoSnapshotTests/SettingsContrastTests/testChartAccentsUseTheNidoPaletteInSRGB',
@@ -27,6 +27,15 @@ test('the phase ledger includes the palette, glyph, widget and native menu regre
     'NidoSnapshotTests/CareCategoryIconTests/testDiaperGlyphIsVisuallyDistinctFromItsShortcutDropletFallback',
     'NidoUITests/NidoUITests/testRegistrationMenuShowsTheDiaperActionForVisualGlyphReview',
     'NidoUITests/NidoUITests/testTenMinuteFeedActivityAppearsOnDynamicIsland',
+    'NidoUITests/NidoUITests/testRegistrationMenuSupportsConsecutiveSelectionsAndCancellation',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testLoadWithoutCredentialPreservesAccountRevocationNotice',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testStoreOwnedSessionInvalidationDoesNotReenterEventHub',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testAutomaticDismissalCannotClearReauthenticationReason',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testAutomaticDismissalRequiresReadyPhase',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testAutomaticDismissalDoesNotClearReplacementNotice',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testAutomaticDismissalClearsMatchingTransientNotice',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testAutomaticDismissalPreservesUndoableNotice',
+    'NidoSnapshotTests/AccountDeletionSessionFenceTests/testManualDismissalStillClearsReauthenticationReason',
   ];
   for (const identifier of required) {
     assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing regression case: ${identifier}`);
@@ -36,14 +45,14 @@ test('the phase ledger includes the palette, glyph, widget and native menu regre
 
 test('the phase plan covers every baseline once and splits only the three mixed cases', () => {
   const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
-  assert.equal(plan.baselineCount, 174);
-  assert.equal(plan.executionCount, 177);
+  assert.equal(plan.baselineCount, 183);
+  assert.equal(plan.executionCount, 186);
   assert.deepEqual(plan.phases.map(({ name }) => name), ['light-ui', 'local-api-ui', 'snapshots', 'dark-ui']);
-  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [113, 3, 51, 10]);
+  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [114, 3, 59, 10]);
 
   const phaseIDs = plan.phases.flatMap(({ identifiers }) => identifiers);
-  assert.equal(new Set(phaseIDs).size, 177);
-  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 51);
+  assert.equal(new Set(phaseIDs).size, 186);
+  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 59);
   assert.deepEqual(plan.phases[1].identifiers, [...API_TESTS]);
   assert.deepEqual(plan.phases[3].identifiers.slice(0, 7), [...DARK_ONLY_TESTS]);
 
@@ -102,7 +111,7 @@ test('the planner rejects a duplicated or incomplete baseline rather than silent
   );
   assert.throws(
     () => buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers.slice(1)),
-    /Expected the 174-test baseline ledger/
+    /Expected the 183-test baseline ledger/
   );
 });
 

@@ -249,10 +249,42 @@ final class NidoUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Hoy con Baby B"].waitForExistence(timeout: 8))
         XCTAssertFalse(app.staticTexts["Baby A"].exists)
-        app.buttons["registration-action-button"].tap()
-        app.buttons["Registrar pañal"].tap()
+        let registrationButton = app.buttons["registration-action-button"]
+        XCTAssertTrue(registrationButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(registrationButton.isHittable)
+        registrationButton.tap()
+        let diaperMenuRow = app.buttons["Registrar pañal"]
+        XCTAssertTrue(diaperMenuRow.waitForExistence(timeout: 3))
+        XCTAssertTrue(diaperMenuRow.isHittable)
+        let menuOptions = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Registrar '"))
+        let menuStateBeforeTap = menuOptions.allElementsBoundByIndex.map {
+            "label=\($0.label), id=\($0.identifier), frame=\($0.frame), hittable=\($0.isHittable)"
+        }.joined(separator: "\n")
+        let menuScreenshot = XCTAttachment(screenshot: app.screenshot())
+        menuScreenshot.name = "Fresh installation · menu before diaper selection"
+        menuScreenshot.lifetime = .keepAlways
+        add(menuScreenshot)
+        let menuDiagnostics = XCTAttachment(string: "Registration action frame=\(registrationButton.frame), hittable=\(registrationButton.isHittable)\nMenu rows:\n\(menuStateBeforeTap)")
+        menuDiagnostics.name = "Fresh installation · menu row accessibility before selection"
+        menuDiagnostics.lifetime = .keepAlways
+        add(menuDiagnostics)
+        diaperMenuRow.tap()
         let quickDiaper = app.buttons["Registrar pañal · Pis"]
-        XCTAssertTrue(quickDiaper.waitForExistence(timeout: 5))
+        let quickDiaperAppeared = quickDiaper.waitForExistence(timeout: 5)
+        let menuOptionsAfterTap = menuOptions.allElementsBoundByIndex.map {
+            "label=\($0.label), id=\($0.identifier), frame=\($0.frame), hittable=\($0.isHittable)"
+        }.joined(separator: "\n")
+        let afterSelectionScreenshot = XCTAttachment(screenshot: app.screenshot())
+        afterSelectionScreenshot.name = "Fresh installation · state after diaper selection"
+        afterSelectionScreenshot.lifetime = .keepAlways
+        add(afterSelectionScreenshot)
+        let selectionDiagnostics = XCTAttachment(
+            string: "Quick diaper exists=\(quickDiaper.exists), hittable=\(quickDiaper.isHittable), frame=\(quickDiaper.frame)\nMenu rows after selection:\n\(menuOptionsAfterTap)"
+        )
+        selectionDiagnostics.name = "Fresh installation · menu and quick sheet accessibility after selection"
+        selectionDiagnostics.lifetime = .keepAlways
+        add(selectionDiagnostics)
+        XCTAssertTrue(quickDiaperAppeared)
         quickDiaper.tap()
         let quickRegistrationDismissed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"),
@@ -517,7 +549,16 @@ final class NidoUITests: XCTestCase {
         let appleSignInHeading = app.staticTexts["El cuidado familiar, en privado."]
         XCTAssertTrue(appleSignInHeading.waitForExistence(timeout: 5))
         let sessionRevocationNotice = app.staticTexts["Vuelve a iniciar sesión para acceder."]
-        XCTAssertTrue(sessionRevocationNotice.waitForExistence(timeout: 5))
+        let sessionRevocationNoticeAppeared = sessionRevocationNotice.waitForExistence(timeout: 5)
+        let revocationNoticeScreenshot = XCTAttachment(screenshot: app.screenshot())
+        revocationNoticeScreenshot.name = "Caregiver revocation · reauthentication notice state"
+        revocationNoticeScreenshot.lifetime = .keepAlways
+        add(revocationNoticeScreenshot)
+        let revocationNoticeHierarchy = XCTAttachment(string: app.debugDescription)
+        revocationNoticeHierarchy.name = "Caregiver revocation · accessibility hierarchy at notice assertion"
+        revocationNoticeHierarchy.lifetime = .keepAlways
+        add(revocationNoticeHierarchy)
+        XCTAssertTrue(sessionRevocationNoticeAppeared)
         try await Task.sleep(for: .seconds(4))
         XCTAssertTrue(sessionRevocationNotice.exists, "The reauthentication explanation must remain visible long enough to read.")
         XCTAssertFalse(app.textFields["XXXX-XXXX-XXXX"].exists)
@@ -1524,6 +1565,91 @@ final class NidoUITests: XCTestCase {
             100,
             "Registration choices must remain visually anchored near the floating action button."
         )
+    }
+
+    func testRegistrationMenuSupportsConsecutiveSelectionsAndCancellation() {
+        launch(scenario: "quick-diaper-registration")
+
+        let registrationButton = app.buttons["registration-action-button"]
+        let history = app.tabBars.buttons["Historia"]
+        XCTAssertTrue(registrationButton.waitForExistence(timeout: 3))
+        history.tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
+
+        func assertRegistrationActionIsReadyAfterDismissal() {
+            let registrationActionReady = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == true AND hittable == true"),
+                object: registrationButton
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [registrationActionReady], timeout: 3),
+                .completed,
+                "The registration sheet must finish dismissing before the next menu cycle."
+            )
+        }
+
+        func openMenuAndSelect(_ row: String, destination: String) {
+            registrationButton.tap()
+            let menuRow = app.buttons[row]
+            XCTAssertTrue(menuRow.waitForExistence(timeout: 3), "The \(row) row must be exposed by the registration menu.")
+            XCTAssertTrue(menuRow.isHittable, "The \(row) row must be hittable before selection.")
+            let before = XCTAttachment(screenshot: app.screenshot())
+            before.name = "Registro · menú abierto · \(row)"
+            before.lifetime = .keepAlways
+            add(before)
+
+            menuRow.tap()
+
+            let destinationView = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label == %@", destination))
+                .firstMatch
+            XCTAssertTrue(
+                destinationView.waitForExistence(timeout: 3),
+                "Selecting \(row) must dismiss the menu and show \(destination)."
+            )
+            let menuDismissed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"),
+                object: menuRow
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [menuDismissed], timeout: 3), .completed)
+            let after = XCTAttachment(screenshot: app.screenshot())
+            after.name = "Registro · destino · \(row)"
+            after.lifetime = .keepAlways
+            add(after)
+            XCTAssertTrue(history.isSelected, "Opening a registration flow must preserve the selected tab.")
+        }
+
+        openMenuAndSelect("Registrar pañal", destination: "Pañal")
+        app.buttons["Cancelar"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
+        assertRegistrationActionIsReadyAfterDismissal()
+
+        openMenuAndSelect("Registrar pañal", destination: "Pañal")
+        app.buttons["Añadir detalles"].tap()
+        XCTAssertTrue(app.staticTexts["¿Qué había en el pañal?"].waitForExistence(timeout: 3))
+        app.buttons["Cancelar"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
+        assertRegistrationActionIsReadyAfterDismissal()
+
+        openMenuAndSelect("Registrar sueño", destination: "Sueño")
+        app.buttons["Cancelar"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
+        assertRegistrationActionIsReadyAfterDismissal()
+
+        openMenuAndSelect("Registrar cuidados", destination: "Cuidados")
+        app.buttons["Cancelar"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
+        assertRegistrationActionIsReadyAfterDismissal()
+
+        openMenuAndSelect("Registrar toma", destination: "Toma")
+        app.buttons["Cancelar"].tap()
+        XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 3))
+        assertRegistrationActionIsReadyAfterDismissal()
+        XCTAssertTrue(registrationButton.isHittable)
+        XCTAssertFalse(app.buttons["Registrar pañal"].exists)
+        XCTAssertFalse(app.buttons["Registrar sueño"].exists)
+        XCTAssertFalse(app.buttons["Registrar toma"].exists)
+        XCTAssertFalse(app.buttons["Registrar cuidados"].exists)
     }
 
     func testSemanticEditorsExposeTheStoredActivityFields() {
