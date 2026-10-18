@@ -1,6 +1,40 @@
 {
-  "status": "partial_closure",
+  "status": "validated_closure",
+  "recoveredCalendarGate": {
+    "status": "passed",
+    "directory": "/tmp/nido-final-calendar-gate-2026-10-18/final-run-recovered",
+    "light": { "passed": 114, "failed": 0, "skipped": 0 },
+    "api": { "passed": 3, "failed": 0, "skipped": 0, "freshDisposableDatabase": true },
+    "snapshots": { "passed": 59, "failed": 0, "skipped": 0 },
+    "dark": { "passed": 10, "failed": 0, "skipped": 0 },
+    "executions": 186,
+    "uniqueActualIdentifiers": 186,
+    "historicalBaselineIdentifiers": 183,
+    "baselineExpansion": "Three combined visual cases are replaced by six appearance-specific cases",
+    "actualIdentifiersMatchPlanInEveryPhase": true,
+    "selectorLedger": "/tmp/nido-final-calendar-gate-2026-10-18/final-run-recovered/xcresult-selector-ledger.json",
+    "remaining": [],
+    "core": { "passed": 209, "suites": 31 },
+    "runnerContracts": { "passed": 16, "failed": 0, "skipped": 0 },
+    "releaseSimulatorAppAndExtension": "build_succeeded",
+    "historicalFailureCauseProven": false
+  },
+  "interruptedCalendarAttempt": {
+    "status": "failed_incomplete",
+    "directory": "/tmp/nido-final-calendar-gate-2026-10-18/final-run",
+    "completeResultAvailable": false,
+    "mainCasesExecuted": 63,
+    "mainFailedCasesObserved": 12,
+    "mainAssertionFailuresReported": 13,
+    "widgetFailedCasesObserved": 2,
+    "firstFailure": "testCreatingAFeedUsesTheSelectedTimelineTime",
+    "firstFailureCause": "undetermined; precedes explicit SpringBoard errors",
+    "laterInfrastructureFailure": "SpringBoard exited; XPC and launch errors",
+    "remainingPhasesExecuted": false,
+    "historicalFullNativeValidationBelowIsCurrentApproval": false
+  },
   "branch": "codex/nido-premium-design",
+  "calendarImplementationBaseCommit": "ff1226b41789dd2576b2cd26da2c83c4e3ee6c19",
   "baseCommit": "3e8f4ffa2134218f5f4c8e4e7f8795d61c11005b",
   "causalRedCases": [
     { "bundle": "/tmp/nido-auth-notice-red-2026-10-18.xcresult", "failed": 1, "cause": "Repeated load without credential erased protected notice" },
@@ -11,7 +45,8 @@
   "focusedSession": { "passed": 15, "failed": 0, "skipped": 0, "bundle": "/tmp/nido-auth-dismiss-final-focused-2026-10-18.xcresult" },
   "menuRepetitions": { "executions": 5, "passed": 5, "failed": 0, "retryOnFailure": false, "historicalCauseProven": false, "log": "/tmp/nido-registration-menu-iterations5-test.log" },
   "fullNativeValidation": {
-    "uniqueTests": 183,
+    "isHistoricalAttempt": true,
+    "historicalBaselineTestCount": 183,
     "executions": 186,
     "passed": 185,
     "failed": 1,
@@ -26,7 +61,7 @@
   "core": { "passed": 209, "suites": 31, "log": "/tmp/nido-core-209-31-final-2026-10-18.log" },
   "runnerContracts": { "passed": 16, "failed": 0, "log": "/tmp/nido-appearance-ledger-green-2026-10-18.log" },
   "release": { "buildSucceeded": true, "appAndEmbeddedExtension": true, "debugMarkersAbsentInBothBinaries": true, "log": "/tmp/nido-auth-menu-release-build-2026-10-18.log" },
-  "calendarDiagnostic": {
+  "historicalCalendarDiagnostic": {
     "repositorySourceChanged": false,
     "instrumentedIntegrationPassed": 3,
     "freshHistoryOnlyRuns": 5,
@@ -38,10 +73,11 @@
     "bundlesDirectory": "/tmp/nido-history-selection-stress-2026-10-18",
     "restoredHistorySHA256": "fd5cbf7d31c5313a76cd67188bc52e0e98a33bf793d344a336bb81bc413fbbc7"
   },
-  "remaining": [
+  "remaining": [],
+  "historicalInvestigationLimits": [
     "Historical menu failure has not been causally reproduced",
-    "Capture failed calendar selection with action and presentation traces before proposing a fix"
+    "The historical unobstructed calendar tap failure has no proven cause; later occluded-tap findings do not explain it"
   ],
   "ownedQA": { "uuid": "4A7A40BF-4FEE-41F7-9019-1D1F5F5B04AD", "shutdown": true, "preservedForDiagnosis": true, "appearance": "light", "reduceMotion": false, "userDevicesTouched": false },
-  "rollback": "Revert the single session-correction and regression-coverage commit based on baseCommit"
+  "rollback": "Revert the calendar-position, UI-test and evidence commit based on calendarImplementationBaseCommit; authentication corrections in that base remain intact"
 }

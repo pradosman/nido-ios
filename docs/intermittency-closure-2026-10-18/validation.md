@@ -1,5 +1,7 @@
 # Correcciones y diagnóstico — registro y sesión
 
+> Registro histórico de la primera unidad de corrección, `ff1226b`. Los resultados fallidos y sus límites causales se conservan. El seguimiento del calendario y la nueva validación están en [final-validation.md](final-validation.md) y [calendar-follow-up.md](calendar-follow-up.md).
+
 **Estado: cierre parcial.** Las correcciones de sesión tienen reproducciones causales y pruebas verdes. El menú pasa su cobertura ampliada, pero su causa histórica no está demostrada. La suite completa conserva una intermitencia adicional al seleccionar una fecha en el calendario; no se declara una validación íntegramente verde.
 
 ## Alcance

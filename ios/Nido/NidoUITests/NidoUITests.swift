@@ -381,9 +381,88 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Historia"].waitForExistence(timeout: 5))
         app.buttons["history-day-picker"].tap()
         XCTAssertTrue(app.navigationBars["Elegir día"].waitForExistence(timeout: 3))
-        let targetMonth = Date(timeIntervalSince1970: Double(oldestTimestamp) / 1_000)
+
         var fixtureCalendar = Calendar(identifier: .gregorian)
         fixtureCalendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+        let initialToday = fixtureCalendar.startOfDay(for: .now)
+        let initialTodayComponents = fixtureCalendar.dateComponents([.year, .month, .day], from: initialToday)
+        let initialTodayValue = String(
+            format: "%04d-%02d-%02d",
+            initialTodayComponents.year!, initialTodayComponents.month!, initialTodayComponents.day!
+        )
+        let initialTodayMonthIdentifier = String(
+            format: "%04d-%02d", initialTodayComponents.year!, initialTodayComponents.month!
+        )
+        let initialSelectedDay = app.buttons["history-calendar-day-\(initialTodayValue)"]
+        let initialCalendarScrollView = app.scrollViews["history-calendar-scroll"]
+        let initialDayPickerNavigationBar = app.navigationBars["Elegir día"]
+        let initialMonthHeader = app.descendants(matching: .any)
+            .matching(identifier: "history-calendar-header-\(initialTodayMonthIdentifier)").firstMatch
+        let initialPreviousMonthStart = fixtureCalendar.date(
+            byAdding: .month,
+            value: -1,
+            to: fixtureCalendar.date(from: DateComponents(
+                year: initialTodayComponents.year!, month: initialTodayComponents.month!, day: 1
+            ))!
+        )!
+        let initialPreviousMonthComponents = fixtureCalendar.dateComponents([.year, .month], from: initialPreviousMonthStart)
+        let initialPreviousMonthIdentifier = String(
+            format: "%04d-%02d", initialPreviousMonthComponents.year!, initialPreviousMonthComponents.month!
+        )
+        let initialPreviousHeader = app.descendants(matching: .any)
+            .matching(identifier: "history-calendar-header-\(initialPreviousMonthIdentifier)").firstMatch
+        XCTAssertTrue(initialSelectedDay.exists, "The initially selected day must exist in the calendar.")
+        XCTAssertTrue(initialCalendarScrollView.exists, "The calendar viewport must exist.")
+        XCTAssertTrue(initialMonthHeader.exists, "The selected month's current header must exist.")
+        let initialSelectedDayFrame = initialSelectedDay.frame
+        let initialViewportFrame = initialCalendarScrollView.frame
+        let initialNavigationBarFrame = initialDayPickerNavigationBar.frame
+        let initialMonthHeaderFrame = initialMonthHeader.frame
+        let initialPreviousHeaderFrame = initialPreviousHeader.exists ? initialPreviousHeader.frame : nil
+        let initialVisibilityDiagnostic = """
+        selectedDate=\(initialTodayValue)
+        selectedDayFrame=\(initialSelectedDayFrame)
+        viewportFrame=\(initialViewportFrame)
+        navigationBarFrame=\(initialNavigationBarFrame)
+        currentMonthHeaderFrame=\(initialMonthHeaderFrame)
+        previousMonthHeaderFrame=\(String(describing: initialPreviousHeaderFrame))
+        isEnabled=\(initialSelectedDay.isEnabled)
+        isHittable=\(initialSelectedDay.isHittable)
+        """
+        let initialVisibilityAttachment = XCTAttachment(string: initialVisibilityDiagnostic)
+        initialVisibilityAttachment.name = "History initial selected-day and month-header geometry"
+        initialVisibilityAttachment.lifetime = .keepAlways
+        add(initialVisibilityAttachment)
+        let initialVisibilityScreenshot = XCTAttachment(image: app.screenshot().image)
+        initialVisibilityScreenshot.name = "History initial selected-day and month-header visibility"
+        initialVisibilityScreenshot.lifetime = .keepAlways
+        add(initialVisibilityScreenshot)
+
+        XCTAssertTrue(
+            initialViewportFrame.contains(initialSelectedDayFrame),
+            "The initially selected day must be fully inside the calendar viewport."
+        )
+        XCTAssertGreaterThanOrEqual(
+            initialMonthHeaderFrame.minY,
+            initialNavigationBarFrame.maxY,
+            "The current month header must be below the picker navigation bar."
+        )
+        XCTAssertGreaterThanOrEqual(
+            initialSelectedDayFrame.minY,
+            max(initialNavigationBarFrame.maxY, initialMonthHeaderFrame.maxY) + 8,
+            "The initially selected day must be fully below the navigation bar and current month header."
+        )
+        if let initialPreviousHeaderFrame = initialPreviousHeaderFrame {
+            XCTAssertLessThanOrEqual(
+                initialPreviousHeaderFrame.maxY,
+                initialNavigationBarFrame.maxY,
+                "The previous month header must remain above the calendar's usable content area."
+            )
+        }
+        XCTAssertTrue(initialSelectedDay.isEnabled, "The initially selected day must be enabled.")
+        XCTAssertTrue(initialSelectedDay.isHittable, "The initially selected day must be hittable before scrolling.")
+
+        let targetMonth = Date(timeIntervalSince1970: Double(oldestTimestamp) / 1_000)
         let targetDate = fixtureCalendar.dateComponents([.year, .month, .day], from: targetMonth)
         let targetDateIdentifier = String(
             format: "history-calendar-day-%04d-%02d-%02d",
@@ -399,11 +478,18 @@ final class NidoUITests: XCTestCase {
             "The open month sheet needs a visible vertical scroll view."
         )
         let dayPickerNavigationBar = app.navigationBars["Elegir día"]
+        let targetMonthComponents = fixtureCalendar.dateComponents([.year, .month], from: targetMonth)
+        let targetMonthIdentifier = String(
+            format: "%04d-%02d", targetMonthComponents.year!, targetMonthComponents.month!
+        )
+        let targetMonthHeader = app.descendants(matching: .any)
+            .matching(identifier: "history-calendar-header-\(targetMonthIdentifier)").firstMatch
         let monthScrollLimit = min(24, monthsBack * 4 + 4)
         func dateCellHasUnobstructedViewportFrame() -> Bool {
             guard oldDate.exists, dayPickerNavigationBar.exists else { return false }
             let frame = oldDate.frame
-            return frame.minY >= dayPickerNavigationBar.frame.maxY + 8
+            let monthHeaderBottom = targetMonthHeader.exists ? targetMonthHeader.frame.maxY : dayPickerNavigationBar.frame.maxY
+            return frame.minY >= max(dayPickerNavigationBar.frame.maxY, monthHeaderBottom) + 8
                 && frame.maxY <= app.frame.maxY - 8
                 && frame.minX >= app.frame.minX
                 && frame.maxX <= app.frame.maxX
@@ -417,10 +503,23 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(oldDate.isHittable)
         XCTAssertTrue(
             dateCellHasUnobstructedViewportFrame(),
-            "The fixture date must be fully below the picker navigation bar and inside the calendar viewport before tapping."
+            "The fixture date must be fully below its month header and picker navigation bar before tapping."
         )
+        let targetDateGeometry = """
+        targetDateFrame=\(oldDate.frame)
+        targetMonthHeaderExists=\(targetMonthHeader.exists)
+        targetMonthHeaderFrame=\(targetMonthHeader.exists ? String(describing: targetMonthHeader.frame) : "unavailable")
+        viewportFrame=\(calendarScrollView.frame)
+        navigationBarFrame=\(dayPickerNavigationBar.frame)
+        isEnabled=\(oldDate.isEnabled)
+        isHittable=\(oldDate.isHittable)
+        """
+        let targetDateGeometryAttachment = XCTAttachment(string: targetDateGeometry)
+        targetDateGeometryAttachment.name = "History fixture date and full month-header geometry before tap"
+        targetDateGeometryAttachment.lifetime = .keepAlways
+        add(targetDateGeometryAttachment)
         let beforeDateSelection = XCTAttachment(image: app.screenshot().image)
-        beforeDateSelection.name = "History fixture date fully visible below picker navigation bar"
+        beforeDateSelection.name = "History fixture date fully visible below month header and picker navigation bar"
         beforeDateSelection.lifetime = .keepAlways
         add(beforeDateSelection)
         oldDate.tap()

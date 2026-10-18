@@ -136,12 +136,79 @@ final class HistoryFitnessUITests: XCTestCase {
         attachScreenshot(named: "History calendar with pinned month heading")
 
         let previousMonthDay = app.buttons["history-calendar-day-\(calendarDateIdentifier(previousMonthDate))"]
-        for _ in 0..<12 where !previousMonthDay.isHittable {
+        let previousMonthComponents = Calendar.current.dateComponents([.year, .month], from: previousMonthDate)
+        let previousMonthIdentifier = String(
+            format: "%04d-%02d", previousMonthComponents.year ?? 0, previousMonthComponents.month ?? 0
+        )
+        let previousMonthHeader = app.descendants(matching: .any)
+            .matching(identifier: "history-calendar-header-\(previousMonthIdentifier)").firstMatch
+        let pickerNavigationBar = app.navigationBars["Elegir día"]
+        func hasUnobstructedPreviousDayFrame() -> Bool {
+            guard previousMonthDay.exists, calendarScroll.exists, pickerNavigationBar.exists else { return false }
+            let dayFrame = previousMonthDay.frame
+            let viewportFrame = calendarScroll.frame
+            let navigationFrame = pickerNavigationBar.frame
+            let monthHeaderBottom = previousMonthHeader.exists ? previousMonthHeader.frame.maxY : navigationFrame.maxY
+            return viewportFrame.contains(dayFrame)
+                && dayFrame.minY >= max(navigationFrame.maxY, monthHeaderBottom) + 8
+                && previousMonthDay.isEnabled
+                && previousMonthDay.isHittable
+        }
+        for _ in 0..<12 where !hasUnobstructedPreviousDayFrame() {
             let start = calendarScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
             let end = calendarScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
-        XCTAssertTrue(previousMonthDay.isHittable, "Scrolling to the previous month should remain available in the same calendar.")
+
+        guard previousMonthDay.exists, calendarScroll.exists, pickerNavigationBar.exists else {
+            let missingElementsDiagnostic = """
+            previousMonthDayExists=\(previousMonthDay.exists)
+            calendarScrollExists=\(calendarScroll.exists)
+            pickerNavigationBarExists=\(pickerNavigationBar.exists)
+            """
+            let missingElementsAttachment = XCTAttachment(string: missingElementsDiagnostic)
+            missingElementsAttachment.name = "History previous-month lookup state before tap"
+            missingElementsAttachment.lifetime = .keepAlways
+            add(missingElementsAttachment)
+            attachScreenshot(named: "History previous-month elements unavailable before tap")
+            XCTFail("The previous-month day, calendar viewport, and picker navigation bar must exist before reading final geometry.\n\(missingElementsDiagnostic)")
+            return
+        }
+        let finalDayExists = previousMonthDay.exists
+        let finalDayFrame = previousMonthDay.frame
+        let finalViewportFrame = calendarScroll.frame
+        let finalNavigationFrame = pickerNavigationBar.frame
+        let finalHeaderExists = previousMonthHeader.exists
+        let finalHeaderFrame = finalHeaderExists ? previousMonthHeader.frame : nil
+        let finalHeaderBottom = max(finalNavigationFrame.maxY, finalHeaderFrame?.maxY ?? finalNavigationFrame.maxY)
+        let fullyInsideViewport = finalViewportFrame.contains(finalDayFrame)
+        let belowNavigationAndHeader = finalDayFrame.minY >= finalHeaderBottom + 8
+        let dayIsEnabled = previousMonthDay.isEnabled
+        let dayIsHittable = previousMonthDay.isHittable
+        let finalGeometry = """
+        dayIdentifier=\(previousMonthDay.identifier)
+        dayExists=\(finalDayExists)
+        dayFrame=\(finalDayFrame)
+        viewportFrame=\(finalViewportFrame)
+        navigationBarFrame=\(finalNavigationFrame)
+        monthHeaderExists=\(finalHeaderExists)
+        monthHeaderFrame=\(finalHeaderFrame.map { String(describing: $0) } ?? "unknown")
+        fullyInsideViewport=\(fullyInsideViewport)
+        belowNavigationAndHeader=\(belowNavigationAndHeader)
+        isEnabled=\(dayIsEnabled)
+        isHittable=\(dayIsHittable)
+        """
+        let geometryAttachment = XCTAttachment(string: finalGeometry)
+        geometryAttachment.name = "History previous-month day geometry before tap"
+        geometryAttachment.lifetime = .keepAlways
+        add(geometryAttachment)
+        attachScreenshot(named: "History previous-month day unobstructed before tap")
+        XCTAssertTrue(dayIsHittable, "Scrolling to the previous month should remain available in the same calendar.")
+
+        guard fullyInsideViewport && belowNavigationAndHeader && dayIsEnabled && dayIsHittable else {
+            XCTFail("The previous-month day must be enabled, hittable, fully inside the calendar viewport, and below the picker navigation bar and full month header.\n\(finalGeometry)")
+            return
+        }
         previousMonthDay.tap()
         XCTAssertEqual(selectedDateText.value as? String, calendarDateIdentifier(previousMonthDate))
     }

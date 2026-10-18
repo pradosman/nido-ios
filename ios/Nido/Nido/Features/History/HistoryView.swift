@@ -374,6 +374,8 @@ struct HistoryMiniClock: View {
 private struct HistoryCalendarSheet: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var viewportIsReady = false
+    @State private var didInitialRequest = false
     @State private var visibleMonth: Date?
     let selectedDay: Date
     let today: Date
@@ -393,30 +395,39 @@ private struct HistoryCalendarSheet: View {
         self.calendar = calendar
         self.onSelect = onSelect
         self.entriesByDay = Self.index(entries, calendar: calendar)
-        let components = calendar.dateComponents([.year, .month], from: selectedDay)
-        self._visibleMonth = State(initialValue: calendar.date(from: components))
     }
 
     var body: some View {
         NavigationStack {
-                ScrollView {
-                    LazyVStack(spacing: 14, pinnedViews: .sectionHeaders) {
-                        ForEach(monthStarts, id: \.self) { monthStart in
-                            Section {
-                                monthPage(monthStart).padding(.bottom, 14)
-                            } header: {
-                                monthHeader(monthStart)
-                            }
-                            .id(monthStart)
+            ScrollView {
+                LazyVStack(spacing: calendarSectionSpacing, pinnedViews: .sectionHeaders) {
+                    ForEach(monthStarts, id: \.self) { monthStart in
+                        Section {
+                            monthPage(monthStart).padding(.bottom, calendarSectionSpacing)
+                        } header: {
+                            monthHeader(monthStart)
                         }
+                        .id(monthStart)
                     }
-                    .scrollTargetLayout()
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 16)
                 }
-                .scrollPosition(id: $visibleMonth, anchor: .top)
-                .accessibilityIdentifier("history-calendar-scroll")
-                .background(PaperBackground())
+                .scrollTargetLayout()
+                .padding(.horizontal, 6)
+                .padding(.vertical, calendarOuterPadding)
+            }
+            .scrollPosition(id: $visibleMonth, anchor: .top)
+            .accessibilityIdentifier("history-calendar-scroll")
+            .background(PaperBackground())
+            .onGeometryChange(for: Bool.self) { geometry in
+                let size = geometry.size
+                return size.width.isFinite && size.height.isFinite && size.width > 0 && size.height > 0
+            } action: { isReady in
+                viewportIsReady = isReady
+            }
+            .onChange(of: viewportIsReady, initial: true) { _, isReady in
+                guard isReady, !didInitialRequest else { return }
+                didInitialRequest = true
+                visibleMonth = monthStart(containing: selectedDay)
+            }
             .navigationTitle("Elegir día")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -429,6 +440,9 @@ private struct HistoryCalendarSheet: View {
             }
         }
     }
+
+    private let calendarSectionSpacing: CGFloat = 14
+    private let calendarOuterPadding: CGFloat = 16
 
     private var monthStarts: [Date] {
         let firstRecordedDate = entries.compactMap { entry -> Date? in
@@ -456,6 +470,8 @@ private struct HistoryCalendarSheet: View {
         .padding(.vertical, 8)
         .foregroundStyle(NidoTheme.ink)
         .background(.regularMaterial)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("history-calendar-header-\(monthIdentifier(monthStartDate))")
     }
 
     private func monthPage(_ monthStartDate: Date) -> some View {
