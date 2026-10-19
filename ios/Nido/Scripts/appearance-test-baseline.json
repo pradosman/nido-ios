@@ -37,7 +37,7 @@
     "NidoSnapshotTests/CircularTimelineSnapshotTests/testUITestLargestDynamicTypeOverrideReachesLargestAccessibilitySize",
     "NidoSnapshotTests/GoalRingMotionTests/testAnimationInterpolatesActualQuantitiesAcrossOneFullTurn",
     "NidoSnapshotTests/HistoryChartContentTests/testSelectedIntervalsRenderOriginalFeedVolumeAndDiaperTypeAndNotes",
-    "NidoSnapshotTests/HistoryChartContentTests/testSleepSectionExplainsWhenOverlappingDurationsAreSummed",
+    "NidoSnapshotTests/HistoryChartContentTests/testSleepSectionExplainsOverlappingTimeIsCountedOnce",
     "NidoSnapshotTests/HistoryNavigationTests/testOpeningHistoryKeepsTheRequestedDayAndClampsFutureDates",
     "NidoSnapshotTests/HistoryNativePagerTests/testNonanimatedLatestSelectionClosesTheTransitionLifecycle",
     "NidoSnapshotTests/HistoryNativePagerTests/testLatestExternalSelectionIsAppliedAfterAnAnimatedSelectionSettles",

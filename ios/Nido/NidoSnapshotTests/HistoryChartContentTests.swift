@@ -31,8 +31,8 @@ final class HistoryChartContentTests: XCTestCase {
         XCTAssertTrue(recognizedText.localizedCaseInsensitiveContains("Irritación leve"), "The selected diaper interval must show its note. OCR: \(recognizedText)")
     }
 
-    func testSleepSectionExplainsWhenOverlappingDurationsAreSummed() throws {
-        let (image, _) = try render(entries: [
+    func testSleepSectionExplainsOverlappingTimeIsCountedOnce() throws {
+        let (image, snapshot) = try render(entries: [
             entry(
                 id: "sleep-one",
                 kind: .sleep,
@@ -49,11 +49,12 @@ final class HistoryChartContentTests: XCTestCase {
             ),
         ], selectedKinds: [])
 
+        XCTAssertEqual(snapshot.day.totalSleepSeconds, 4_500)
         let recognizedText = try recognizedText(in: image)
         XCTAssertTrue(
             recognizedText.localizedCaseInsensitiveContains("Algunos registros de sueño se solapan")
-                && recognizedText.localizedCaseInsensitiveContains("sus duraciones se suman"),
-            "The sleep chart must explain summed overlapping records. OCR: \(recognizedText)"
+                && recognizedText.localizedCaseInsensitiveContains("el tiempo compartido se cuenta una sola vez"),
+            "The sleep chart must explain that overlapping time is counted once. OCR: \(recognizedText)"
         )
     }
 

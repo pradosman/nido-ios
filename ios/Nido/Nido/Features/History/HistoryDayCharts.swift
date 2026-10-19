@@ -25,7 +25,7 @@ struct HistoryDayCharts: View {
                 Text(total).font(.system(.title3, design: .rounded, weight: .semibold).monospacedDigit()).foregroundStyle(NidoTheme.ink)
             }
             if kind == .sleep && snapshot.bins.contains(where: \.hasOverlappingSleep) {
-                Text("Algunos registros de sueño se solapan; sus duraciones se suman.")
+                Text("Algunos registros de sueño se solapan; el tiempo compartido se cuenta una sola vez.")
                     .font(.caption)
                     .foregroundStyle(NidoTheme.secondaryInk)
             }
