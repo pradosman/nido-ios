@@ -14,6 +14,49 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const ledger = JSON.parse(readFileSync(resolve(here, 'appearance-test-baseline.json'), 'utf8'));
 
+test('the simulator snapshot phase covers local fixture gate regressions', () => {
+  const required = [
+    'NidoSnapshotTests/LocalUITestStoreIsolationTests/testPhysicalDeviceLocalFixtureDisablesExternalEffects',
+    'NidoSnapshotTests/LocalUITestStoreIsolationTests/testSimulatorLocalFixtureKeepsExternalEffectsEnabled',
+    'NidoSnapshotTests/LocalUITestStoreIsolationTests/testSignOutDeletesOnlyTheRunScopedFixtureCredential',
+  ];
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  for (const identifier of required) {
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing baseline test: ${identifier}`);
+    assert(plan.phases.find(({ name }) => name === 'snapshots').identifiers.includes(identifier), `Missing snapshot phase test: ${identifier}`);
+  }
+});
+
+test('the simulator snapshot phase covers the native diaper icon template regression', () => {
+  const identifier = 'NidoSnapshotTests/CareCategoryIconTests/testNativeMenuDiaperUsesAnUnderlyingTemplateImage';
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing baseline test: ${identifier}`);
+  assert(plan.phases.find(({ name }) => name === 'snapshots').identifiers.includes(identifier), `Missing snapshot phase test: ${identifier}`);
+});
+
+test('the full-suite plan covers physical-review UI and native history pager regressions', () => {
+  const lightUI = [
+    'NidoUITests/PhysicalReviewRegressionUITests/testRegistrationActionAlignsWithFourTabTargets',
+    'NidoUITests/PhysicalReviewRegressionUITests/testEmptyGoalSetupIsDiscoverableAndAddsTheFirstRings',
+    'NidoUITests/PhysicalReviewRegressionUITests/testTodayMarkerStaysOnTodayWhilePreviousDayRemainsSelected',
+    'NidoUITests/PhysicalReviewRegressionUITests/testRapidConsecutiveWeekSelectionsCommitTheLatestDate',
+    'NidoUITests/PhysicalReviewRegressionUITests/testShortSlowHorizontalRingDragDoesNotChangeTheSelectedDay',
+  ];
+  const snapshots = [
+    'NidoSnapshotTests/HistoryNativePagerTests/testNonanimatedLatestSelectionClosesTheTransitionLifecycle',
+    'NidoSnapshotTests/HistoryNativePagerTests/testLatestExternalSelectionIsAppliedAfterAnAnimatedSelectionSettles',
+  ];
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  for (const identifier of lightUI) {
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing baseline test: ${identifier}`);
+    assert(plan.phases.find(({ name }) => name === 'light-ui').identifiers.includes(identifier), `Missing Light UI test: ${identifier}`);
+  }
+  for (const identifier of snapshots) {
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing baseline test: ${identifier}`);
+    assert(plan.phases.find(({ name }) => name === 'snapshots').identifiers.includes(identifier), `Missing snapshot test: ${identifier}`);
+  }
+});
+
 test('the phase ledger includes palette, widget, menu and authentication regressions', () => {
   const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
   const required = [
@@ -45,14 +88,14 @@ test('the phase ledger includes palette, widget, menu and authentication regress
 
 test('the phase plan covers every baseline once and splits only the three mixed cases', () => {
   const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
-  assert.equal(plan.baselineCount, 183);
-  assert.equal(plan.executionCount, 186);
+  assert.equal(plan.baselineCount, 194);
+  assert.equal(plan.executionCount, 197);
   assert.deepEqual(plan.phases.map(({ name }) => name), ['light-ui', 'local-api-ui', 'snapshots', 'dark-ui']);
-  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [114, 3, 59, 10]);
+  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [119, 3, 65, 10]);
 
   const phaseIDs = plan.phases.flatMap(({ identifiers }) => identifiers);
-  assert.equal(new Set(phaseIDs).size, 186);
-  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 59);
+  assert.equal(new Set(phaseIDs).size, 197);
+  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 65);
   assert.deepEqual(plan.phases[1].identifiers, [...API_TESTS]);
   assert.deepEqual(plan.phases[3].identifiers.slice(0, 7), [...DARK_ONLY_TESTS]);
 
@@ -111,7 +154,7 @@ test('the planner rejects a duplicated or incomplete baseline rather than silent
   );
   assert.throws(
     () => buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers.slice(1)),
-    /Expected the 183-test baseline ledger/
+    /Expected the 194-test baseline ledger/
   );
 });
 

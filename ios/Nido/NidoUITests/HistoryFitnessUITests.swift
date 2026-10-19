@@ -125,6 +125,20 @@ final class HistoryFitnessUITests: XCTestCase {
         XCTAssertTrue(monthHeading.waitForExistence(timeout: 5))
         XCTAssertTrue(monthHeading.isHittable)
 
+        let selectedMonthIdentifier = String(calendarDateIdentifier(currentDate).prefix(7))
+        let selectedMonthHeader = app.descendants(matching: .any)
+            .matching(identifier: "history-calendar-header-\(selectedMonthIdentifier)").firstMatch
+        XCTAssertTrue(selectedMonthHeader.waitForExistence(timeout: 5))
+        let initialHeaderFrame = selectedMonthHeader.frame
+        let initialViewportFrame = calendarScroll.frame
+        let initialGeometry = XCTAttachment(string: "header=\(initialHeaderFrame) viewport=\(initialViewportFrame)")
+        initialGeometry.name = "History initial horizontal calendar alignment"
+        initialGeometry.lifetime = .keepAlways
+        add(initialGeometry)
+        attachScreenshot(named: "History initial horizontal calendar alignment")
+        XCTAssertEqual(initialHeaderFrame.midX, initialViewportFrame.midX, accuracy: 1,
+                       "Opening a vertical calendar must keep its month header horizontally centered.")
+
         let dragStart = calendarScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
         let dragEnd = calendarScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42))
         dragStart.press(forDuration: 0.05, thenDragTo: dragEnd, withVelocity: .slow, thenHoldForDuration: 0.1)
@@ -204,6 +218,11 @@ final class HistoryFitnessUITests: XCTestCase {
         add(geometryAttachment)
         attachScreenshot(named: "History previous-month day unobstructed before tap")
         XCTAssertTrue(dayIsHittable, "Scrolling to the previous month should remain available in the same calendar.")
+        XCTAssertTrue(finalHeaderExists, "The previous month header should remain available after scrolling.")
+        if let finalHeaderFrame {
+            XCTAssertEqual(finalHeaderFrame.midX, finalViewportFrame.midX, accuracy: 1,
+                           "Scrolling a vertical calendar must keep its month header horizontally centered.")
+        }
 
         guard fullyInsideViewport && belowNavigationAndHeader && dayIsEnabled && dayIsHittable else {
             XCTFail("The previous-month day must be enabled, hittable, fully inside the calendar viewport, and below the picker navigation bar and full month header.\n\(finalGeometry)")
@@ -233,7 +252,22 @@ final class HistoryFitnessUITests: XCTestCase {
         launchHistory()
 
         app.buttons["history-week-day-2026-08-27"].tap()
-        verticalScrollView().swipeUp()
+        let selectedDay = element("history-detail-day-2026-08-27")
+        XCTAssertTrue(selectedDay.waitForExistence(timeout: 5))
+        let detailScrolls = app.descendants(matching: .any)
+            .matching(identifier: "history-detail-scroll")
+            .allElementsBoundByIndex
+        let selectedDayFrame = selectedDay.frame
+        let scrollDiagnostics = detailScrolls.map {
+            "type=\($0.elementType) frame=\($0.frame) hittable=\($0.isHittable)"
+        }
+        print("HISTORY_ACTIVE_SCROLLS selectedDay=\(selectedDayFrame) matches=\(scrollDiagnostics)")
+        let activeScrolls = detailScrolls.filter {
+            $0.isHittable && $0.frame.contains(CGPoint(x: selectedDayFrame.midX, y: selectedDayFrame.midY))
+        }
+        XCTAssertEqual(activeScrolls.count, 1, "Resolve the unique visible history scroll view containing the selected day. Matches: \(scrollDiagnostics)")
+        guard let activeScroll = activeScrolls.first else { return }
+        activeScroll.swipeUp()
         let strip = app.scrollViews["history-week-strip"]
         XCTAssertTrue(strip.exists)
         XCTAssertTrue(strip.isHittable, "The selected week strip must remain available while the detail scrolls.")
@@ -286,11 +320,19 @@ final class HistoryFitnessUITests: XCTestCase {
         launchHistory()
 
         let chart = element("history-chart-feed")
-        bringIntoView(chart)
-        XCTAssertTrue(chart.isHittable)
-        chart.tap()
+        XCTAssertTrue(bringChartPlotCenterIntoView(chart), "The feed plot center must be visible above the fixed week header and bottom controls before tapping.")
+        let chartFrame = chart.frame
+        let tapPoint = CGPoint(x: chartFrame.minX + chartFrame.width * 0.55, y: chartFrame.minY + chartFrame.height * 0.45)
+        let registrationFrame = app.buttons["registration-action-button"].frame
+        print("HISTORY_CHART_PLOT_TAP frame=\(chartFrame) point=\(tapPoint) scroll=\(verticalScrollView().frame) tabBar=\(app.tabBars.firstMatch.frame) registration=\(registrationFrame)")
+        attachScreenshot(named: "History feed plot unobscured before interval selection")
+        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.45)).tap()
 
         XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-08-28")
+        let selectedDateValue = app.staticTexts["history-detail-date"].value
+        let selectionExists = element("history-chart-selection").exists
+        let chartValue = chart.value
+        print("HISTORY_CHART_PLOT_TAP after date=\(String(describing: selectedDateValue)) selectionExists=\(selectionExists) chartValue=\(String(describing: chartValue))")
         XCTAssertTrue(element("history-chart-selection").exists)
         attachScreenshot(named: "History selected hourly chart interval")
     }
@@ -359,32 +401,40 @@ final class HistoryFitnessUITests: XCTestCase {
         XCTAssertTrue(diaperSummary.waitForExistence(timeout: 5))
         diaperSummary.tap()
 
-        let diaperChart = element("history-chart-diaper")
-        XCTAssertTrue(diaperChart.waitForExistence(timeout: 5))
-        XCTAssertTrue(diaperChart.isHittable)
-        XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-08-28")
+        let selectedDate = app.staticTexts["history-detail-date"]
+        XCTAssertEqual(selectedDate.value as? String, "2026-08-28")
+        guard let initialScroll = selectedHistoryScrollView(for: "2026-08-28") else { return }
+        XCTAssertTrue(chart(in: initialScroll, for: "2026-08-28").isHittable)
 
         let thursday = app.buttons["history-week-day-2026-08-27"]
         let friday = app.buttons["history-week-day-2026-08-28"]
-        let date = app.staticTexts["history-detail-date"]
 
         for _ in 0..<2 {
             XCTAssertTrue(thursday.isHittable)
             thursday.tap()
-            XCTAssertEqual(date.value as? String, "2026-08-27")
-            XCTAssertTrue(diaperChart.isHittable, "Changing the day should preserve the selected chart reading position.")
+            XCTAssertEqual(selectedDate.value as? String, "2026-08-27")
+            guard let thursdayScroll = selectedHistoryScrollView(for: "2026-08-27") else { return }
+            XCTAssertTrue(
+                chart(in: thursdayScroll, for: "2026-08-27").isHittable,
+                "Changing the day should preserve the selected chart reading position."
+            )
 
             app.buttons["history-day-picker"].tap()
             let calendarClose = app.buttons["history-calendar-close"]
             XCTAssertTrue(calendarClose.waitForExistence(timeout: 3))
             calendarClose.tap()
-            XCTAssertEqual(date.value as? String, "2026-08-27", "Cancelling the calendar should preserve the selected day.")
-            XCTAssertTrue(diaperChart.isHittable)
+            XCTAssertEqual(selectedDate.value as? String, "2026-08-27", "Cancelling the calendar should preserve the selected day.")
+            guard let afterCancelScroll = selectedHistoryScrollView(for: "2026-08-27") else { return }
+            XCTAssertTrue(chart(in: afterCancelScroll, for: "2026-08-27").isHittable)
 
             XCTAssertTrue(friday.isHittable)
             friday.tap()
-            XCTAssertEqual(date.value as? String, "2026-08-28")
-            XCTAssertTrue(diaperChart.isHittable, "Returning to Friday should keep the chart visible and responsive.")
+            XCTAssertEqual(selectedDate.value as? String, "2026-08-28")
+            guard let fridayScroll = selectedHistoryScrollView(for: "2026-08-28") else { return }
+            XCTAssertTrue(
+                chart(in: fridayScroll, for: "2026-08-28").isHittable,
+                "Returning to Friday should keep its selected chart visible and responsive."
+            )
         }
     }
 
@@ -431,6 +481,38 @@ final class HistoryFitnessUITests: XCTestCase {
         app.descendants(matching: .any)[identifier]
     }
 
+    private func selectedHistoryScrollView(for day: String) -> XCUIElement? {
+        let scrolls = app.scrollViews.matching(identifier: "history-detail-scroll")
+        let selectedScroll = scrolls.containing(.any, identifier: "history-detail-day-\(day)")
+        let selectedRoot = element("history-detail-day-\(day)")
+        let matchCount = selectedScroll.count
+        print("HISTORY_SELECTED_PAGE day=\(day) selectedRoot=\(selectedRoot.frame) selectedRootHittable=\(selectedRoot.isHittable) matches=\(matchCount)")
+        guard matchCount == 1 else {
+            print("HISTORY_SELECTED_PAGE_TREE day=\(day)\n\(app.debugDescription)")
+            XCTFail("Expected exactly one History detail scroll view containing day \(day), found \(matchCount).")
+            return nil
+        }
+        return selectedScroll.element
+    }
+
+    private func chart(in scrollView: XCUIElement, for day: String) -> XCUIElement {
+        let chart = scrollView.buttons["history-chart-diaper"]
+        let chartFrame = chart.frame
+        let chartIsHittable = chart.isHittable
+        let hitPoint = chartIsHittable ? chart.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.45)).screenPoint : .zero
+        let chartMidpoint = CGPoint(x: chartFrame.midX, y: chartFrame.midY)
+        let midpointVisibleInSelectedPage = scrollView.frame.contains(chartMidpoint)
+        print("HISTORY_SELECTED_CHART day=\(day) scroll=\(scrollView.frame) chart=\(chartFrame) midpoint=\(chartMidpoint) midpointVisibleInSelectedPage=\(midpointVisibleInSelectedPage) hittable=\(chartIsHittable) point=\(hitPoint)")
+        if !midpointVisibleInSelectedPage || !chartIsHittable {
+            attachScreenshot(named: "History selected chart visibility failure for \(day)")
+        }
+        XCTAssertTrue(
+            midpointVisibleInSelectedPage,
+            "The selected day's chart midpoint must remain within its own detail viewport. Day: \(day). Scroll: \(scrollView.frame), chart: \(chartFrame)."
+        )
+        return chart
+    }
+
     private func calendarScrollView(containing gridIdentifier: String) -> XCUIElement? {
         app.scrollViews.allElementsBoundByIndex.first {
             $0.descendants(matching: .any)[gridIdentifier].exists
@@ -474,6 +556,40 @@ final class HistoryFitnessUITests: XCTestCase {
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.15)
         }
         XCTAssertTrue(target.isHittable, "Expected UI element to be visible: \(target.identifier)")
+    }
+
+    private func bringChartPlotCenterIntoView(_ chart: XCUIElement, maximumSwipes: Int = 20) -> Bool {
+        let scrollView = verticalScrollView()
+        let weekButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "history-week-day-"))
+        let registration = app.buttons["registration-action-button"]
+        let tabBar = app.tabBars.firstMatch
+
+        for attempt in 0...maximumSwipes {
+            let chartFrame = chart.frame
+            let weekFrame = weekButtons.allElementsBoundByIndex.reduce(CGRect.null) { $0.union($1.frame) }
+            let bottomChrome = tabBar.frame.union(registration.frame)
+            let visibleTop = max(scrollView.frame.minY, weekFrame.maxY + 8)
+            let visibleBottom = min(scrollView.frame.maxY, bottomChrome.minY - 12)
+            let visibleRect = CGRect(
+                x: scrollView.frame.minX + 12,
+                y: visibleTop,
+                width: max(0, scrollView.frame.width - 24),
+                height: max(0, visibleBottom - visibleTop)
+            )
+            let plotCenter = CGPoint(
+                x: chartFrame.minX + chartFrame.width * 0.55,
+                y: chartFrame.minY + chartFrame.height * 0.45
+            )
+            print("HISTORY_CHART_VISIBILITY attempt=\(attempt) chart=\(chartFrame) plotCenter=\(plotCenter) visible=\(visibleRect) hittable=\(chart.isHittable)")
+            if chart.isHittable && visibleRect.contains(plotCenter) {
+                return true
+            }
+            guard attempt < maximumSwipes else { break }
+            let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.68))
+            let end = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.36))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        return false
     }
 
     private func returnToTop(day: String) {

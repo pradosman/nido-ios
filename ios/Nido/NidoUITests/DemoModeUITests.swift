@@ -224,15 +224,24 @@ final class DemoModeUITests: XCTestCase {
     }
 
     private func bringHistoryEntryIntoView(_ entry: XCUIElement, in app: XCUIApplication, maximumSwipes: Int = 12) {
-        let historyScrollView = app.scrollViews["history-detail-scroll"]
-        let scrollView: XCUIElement
-        if historyScrollView.exists {
-            scrollView = historyScrollView
-        } else {
-            let scrollViews = app.scrollViews.allElementsBoundByIndex
-                .filter { $0.isHittable && $0.frame.height > 200 && $0.frame.width > 200 }
-            scrollView = scrollViews.max { $0.frame.height < $1.frame.height } ?? app.scrollViews.firstMatch
+        let selectedDate = app.staticTexts["history-detail-date"].value as? String
+        let selectedDay = selectedDate.map { app.descendants(matching: .any)["history-detail-day-\($0)"] }
+        XCTAssertTrue(selectedDay?.exists == true, "The visible History detail should expose its selected day before scrolling.")
+        guard let selectedDay, selectedDay.exists else { return }
+
+        let detailScrolls = app.descendants(matching: .any)
+            .matching(identifier: "history-detail-scroll")
+            .allElementsBoundByIndex
+        let selectedDayFrame = selectedDay.frame
+        let scrollDiagnostics = detailScrolls.map {
+            "type=\($0.elementType) frame=\($0.frame) hittable=\($0.isHittable)"
         }
+        print("DEMO_HISTORY_ACTIVE_SCROLLS selectedDay=\(selectedDayFrame) matches=\(scrollDiagnostics)")
+        let activeScrolls = detailScrolls.filter {
+            $0.isHittable && $0.frame.contains(CGPoint(x: selectedDayFrame.midX, y: selectedDayFrame.midY))
+        }
+        XCTAssertEqual(activeScrolls.count, 1, "Resolve the unique visible history scroll view containing the selected day. Matches: \(scrollDiagnostics)")
+        guard let scrollView = activeScrolls.first else { return }
 
         for _ in 0..<maximumSwipes where !entry.isHittable {
             scrollView.swipeUp()

@@ -297,9 +297,19 @@ struct TodayView: View {
         }
     }
 
+    @ViewBuilder
     private func dayPager(compactHeight: Bool, availableWidth: CGFloat) -> some View {
         let ringSize = max(100, min(availableWidth, dynamicTypeSize.isAccessibilitySize ? 250 : 294))
-        return
+        if isTodaySelected && store.canEditGoals && store.babyCareState.goalVersions.isEmpty {
+            VStack(alignment: .leading, spacing: 24) {
+                initialGoalSetup
+                GoalDayPanel(date: selectedDay, size: ringSize, summaryIdentifierPrefix: "day-goal-summary", showsRings: false) { _ in
+                    store.showHistory(on: selectedDay)
+                }
+                .accessibilityIdentifier("today-goal-rings")
+            }
+            .padding(.top, 16)
+        } else {
         VStack(spacing: compactHeight ? 0 : 4) {
             if dynamicTypeSize.isAccessibilitySize {
                 timeline(for: selectedDay, size: ringSize)
@@ -314,6 +324,30 @@ struct TodayView: View {
                 .frame(height: ringSize + (dynamicTypeSize > .large ? 150 : 116))
             }
         }
+        }
+    }
+
+    private var initialGoalSetup: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("A vuestro ritmo")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(NidoTheme.ink)
+            Text("Tus registros ya están guardados. Define vuestras referencias de sueño, tomas y pañales para ver el progreso.")
+                .font(.subheadline)
+                .foregroundStyle(NidoTheme.readableSupportingInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { isEditingGoals = true } label: {
+                Text("Definir objetivos")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(NidoTheme.prominentActionFill)
+            .accessibilityIdentifier("today-define-goals")
+        }
+        .padding(20)
+        .paperCard()
     }
 
     private func timeline(for date: Date, size: CGFloat) -> some View {

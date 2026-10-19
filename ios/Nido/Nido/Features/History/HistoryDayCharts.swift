@@ -20,7 +20,7 @@ struct HistoryDayCharts: View {
         let total = totalText(for: kind)
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title(for: kind)).font(.system(.title3, design: .serif, weight: .semibold)).foregroundStyle(NidoTheme.ink)
+                Text(title(for: kind)).font(.system(.title3, design: .default, weight: .semibold)).foregroundStyle(NidoTheme.ink)
                 Spacer()
                 Text(total).font(.system(.title3, design: .rounded, weight: .semibold).monospacedDigit()).foregroundStyle(NidoTheme.ink)
             }

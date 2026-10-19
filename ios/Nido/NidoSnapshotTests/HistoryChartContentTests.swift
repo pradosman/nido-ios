@@ -122,8 +122,18 @@ final class HistoryChartContentTests: XCTestCase {
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["es-ES"]
         try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
-        return (request.results ?? [])
-            .compactMap { $0.topCandidates(1).first?.string }
+        let observations = (request.results ?? []).compactMap { observation -> (text: String, bounds: CGRect)? in
+            guard let text = observation.topCandidates(1).first?.string else { return nil }
+            return (text, observation.boundingBox)
+        }
+        return observations
+            .sorted { lhs, rhs in
+                if lhs.bounds.midY != rhs.bounds.midY {
+                    return lhs.bounds.midY > rhs.bounds.midY
+                }
+                return lhs.bounds.minX < rhs.bounds.minX
+            }
+            .map(\.text)
             .joined(separator: " ")
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")

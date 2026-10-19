@@ -8,6 +8,7 @@ struct GoalDayPanel: View {
     let date: Date
     var size: CGFloat = 294
     var summaryIdentifierPrefix = "history-summary"
+    var showsRings = true
     var onSelect: (EntryKind) -> Void
 
     var body: some View {
@@ -18,6 +19,7 @@ struct GoalDayPanel: View {
                 calendar: BabyCareMetrics.calendar(for: store.babyCareState))
             let goals = BabyCareMetrics.goals(on: date, state: store.babyCareState)
             VStack(spacing: 16) {
+                if showsRings {
                 Button { onSelect(.sleep) } label: {
                     GoalRingsView(sleep: Double(totals.sleepSeconds) / 60, sleepGoal: goals?.sleepMinutes.map(Double.init),
                         feed: Double(totals.feedCount), feedGoal: goals?.feedCount.map(Double.init),
@@ -26,6 +28,7 @@ struct GoalDayPanel: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ver el detalle de este día")
                 .accessibilityIdentifier("daily-goal-ring-graphic")
+                }
                 summaryLayout {
                     metric(.sleep, value: totals.sleepSeconds / 60, goal: goals?.sleepMinutes)
                     metric(.feed, value: totals.feedCount, goal: goals?.feedCount)

@@ -39,7 +39,7 @@ export function buildAppearancePhasePlan(baselineIdentifiers) {
   assert(Array.isArray(baselineIdentifiers), 'Baseline identifiers must be an array.');
   const baseline = baselineIdentifiers.map((identifier) => String(identifier).trim()).filter(Boolean);
   assert(baseline.length === new Set(baseline).size, 'Baseline identifiers must not contain duplicates.');
-  assert(baseline.length === 183, `Expected the 183-test baseline ledger, received ${baseline.length}.`);
+  assert(baseline.length === 194, `Expected the 194-test baseline ledger, received ${baseline.length}.`);
 
   const baselineSet = new Set(baseline);
   const splitNames = new Set(Object.keys(MIXED_APPEARANCE_TESTS));
@@ -82,12 +82,12 @@ export function buildAppearancePhasePlan(baselineIdentifiers) {
 
   const phaseIDs = [...lightUI, ...apiUI, ...snapshots, ...darkUI];
   assert(phaseIDs.length === new Set(phaseIDs).size, 'Phase selector lists overlap or contain duplicates.');
-  assert(lightUI.length === 114, `Expected 114 non-API Light UI cases, got ${lightUI.length}.`);
+  assert(lightUI.length === 119, `Expected 119 non-API Light UI cases, got ${lightUI.length}.`);
   assert(apiUI.length === 3, `Expected 3 API UI cases, got ${apiUI.length}.`);
-  assert(snapshots.length === 59, `Expected 59 Snapshot cases, got ${snapshots.length}.`);
+  assert(snapshots.length === 65, `Expected 65 Snapshot cases, got ${snapshots.length}.`);
   assert(darkUI.length === 10, `Expected 10 Dark UI cases, got ${darkUI.length}.`);
-  assert(phaseIDs.length === 186, `Expected 186 phase executions, got ${phaseIDs.length}.`);
-  assert(originalToExecutions.size === 183, 'Every baseline test must map to a phase execution.');
+  assert(phaseIDs.length === 197, `Expected 197 phase executions, got ${phaseIDs.length}.`);
+  assert(originalToExecutions.size === 194, 'Every baseline test must map to a phase execution.');
 
   return Object.freeze({
     baselineCount: baseline.length,
