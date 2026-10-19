@@ -48,6 +48,10 @@ final class CareCategoryIconTests: XCTestCase {
         XCTAssertLessThan(overlap, 0.85, "The diaper must render its custom garment shape, not the (CareCategory.diaper.shortcutSystemImageName) fallback.")
     }
 
+    func testNativeMenuDiaperUsesAnUnderlyingTemplateImage() {
+        XCTAssertEqual(CareCategoryIcon.menuDiaperImage().renderingMode, .alwaysTemplate)
+    }
+
     private func rgbaPixels(_ image: CGImage) throws -> [UInt8] {
         var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
         try pixels.withUnsafeMutableBytes { buffer in

@@ -34,16 +34,19 @@ struct CareCategoryIcon: View {
         case .system(let name):
             return Image(systemName: name)
         case .diaper:
-            let pixelSize = CGSize(width: size, height: size)
-            let renderer = UIGraphicsImageRenderer(size: pixelSize)
-            let image = renderer.image { context in
-                let path = DiaperCategoryShape().path(in: CGRect(origin: .zero, size: pixelSize))
-                context.cgContext.addPath(path.cgPath)
-                context.cgContext.setFillColor(UIColor.black.cgColor)
-                context.cgContext.drawPath(using: .eoFill)
-            }
-            return Image(uiImage: image).renderingMode(.template)
+            return Image(uiImage: menuDiaperImage(size: size)).renderingMode(.template)
         }
+    }
+
+    static func menuDiaperImage(size: CGFloat = 20) -> UIImage {
+        let pixelSize = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: pixelSize)
+        return renderer.image { context in
+            let path = DiaperCategoryShape().path(in: CGRect(origin: .zero, size: pixelSize))
+            context.cgContext.addPath(path.cgPath)
+            context.cgContext.setFillColor(UIColor.black.cgColor)
+            context.cgContext.drawPath(using: .eoFill)
+        }.withRenderingMode(.alwaysTemplate)
     }
 
     var body: some View {

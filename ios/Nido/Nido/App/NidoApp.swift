@@ -9,6 +9,59 @@ struct NidoApp: App {
     private let shouldLoadOnLaunch: Bool
     private let uiTestScenario: String?
 
+#if DEBUG
+    static func makeLocalUITestStore(runID: String, referenceNow: Date, isSimulator: Bool) -> NidoStore {
+        let defaultsSuite = "com.momentumia.nido.uitests.\(runID)"
+        let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
+        defaults.removePersistentDomain(forName: defaultsSuite)
+        let cacheURL = FileManager.default.temporaryDirectory
+            .appending(path: "NidoUITests", directoryHint: .isDirectory)
+            .appending(path: runID, directoryHint: .isDirectory)
+            .appending(path: "snapshot.json")
+        let cache = LocalCache(fileURL: cacheURL)
+        let babyCareCache = BabyCareCache(fileURL: cacheURL.deletingLastPathComponent().appending(path: "baby-care.json"))
+        let credentialStore = CredentialStore(service: "com.momentumia.nido.uitests.\(runID)")
+        let localCredential = SessionCredential(
+            accessToken: "local-ui-test-session",
+            expiresAt: referenceNow.addingTimeInterval(86_400),
+            appleUserID: nil
+        )
+        let eventHub = RegistrationMutationEventHub()
+        let registrationService = NidoRegistrationServices.make(
+            cache: cache,
+            credentialStore: credentialStore,
+            stateDefaults: defaults,
+            legacyDefaults: defaults,
+            stateStore: RegistrationStateFileStore(
+                fileURL: cacheURL.deletingLastPathComponent().appending(path: "registration-state.json")
+            ),
+            eventHub: eventHub,
+            credentialOverride: localCredential,
+            now: { referenceNow },
+            createEntry: { _, _ in throw URLError(.notConnectedToInternet) },
+            syncSleep: { _, _, _ in throw URLError(.notConnectedToInternet) },
+            loadSleep: { _ in throw URLError(.notConnectedToInternet) },
+            allowsExternalEffects: isSimulator
+        )
+        let fixtureAPI = NidoAPI(baseURL: URL(string: "https://nido-ui-fixture.invalid")!) { _ in
+            throw URLError(.notConnectedToInternet)
+        }
+        let store = NidoStore(
+            api: fixtureAPI,
+            babyCareCache: babyCareCache,
+            credentialStore: credentialStore,
+            defaults: defaults,
+            now: { referenceNow },
+            shouldLoadCredential: false,
+            initialAccessToken: localCredential.accessToken,
+            registrationService: registrationService,
+            registrationEventHub: eventHub,
+            allowsExternalEffects: isSimulator
+        )
+        return store
+    }
+#endif
+
     init() {
         NidoRegistrationShortcuts.updateAppShortcutParameters()
         #if DEBUG
@@ -24,6 +77,11 @@ struct NidoApp: App {
         }
         if let scenario = resolvedScenario {
             let runID = ProcessInfo.processInfo.environment["NIDO_UI_TEST_RUN_ID"] ?? UUID().uuidString
+#if targetEnvironment(simulator)
+            let isSimulator = true
+#else
+            let isSimulator = false
+#endif
             let requiresBackend = scenario == "multi-household"
                 || scenario == "history-pagination"
                 || scenario == "caregiver-permissions"
@@ -59,7 +117,8 @@ struct NidoApp: App {
                     eventHub: eventHub,
                     credentialOverride: initialAccessToken.map {
                         SessionCredential(accessToken: $0, expiresAt: .now.addingTimeInterval(3_600), appleUserID: nil)
-                    }
+                    },
+                    allowsExternalEffects: isSimulator
                 )
                 let store = NidoStore(
                     api: NidoAPI(baseURL: baseURL),
@@ -69,7 +128,8 @@ struct NidoApp: App {
                     shouldLoadCredential: false,
                     initialAccessToken: initialAccessToken,
                     registrationService: registrationService,
-                    registrationEventHub: eventHub
+                    registrationEventHub: eventHub,
+                    allowsExternalEffects: isSimulator
                 )
                 _store = State(initialValue: store)
                 let usesPreparedAccountDeletionFixture = scenario == "account-deletion-onboarding"
@@ -92,47 +152,10 @@ struct NidoApp: App {
             } else {
                 referenceNow = .now
             }
-            let defaultsSuite = "com.momentumia.nido.uitests.\(runID)"
-            let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
-            defaults.removePersistentDomain(forName: defaultsSuite)
-            let cacheURL = FileManager.default.temporaryDirectory
-                .appending(path: "NidoUITests", directoryHint: .isDirectory)
-                .appending(path: runID, directoryHint: .isDirectory)
-                .appending(path: "snapshot.json")
-            let cache = LocalCache(fileURL: cacheURL)
-            let babyCareCache = BabyCareCache(fileURL: cacheURL.deletingLastPathComponent().appending(path: "baby-care.json"))
-            let localCredential = SessionCredential(
-                accessToken: "local-ui-test-session",
-                expiresAt: referenceNow.addingTimeInterval(86_400),
-                appleUserID: nil
-            )
-            let eventHub = RegistrationMutationEventHub()
-            let registrationService = NidoRegistrationServices.make(
-                cache: cache,
-                stateDefaults: defaults,
-                legacyDefaults: defaults,
-                stateStore: RegistrationStateFileStore(
-                    fileURL: cacheURL.deletingLastPathComponent().appending(path: "registration-state.json")
-                ),
-                eventHub: eventHub,
-                credentialOverride: localCredential,
-                now: { referenceNow },
-                createEntry: { _, _ in throw URLError(.notConnectedToInternet) },
-                syncSleep: { _, _, _ in throw URLError(.notConnectedToInternet) },
-                loadSleep: { _ in throw URLError(.notConnectedToInternet) }
-            )
-            let fixtureAPI = NidoAPI(baseURL: URL(string: "https://nido-ui-fixture.invalid")!) { _ in
-                throw URLError(.notConnectedToInternet)
-            }
-            let store = NidoStore(
-                api: fixtureAPI,
-                babyCareCache: babyCareCache,
-                defaults: defaults,
-                now: { referenceNow },
-                shouldLoadCredential: false,
-                initialAccessToken: localCredential.accessToken,
-                registrationService: registrationService,
-                registrationEventHub: eventHub
+            let store = Self.makeLocalUITestStore(
+                runID: runID,
+                referenceNow: referenceNow,
+                isSimulator: isSimulator
             )
             _store = State(initialValue: store)
             shouldLoadOnLaunch = false
@@ -146,34 +169,54 @@ struct NidoApp: App {
         uiTestScenario = nil
     }
 
+#if DEBUG
+    private var uiTestColorScheme: ColorScheme? {
+        guard uiTestScenario != nil else { return nil }
+        switch ProcessInfo.processInfo.environment["NIDO_UI_TEST_APPEARANCE"] {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
+#endif
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(store)
                 .environment(demoCoordinator)
                 .modifier(UITestDynamicTypeOverride())
+#if DEBUG
+                .preferredColorScheme(uiTestColorScheme)
+#endif
                 .task {
                     #if DEBUG
                     if let uiTestScenario {
                         if uiTestScenario == "live-activity-cleanup" {
-                            await NidoLiveActivity.endAll()
+                            if store.allowsExternalEffects {
+                                await NidoLiveActivity.endAll()
+                            }
                             return
                         }
                         await store.prepareForUITesting(scenario: uiTestScenario)
                         if uiTestScenario == "live-activity-ten-hour-sleep" {
-                            await NidoLiveActivity.endAll()
-                            NidoLiveActivity.start(
-                                kind: "sleep",
-                                babyName: "Test",
-                                startedAt: .now.addingTimeInterval(-10 * 60 * 60)
-                            )
+                            if store.allowsExternalEffects {
+                                await NidoLiveActivity.endAll()
+                                NidoLiveActivity.start(
+                                    kind: "sleep",
+                                    babyName: "Test",
+                                    startedAt: .now.addingTimeInterval(-10 * 60 * 60)
+                                )
+                            }
                         } else if uiTestScenario == "live-activity-ten-minute-feed" {
-                            await NidoLiveActivity.endAll()
-                            NidoLiveActivity.start(
-                                kind: "feed",
-                                babyName: "Test",
-                                startedAt: .now.addingTimeInterval(-600)
-                            )
+                            if store.allowsExternalEffects {
+                                await NidoLiveActivity.endAll()
+                                NidoLiveActivity.start(
+                                    kind: "feed",
+                                    babyName: "Test",
+                                    startedAt: .now.addingTimeInterval(-600)
+                                )
+                            }
                         }
                         return
                     }
