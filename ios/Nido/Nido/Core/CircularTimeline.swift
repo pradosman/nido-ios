@@ -432,7 +432,7 @@ nonisolated enum CircularTimeline {
         )
     }
 
-    private static func unionSeconds(_ intervals: [(Date, Date)]) -> Int {
+    static func unionSeconds(_ intervals: [(Date, Date)]) -> Int {
         let sorted = intervals.sorted { $0.0 < $1.0 }
         guard var current = sorted.first else { return 0 }
         var total: TimeInterval = 0

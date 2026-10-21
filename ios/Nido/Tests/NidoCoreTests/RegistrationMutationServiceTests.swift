@@ -152,9 +152,11 @@ struct RegistrationMutationServiceTests {
 
         _ = await harness.service.startSleep()
         #expect(try await harness.service.activeSleepStartedAt() != nil)
+ #expect(try await harness.service.hasPendingSleepMutation())
         await recorder.clearError()
         _ = try await harness.service.synchronizeSleep()
         #expect(await recorder.mutations.count == 2)
+ #expect(try await !harness.service.hasPendingSleepMutation())
     }
 
     @Test

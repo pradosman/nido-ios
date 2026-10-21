@@ -403,6 +403,10 @@ actor RegistrationMutationService {
         try durableState().activeSleepStartedAt
     }
 
+    func hasPendingSleepMutation() throws -> Bool {
+        try durableState().hasPendingSleepMutation
+    }
+
     func updateSleepStart(_ startedAt: Date) async throws -> Date? {
         guard let credential = await validCredential() else { return nil }
         let requestGeneration = privateStateGeneration
