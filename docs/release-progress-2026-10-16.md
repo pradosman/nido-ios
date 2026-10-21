@@ -1,5 +1,7 @@
 # Estado de publicación de Nido — 16 de octubre de 2026
 
+Actualización posterior: el 21 de octubre se sustituyó el envío de la 49 por **0.1.0 (50)**, pendiente de revisión y con publicación automática. Véase [la evidencia vigente](evolution-release-2026-10-21.md). El contenido siguiente conserva el estado histórico del 16 de octubre.
+
 **Nido 0.1.0 (49) ya está enviada a App Review y figura «Pendiente de revisión».** Envío del 16 de octubre de 2026 a las 09:51, ID `090d79c2-8c2c-454d-af24-94a59e3ab0af`. La 49 está firmada, procesada y asociada; incluye demo completa sin credenciales. Precio gratuito en 175 regiones más futuras, con publicación automática tras aprobación. La prueba aislada de borrado con Apple real pasó para una cuenta sin membresía. La app todavía no está aprobada ni publicada. [Evidencia final de la demo y el envío](demo-release-validation-2026-10-16.md).
 
 ## Completado y verificado

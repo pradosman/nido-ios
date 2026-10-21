@@ -1,5 +1,7 @@
 # Entrega de Evolución — 21 de octubre de 2026
 
+**Estado vigente: Nido 0.1.0 (50) enviada a App Review y pendiente de revisión.** Se mantiene publicación automática tras aprobación. Envío del 21 de octubre de 2026 a las 18:28, ID `bd998e30-b969-4c70-87ef-3c5d20ad5ea9`. Aún no está aprobada ni disponible públicamente.
+
 El usuario autoriza expresamente crear commits, subirlos a `main` y publicar en App Store. Esta instrucción sustituye el límite anterior de no hacer commits ni publicaciones. No se han solicitado instalaciones en dispositivos físicos.
 
 La fuente funcional validada conserva 248 pruebas Core, 32 pruebas del inventario y 245 ejecuciones de la app sin fallos ni omisiones; compilación Release correcta. La evidencia y el rollback funcional están en `evolution-health-plan-2026-10-20/sleep-hour-axis-2026-10-21.md`.
@@ -25,8 +27,18 @@ Estado inicial de distribución: App Store Connect solicita inicio de sesión; s
 - Apple recibió la subida el 21 de octubre a las 17:56:41 (hora local del log). `/tmp/nido-appstore-50-upload.log` confirma «Uploaded package is processing», «Upload succeeded», «Uploaded Nido» y `EXPORT SUCCEEDED`, salida 0. Esto acredita recepción del binario, no finalización del procesamiento, asociación a la versión ni envío a revisión.
 - El servicio público de producción respondió HTTP 200 a `/api/nido/status` después del push. Esta comprobación no identifica por sí sola el commit desplegado ni acredita todos sus endpoints.
 
-El paso pendiente exige autenticación de App Store Connect: la pestaña sigue mostrando el formulario de inicio de sesión de Apple. Se solicitó al usuario completarlo y se conserva la pestaña para continuar. No se ha retirado el envío anterior, asociado la 50, enviado una revisión nueva ni publicado la app. Cuando haya acceso, comprobar el estado real de la versión y la compilación, conservar los datos vigentes de revisión y completar el envío autorizado con publicación automática si sigue siendo la modalidad configurada.
+Tras la subida, la asociación y el envío quedaron inicialmente pendientes de que el usuario iniciase sesión en App Store Connect. El usuario completó ese acceso y se continuó con la autorización de publicación existente; el resultado final se documenta a continuación.
 
 Los artefactos de firma y los logs de distribución se conservan también en `~/.codex/recoveries/nido-20261021/store-50-20261021/`, fuera de Git. Ninguna clave privada se incorpora al repositorio. El commit documental posterior a `786d2b4` solo registra estos resultados y no cambia el binario recibido por Apple.
+
+## Envío a revisión completado
+
+- La 50 ya estaba procesada. Se respondió su información de exportación con «Ninguno de los algoritmos mencionados anteriormente», coherente con el uso exclusivo de criptografía del sistema de Apple documentado en el análisis previo. TestFlight confirmó «Lista para enviar» para la compilación `1ec40463-b7a5-4bdf-923a-aba4a54e6ec1`.
+- Se canceló el envío anterior de la 49 (`090d79c2-8c2c-454d-af24-94a59e3ab0af`). La versión quedó editable como «Rechazado por el desarrollador»; el listado histórico pasó a «Eliminado». No se borraron las compilaciones anteriores de TestFlight.
+- Se seleccionó y guardó 0.1.0 (50). Las notas de revisión ahora indican la 50 y el nombre Evolución; se conserva el acceso mediante «Explorar demostración», sin exigir credenciales, y los datos de contacto ya existentes. Se verificó Guardar desactivado tras persistir los cambios, la casilla de inicio de sesión desmarcada y la publicación automática seleccionada.
+- «Añadir a revisión» creó el borrador con 0.1.0 (50); «Enviar a revisión» produjo la confirmación «1 artículo enviado». El detalle del envío muestra «Pendiente de revisión», la 50 y la fecha 21 de octubre de 2026 a las 18:28.
+- Confirmación: <https://appstoreconnect.apple.com/apps/6823152436/distribution/reviewsubmissions/details/bd998e30-b969-4c70-87ef-3c5d20ad5ea9>. Captura: `~/.codex/recoveries/nido-20261021/store-50-20261021/app-review-50-pending-20261021.jpg`.
+
+La finalización pública depende de la aprobación de Apple; no se equipara el envío con publicación. No se ha creado un monitor ni una automatización de seguimiento. Esta actualización es evidencia de configuración externa y documentación: no aplica TDD unitario, y la comprobación sustitutiva es la selección guardada, la confirmación del envío, su detalle y la captura. No cambia código ni firma del binario 50.
 
 Rollback: revertir el commit de metadatos devuelve el número base; el archivo firmado es un artefacto aparte. La reversión de Git no retira una compilación ya recibida por Apple ni revierte metadatos externos. La integración en `main` será un avance directo, sin reescribir historial remoto.
