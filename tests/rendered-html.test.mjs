@@ -3,12 +3,13 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("ships standalone API hosting and a household-scoped PostgreSQL schema", async () => {
-  const [hosting, schema] = await Promise.all([
-    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+  const [compose, schema] = await Promise.all([
+    readFile(new URL("../compose.vps.yml", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(hosting, /"d1": null/);
+  assert.match(compose, /postgres:17\.10-bookworm@sha256:/);
+  assert.match(compose, /postgres-data:\/var\/lib\/postgresql\/data/);
   assert.match(schema, /drizzle-orm\/pg-core/);
   assert.match(schema, /idx_entries_household_occurred_at/);
 });

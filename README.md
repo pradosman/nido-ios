@@ -1,16 +1,70 @@
-# Nido para iPhone en un VPS
+# Nido para iPhone
+
+Nido es una aplicación nativa para registrar y compartir el cuidado diario del bebé. Permite consultar la actividad, registrar alimentación y sueño, revisar el historial y la evolución, preparar informes y coordinar el cuidado familiar.
+
+## Funcionalidades principales
+
+| Funcionalidad | Uso |
+|---|---|
+| Hoy | Consulta de actividad del día y acceso al registro de cuidados |
+| Alimentación, sueño, pañales y cuidados | Alta y edición de registros, con seguimiento del sueño en curso |
+| Historia | Consulta por fecha, filtros y detalle de los registros |
+| Evolución | Resúmenes y gráficas a partir de los registros disponibles |
+| Cuidado familiar | Perfil compartido y cuidadores autorizados en el uso con cuentas reales |
+| Informes | Preparación de información para compartir desde la aplicación |
+| Demostración | Recorrido local con datos sintéticos, sin cuenta ni contraseña |
+
+## Probar la aplicación
+
+Necesitas un Mac con Xcode completo compatible con Swift 6 y un simulador de iPhone con iOS 17 o posterior. Clona el repositorio cuando dispongas de acceso, abre [`ios/Nido/Nido.xcodeproj`](ios/Nido/Nido.xcodeproj) en Xcode, selecciona el esquema **Nido** y el simulador, y pulsa **Run**. Las instrucciones de ejecución, firma e instalación están en la [guía de iOS](ios/Nido/README.md).
+
+```bash
+git clone https://github.com/pradosman/nido-ios.git
+cd nido-ios
+open ios/Nido/Nido.xcodeproj
+```
+
+En la pantalla de acceso, pulsa **Explorar demostración** para utilizar datos ficticios sin una cuenta ni contraseña. Puedes editar registros, probar los formularios, consultar el historial y preparar informes. **Reiniciar** restaura los datos de ejemplo y **Salir** vuelve al acceso. Las invitaciones de demostración son ficticias y no contactan con personas reales.
+
+El uso con una cuenta real utiliza **Iniciar sesión con Apple**. La demostración permite probar la app sin compartir credenciales personales. Los flujos de sincronización entre cuentas reales y los servicios del sistema se comprueban por separado.
+
+La demo no necesita levantar la API ni configurar una base de datos. En Debug sobre simulador, la configuración normal usa una dirección local de protección y no conecta a producción. La conexión real del simulador requiere activar expresamente `NIDO_SIMULATOR_PRODUCTION_OPT_IN=1` en el esquema de ejecución. Ese ajuste no es necesario para usar la demo.
+
+## Stack tecnológico
+
+| Componente | Tecnología |
+|---|---|
+| Aplicación para iPhone | Swift y SwiftUI, proyecto Xcode |
+| API | TypeScript y Vinext, ejecutada en Node.js |
+| Persistencia del servidor | PostgreSQL y Drizzle ORM |
+| Autenticación real | Iniciar sesión con Apple y sesiones bearer |
+| Infraestructura | Docker Compose y Dokploy en un VPS |
+| Validación | Swift Testing, XCTest UI y contratos automatizados de la API |
+
+## Estructura del proyecto
+
+| Ruta | Contenido |
+|---|---|
+| [`ios/Nido/`](ios/Nido/) | Aplicación nativa, proyecto Xcode y pruebas de iOS |
+| [`app/`](app/) | API y recursos del servidor |
+| [`db/`](db/) y [`drizzle-pg/`](drizzle-pg/) | Acceso a datos y migraciones PostgreSQL |
+| [`tests/`](tests/) | Contratos y pruebas automatizadas del servidor |
+| [`deploy/`](deploy/) | Herramientas de operación, copia y restauración |
+| [`docs/`](docs/) | Documentación técnica y evidencias de validación |
+
+## Arquitectura del servicio
 
 Nido es una app nativa para iPhone. El VPS ejecuta únicamente la API con Vinext en modo standalone y guarda los datos en PostgreSQL. La ruta `/` responde con `404`; la superficie pública prevista es `/api`.
 
 ## Desarrollo local
 
-Necesitas Node.js 22.13 o posterior y una instancia PostgreSQL accesible.
+Para trabajar con el backend necesitas Node.js 22.13 o posterior y una instancia PostgreSQL accesible. La imagen Docker utiliza Node.js 24; se recomienda esa misma versión para reproducir el entorno del servidor.
 
 ```bash
 npm install
 export DATABASE_URL='postgres://nido:contraseña@127.0.0.1:5432/nido'
-export NIDO_APPLE_AUDIENCE='com.example.nido'
-export NIDO_AUTH_BUCKET_SECRET='un-secreto-aleatorio-de-al-menos-32-caracteres'
+export NIDO_APPLE_AUDIENCE='com.momentumia.nido'
+export NIDO_AUTH_BUCKET_SECRET="$(openssl rand -hex 32)"
 npm run local
 ```
 
@@ -20,7 +74,7 @@ Comprueba el servicio con:
 curl http://localhost:3000/api/nido/status
 ```
 
-Para usarlo desde el Simulator, configura `NIDO_API_BASE_URL` en el target `Nido`. En un iPhone físico usa la dirección LAN del equipo que ejecuta la API, no `127.0.0.1`.
+La ejecución local de la API permite probar sus rutas y contratos. La app no lee una variable genérica `NIDO_API_BASE_URL`: `AppConfiguration` selecciona la URL mediante `UITestLaunchPolicy`. El ejecutor de [pruebas UI con API local](docs/ios-local-real-api-ui-tests.md) prepara su propia configuración controlada. Para probar la aplicación con datos de ejemplo basta con la demo descrita arriba.
 
 ## Verificación
 

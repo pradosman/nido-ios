@@ -2,6 +2,8 @@
 
 Aplicación nativa en SwiftUI para registrar y compartir el cuidado diario del bebé.
 
+Requiere un Mac con Xcode completo compatible con Swift 6 y un iPhone o simulador con iOS 17 o posterior.
+
 ## Abrir y ejecutar
 
 1. Instala Xcode desde la App Store y ábrelo una vez para completar su configuración.
@@ -9,13 +11,17 @@ Aplicación nativa en SwiftUI para registrar y compartir el cuidado diario del b
 3. Selecciona el esquema **Nido** y un iPhone.
 4. Pulsa **Run** (`⌘R`).
 
-Todas las configuraciones utilizan `https://nido.momentumia.com`.
+Para probar la app sin cuenta, pulsa **Explorar demostración**. La demo funciona localmente y no necesita ejecutar la API ni disponer de una base de datos.
+
+En **Debug sobre simulador**, la configuración normal utiliza `http://127.0.0.1:1` para evitar conexiones accidentales a producción. Si necesitas probar de forma deliberada una cuenta real desde el simulador, añade `NIDO_SIMULATOR_PRODUCTION_OPT_IN=1` en **Scheme > Run > Arguments > Environment Variables**. Este ajuste selecciona `https://nido.momentumia.com` y no es necesario para la demo. El resto de configuraciones utiliza la dirección de producción. La política está definida en `AppConfiguration` y `UITestLaunchPolicy`.
 
 ## Instalar en un iPhone
 
 1. Conecta el iPhone al Mac y confía en el ordenador.
-2. En **Signing & Capabilities**, elige tu equipo personal de Apple.
+2. En **Signing & Capabilities**, configura un equipo y perfiles de Apple que admitan las capacidades del proyecto, incluidos Iniciar sesión con Apple y App Groups. Un Personal Team gratuito no basta para mantener todas esas capacidades.
 3. Selecciona el iPhone como destino y pulsa **Run**.
+
+Para probar la app sin preparar perfiles de distribución o capacidades de una cuenta de desarrollador, utiliza el simulador y **Explorar demostración**.
 
 ## Datos y funcionamiento
 
