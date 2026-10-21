@@ -12,4 +12,4 @@ Los escenarios DEBUG `evolution-design-summary` y `evolution-design-empty` conse
 
 Carga, ausencia de registros, desconexión y cambios pendientes son estados distintos. El agregado de pendientes se expone mediante una propiedad estrecha del store; no se hacen públicas las colas privadas. Los registros cargados no garantizan cobertura histórica completa: conservar las expresiones «registrado» y la cobertura del periodo.
 
-No se han autorizado en esta unidad commits, instalaciones físicas ni despliegues. Las compilaciones y pruebas se coordinan en el mirror hidratado y un único simulador de QA; cada archivo se sincroniza individualmente con comparación SHA-256 para evitar los placeholders de FileProvider.
+La instrucción posterior del usuario del 21 de octubre autoriza commits, integración en `main` y publicación en App Store; se registra en `../evolution-release-2026-10-21.md`. No se han solicitado instalaciones físicas. Las compilaciones y pruebas se coordinan en el mirror hidratado y un único simulador de QA; cada archivo se sincroniza individualmente con comparación SHA-256 para evitar los placeholders de FileProvider.
