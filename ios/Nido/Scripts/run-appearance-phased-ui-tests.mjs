@@ -4,7 +4,7 @@ import { mkdirSync, openSync, closeSync, existsSync, writeFileSync } from 'node:
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAppearancePhasePlan, readBaselineLedger, runAppearancePhases } from './appearance-phase-plan.mjs';
-import { validateResultSummary } from './appearance-result-validation.mjs';
+import { validateResultSummary, validateDiagnosticResultSummary, validateDiagnosticTestTree, summarizeAppearanceResults } from './appearance-result-validation.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const projectDir = resolve(scriptDir, '..');
@@ -50,7 +50,9 @@ function validateResultBundle(phase, resultPath, runCommand) {
   const output = runCommand('xcrun', [
     'xcresulttool', 'get', 'test-results', 'summary', '--path', resultPath, '--compact',
   ]);
-  return validateResultSummary(output, phase.identifiers.length, phase.name);
+  return phase.kind === 'diagnostic'
+    ? validateDiagnosticResultSummary(output, phase.identifiers.length, phase.name)
+    : validateResultSummary(output, phase.identifiers.length, phase.name);
 }
 
 function runXcodePhase(phase, options, plan, { spawnProcess = spawnSync, runCommand = run } = {}) {
@@ -74,10 +76,31 @@ function runXcodePhase(phase, options, plan, { spawnProcess = spawnSync, runComm
   try {
     const child = spawnProcess('xcodebuild', args, { stdio: ['ignore', logFD, logFD] });
     if (child.error) throw child.error;
-    if (child.status !== 0) throw new Error(`Phase ${phase.name} failed (${child.status ?? child.signal}); log: ${logPath}; result: ${resultPath}`);
-    const counts = validateResultBundle(phase, resultPath, runCommand);
-    console.log(`${phase.name}: ${phase.identifiers.length} passed; ${resultPath}`);
-    return { resultPath, logPath, count: phase.identifiers.length, counts };
+    if (phase.kind === 'diagnostic') {
+      if (child.signal || !Number.isInteger(child.status) || ![0, 65].includes(child.status)) {
+        throw new Error(`Phase ${phase.name} failed (${child.status ?? child.signal}); log: ${logPath}; result: ${resultPath}`);
+      }
+    } else if (child.signal || child.status !== 0) {
+      throw new Error(`Phase ${phase.name} failed (${child.status ?? child.signal}); log: ${logPath}; result: ${resultPath}`);
+    }
+    const counts = phase.kind === 'diagnostic' && child.status === 0
+      ? validateResultSummary(runCommand('xcrun', [
+        'xcresulttool', 'get', 'test-results', 'summary', '--path', resultPath, '--compact',
+      ]), phase.identifiers.length, phase.name)
+      : validateResultBundle(phase, resultPath, runCommand);
+    if (phase.kind === 'diagnostic') {
+      const testTree = runCommand('xcrun', [
+        'xcresulttool', 'get', 'test-results', 'tests', '--path', resultPath, '--compact',
+      ]);
+      validateDiagnosticTestTree(testTree, phase.identifiers[0], counts.findings ? 'Failed' : 'Passed', phase.name);
+    }
+    const diagnosticFindings = phase.kind === 'diagnostic' && child.status === 65 && counts.findings;
+    if (phase.kind === 'diagnostic' && child.status === 65 && !diagnosticFindings) {
+      throw new Error(`Phase ${phase.name} exited 65 without a complete failed XCTest diagnostic; log: ${logPath}; result: ${resultPath}`);
+    }
+    console.log(`${phase.name}: ${counts.passed} passed, ${counts.failed} failed${diagnosticFindings ? ' (raw diagnostic findings)' : ''}; ${resultPath}`);
+    return { resultPath, logPath, count: phase.identifiers.length, counts,
+      ...(phase.kind === 'diagnostic' ? { status: diagnosticFindings ? 'completed_with_diagnostic_findings' : 'passed' } : {}) };
   } finally {
     closeSync(logFD);
   }
@@ -159,10 +182,14 @@ async function main() {
         : runXcodePhase(phase, options, plan));
     },
   });
-  const completed = results.reduce((sum, phase) => sum + phase.count, 0);
-  if (completed !== plan.executionCount) throw new Error(`Expected ${plan.executionCount} executions, got ${completed}.`);
-  writeFileSync(resolve(options['results-dir'], 'appearance-results.json'), `${JSON.stringify({ completedExecutions: completed, results }, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
-  console.log(`Completed ${completed} selectors across Light and Dark startup phases.`);
+  const { summary: outcome, exitCode } = summarizeAppearanceResults(results, plan.executionCount);
+  const summary = { ...outcome, results };
+  writeFileSync(resolve(options['results-dir'], 'appearance-results.json'), `${JSON.stringify(summary, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+  const ordinaryExecutionCount = phases
+    .filter(({ kind }) => kind !== 'diagnostic')
+    .reduce((count, { identifiers }) => count + identifiers.length, 0);
+  console.log(`Completed ${summary.completedExecutions} executions: ${summary.ordinaryPassed}/${ordinaryExecutionCount} ordinary passed; ${summary.diagnosticPassed} diagnostic passed, ${summary.diagnosticFailed} diagnostic failed.`);
+  if (exitCode !== 0) process.exitCode = exitCode;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

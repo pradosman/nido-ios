@@ -80,7 +80,7 @@ final class GoalDesignPreviewUITests: XCTestCase {
             app.launchEnvironment["NIDO_UI_TEST_DYNAMIC_TYPE_SIZE"] = "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
         }
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
     }
 
     private func assertRenderedAppearance(_ app: XCUIApplication, dark: Bool) {

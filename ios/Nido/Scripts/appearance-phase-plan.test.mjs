@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
@@ -13,6 +13,51 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ledger = JSON.parse(readFileSync(resolve(here, 'appearance-test-baseline.json'), 'utf8'));
+
+test('expanded appearance phases exactly match current nonphysical XCTest source methods', () => {
+  const sourceRoot = resolve(here, '..');
+  const sourceIDs = [];
+  const visit = (directory, prefix) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        visit(resolve(directory, entry.name), `${prefix}/${entry.name}`);
+      } else if (entry.isFile() && entry.name.endsWith('.swift')) {
+        if (entry.name === 'PhysicalDeviceVisualUITests.swift') continue;
+        const source = readFileSync(resolve(directory, entry.name), 'utf8');
+        for (const match of source.matchAll(/^\s*func\s+(test\w+)\s*\(/gm)) {
+          sourceIDs.push(`${prefix}/${entry.name.slice(0, -'.swift'.length)}/${match[1]}`);
+        }
+      }
+    }
+  };
+  for (const target of ['NidoUITests', 'NidoSnapshotTests']) {
+    visit(resolve(sourceRoot, target), target);
+  }
+
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  const executionIDs = plan.phases.flatMap(({ identifiers }) => identifiers);
+  const executionSet = new Set(executionIDs);
+  const sourceSet = new Set(sourceIDs);
+  const missing = sourceIDs.filter((identifier) => !executionSet.has(identifier)).sort();
+  const stale = executionIDs.filter((identifier) => !sourceSet.has(identifier)).sort();
+  assert.deepEqual([...new Set(sourceIDs)].sort(), sourceIDs.slice().sort(), 'XCTest source selectors must be unique.');
+  assert.deepEqual([...new Set(executionIDs)].sort(), executionIDs.slice().sort(), 'Expanded phase selectors must be unique.');
+  assert.deepEqual({ missing, stale }, { missing: [], stale: [] },
+    `Expanded phases must match current XCTest source methods; missing: ${missing.join(', ')}; stale: ${stale.join(', ')}.`);
+});
+
+test('the full gate inventories every sleep detail selector exactly once', () => {
+  const source = readFileSync(resolve(here, '../NidoUITests/SleepEvolutionDetailUITests.swift'), 'utf8');
+  const names = [...source.matchAll(/func (test\w+)\(/g)].map((match) => match[1]);
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  for (const name of names) {
+    const identifier = `NidoUITests/SleepEvolutionDetailUITests/${name}`;
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing sleep detail baseline test: ${identifier}`);
+    assert.equal(plan.phases.flatMap(({ identifiers }) => identifiers).filter((candidate) => candidate === identifier).length, 1);
+  }
+  const darkDetail = 'NidoUITests/SleepEvolutionDetailUITests/testSleepDetailUsesNativeNavigationAndChartInDarkAppearance';
+  assert(plan.phases.find(({ name }) => name === 'dark-ui').identifiers.includes(darkDetail));
+});
 
 test('the simulator snapshot phase covers local fixture gate regressions', () => {
   const required = [
@@ -86,18 +131,78 @@ test('the phase ledger includes palette, widget, menu and authentication regress
   }
 });
 
+test('the ledger runs both raw accessibility diagnostics after 243 ordinary executions', () => {
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  assert.equal(plan.executionCount, 245);
+  assert.deepEqual(plan.phases.map(({ name, kind, identifiers }) => [name, kind, identifiers.length]), [
+    ['light-ui', 'xcodebuild', 159], ['local-api-ui', 'api-helper', 3],
+    ['snapshots', 'xcodebuild', 70], ['dark-ui', 'xcodebuild', 11],
+    ['light-accessibility-diagnostic', 'diagnostic', 1], ['dark-accessibility-diagnostic', 'diagnostic', 1],
+  ]);
+  const diagnostics = plan.phases.slice(-2).flatMap(({ identifiers }) => identifiers);
+  assert.deepEqual(diagnostics, [
+    'NidoUITests/NidoUITests/testTodayUnfilteredAccessibilityAuditDiagnosticInLightAppearance',
+    'NidoUITests/NidoUITests/testTodayUnfilteredAccessibilityAuditDiagnosticInDarkAppearance',
+  ]);
+  assert.equal(plan.phases.slice(0, 4).reduce((n, phase) => n + phase.identifiers.length, 0), 243);
+});
+
+test('rendered contrast selectors are included exactly once in their matching phases', () => {
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  const cases = [
+    ['NidoUITests/NidoUITests/testFloatingNavigationTabLabelsMeetRenderedContrastInLightAppearance', 'light-ui'],
+    ['NidoUITests/NidoUITests/testFloatingNavigationTabLabelsMeetRenderedContrastInDarkAppearance', 'dark-ui'],
+  ];
+  for (const [identifier, phaseName] of cases) {
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing contrast baseline test: ${identifier}`);
+    assert.deepEqual(plan.originalToExecutions.get(identifier), [identifier]);
+    const phase = plan.phases.find(({ name }) => name === phaseName);
+    assert.equal(phase.identifiers.filter((candidate) => candidate === identifier).length, 1);
+  }
+});
+
+test('floating navigation geometry is included exactly once in the light phase', () => {
+  const identifier = 'NidoUITests/FloatingNavigationUITests/testTodayScrollAndFloatingNavigationGeometry';
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), 'The full gate must include the floating navigation regression.');
+  assert.deepEqual(plan.originalToExecutions.get(identifier), [identifier]);
+  assert.equal(plan.phases[0].identifiers.filter((candidate) => candidate === identifier).length, 1);
+});
+
+test('all seven evolution design preview selectors are in the light UI phase', () => {
+  const identifiers = [
+    'NidoUITests/EvolutionDesignPreviewUITests/testSummaryShowsReadOnlySevenDayCatalogInLightAppearance',
+    'NidoUITests/EvolutionDesignPreviewUITests/testSummaryShowsTheSameCatalogInDarkAppearance',
+    'NidoUITests/EvolutionDesignPreviewUITests/testPreviewUsesNativeNavigationBarTitle',
+    'NidoUITests/EvolutionDesignPreviewUITests/testPopulatedCareCardsRenderVisibleMiniBars',
+    'NidoUITests/EvolutionDesignPreviewUITests/testEmptyScenarioUsesNoRecordStatesInsteadOfZeroes',
+    'NidoUITests/EvolutionDesignPreviewUITests/testAllFiveValuesRemainReachableAtAccessibilityXXXL',
+'NidoUITests/EvolutionDesignPreviewUITests/testIntegratedDefaultTabUsesEvolutionLabel',
+  ];
+  const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
+  const light = plan.phases.find(({ name }) => name === 'light-ui').identifiers;
+
+  assert.equal(identifiers.length, 7);
+  for (const identifier of identifiers) {
+    assert(ledger.baselineUniqueTestIdentifiers.includes(identifier), `Missing evolution baseline test: ${identifier}`);
+    assert.deepEqual(plan.originalToExecutions.get(identifier), [identifier]);
+    assert.equal(light.filter((candidate) => candidate === identifier).length, 1);
+  }
+});
+
 test('the phase plan covers every baseline once and splits only the three mixed cases', () => {
   const plan = buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers);
-  assert.equal(plan.baselineCount, 194);
-  assert.equal(plan.executionCount, 197);
-  assert.deepEqual(plan.phases.map(({ name }) => name), ['light-ui', 'local-api-ui', 'snapshots', 'dark-ui']);
-  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [119, 3, 65, 10]);
+  assert.equal(plan.baselineCount, 242);
+  assert.equal(plan.executionCount, 245);
+  assert.deepEqual(plan.phases.map(({ name }) => name), ['light-ui', 'local-api-ui', 'snapshots', 'dark-ui', 'light-accessibility-diagnostic', 'dark-accessibility-diagnostic']);
+  assert.deepEqual(plan.phases.map(({ identifiers }) => identifiers.length), [159, 3, 70, 11, 1, 1]);
 
   const phaseIDs = plan.phases.flatMap(({ identifiers }) => identifiers);
-  assert.equal(new Set(phaseIDs).size, 197);
-  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 65);
+  assert.equal(new Set(phaseIDs).size, 245);
+  assert.equal(phaseIDs.filter((id) => id.startsWith('NidoSnapshotTests/')).length, 70);
   assert.deepEqual(plan.phases[1].identifiers, [...API_TESTS]);
-  assert.deepEqual(plan.phases[3].identifiers.slice(0, 7), [...DARK_ONLY_TESTS]);
+  assert.deepEqual(plan.phases[3].identifiers.slice(0, DARK_ONLY_TESTS.length - 1), DARK_ONLY_TESTS.slice(1));
+  assert.equal(plan.phases[3].identifiers.length, 11);
 
   for (const [baselineID, split] of Object.entries(MIXED_APPEARANCE_TESTS)) {
     assert.deepEqual(plan.originalToExecutions.get(baselineID), [split.light, split.dark]);
@@ -154,7 +259,7 @@ test('the planner rejects a duplicated or incomplete baseline rather than silent
   );
   assert.throws(
     () => buildAppearancePhasePlan(ledger.baselineUniqueTestIdentifiers.slice(1)),
-    /Expected the 194-test baseline ledger/
+    /Expected the 242-test baseline ledger/
   );
 });
 
@@ -192,6 +297,37 @@ test('a phase failure stops later phases, propagates the error, and restores the
   }), /xcodebuild failed/);
   assert.deepEqual(started, ['first']);
   assert.equal(appearance, 'light');
+});
+
+test('ordinary failures abort, diagnostic findings continue and are retained', async () => {
+  const phases = [
+    { name: 'ordinary', appearance: 'light' },
+    { name: 'diagnostic-light', appearance: 'light', kind: 'diagnostic' },
+    { name: 'diagnostic-dark', appearance: 'dark', kind: 'diagnostic' },
+  ];
+  const started = [];
+  let phaseAppearance = 'light';
+  const result = await runAppearancePhases(phases, {
+    getAppearance: async () => phaseAppearance, setAppearance: async (value) => { phaseAppearance = value; },
+    runPhase: async (phase) => {
+      started.push(phase.name);
+      if (phase.kind === 'diagnostic') throw Object.assign(new Error('raw assertion failures'), { diagnosticFindings: true });
+    },
+  });
+  assert.deepEqual(started, phases.map(({ name }) => name));
+  assert.deepEqual(result.diagnosticFailures.map(({ name }) => name), ['diagnostic-light', 'diagnostic-dark']);
+  let appearance = 'light';
+  await assert.rejects(runAppearancePhases(phases, {
+    getAppearance: async () => appearance, setAppearance: async (value) => { appearance = value; },
+    runPhase: async (phase) => { if (phase.name === 'ordinary') throw Error('ordinary failed'); },
+  }), /ordinary failed/);
+  await assert.rejects(runAppearancePhases([
+    { name: 'diagnostic', appearance: 'light', kind: 'diagnostic' },
+    { name: 'later-diagnostic', appearance: 'dark', kind: 'diagnostic' },
+  ], {
+    getAppearance: async () => 'light', setAppearance: async () => {},
+    runPhase: async () => { throw Error('xcresulttool unavailable'); },
+  }), /xcresulttool unavailable/);
 });
 
 test('a rejected appearance preset prevents the test phase from starting', async () => {

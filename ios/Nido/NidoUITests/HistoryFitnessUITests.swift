@@ -72,8 +72,8 @@ final class HistoryFitnessUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-08-27")
         bringIntoView(app.buttons["history-entry-history-thursday"])
 
-        app.tabBars.buttons["Hoy"].tap()
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Hoy"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
 
         XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-08-27")
         XCTAssertTrue(app.buttons["history-week-day-2026-08-27"].isSelected)
@@ -310,7 +310,7 @@ final class HistoryFitnessUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["timeline-day-heading"].label.contains("27 de agosto"))
         XCTAssertTrue(app.buttons["daily-goal-ring-graphic"].exists)
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-08-28")
         app.buttons["daily-goal-ring-graphic"].swipeRight()
         XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-08-27")
@@ -324,7 +324,7 @@ final class HistoryFitnessUITests: XCTestCase {
         let chartFrame = chart.frame
         let tapPoint = CGPoint(x: chartFrame.minX + chartFrame.width * 0.55, y: chartFrame.minY + chartFrame.height * 0.45)
         let registrationFrame = app.buttons["registration-action-button"].frame
-        print("HISTORY_CHART_PLOT_TAP frame=\(chartFrame) point=\(tapPoint) scroll=\(verticalScrollView().frame) tabBar=\(app.tabBars.firstMatch.frame) registration=\(registrationFrame)")
+        print("HISTORY_CHART_PLOT_TAP frame=\(chartFrame) point=\(tapPoint) scroll=\(verticalScrollView().frame) tabBar=\(app.floatingNavigationTabBars.firstMatch.frame) registration=\(registrationFrame)")
         attachScreenshot(named: "History feed plot unobscured before interval selection")
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.45)).tap()
 
@@ -462,7 +462,7 @@ final class HistoryFitnessUITests: XCTestCase {
         ]
         app.launch()
         if openHistory {
-            app.tabBars.buttons["Historia"].tap()
+            app.floatingNavigationTabButtons["Historia"].tap()
         }
     }
 
@@ -548,34 +548,20 @@ final class HistoryFitnessUITests: XCTestCase {
 
     private func bringIntoView(_ target: XCUIElement, maximumSwipes: Int = 40) {
         let scrollView = verticalScrollView()
-        print("History visibility: \(target.identifier), target=\(target.frame), viewport=\(scrollView.frame)")
+        print("History visibility: \(target.identifier), target=\(target.frame), viewport=\(unobscuredViewport(in: scrollView))")
         for _ in 0..<maximumSwipes where !target.isHittable {
-            let isAbove = target.exists && target.frame.midY < scrollView.frame.minY
-            let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: isAbove ? 0.35 : 0.65))
-            let end = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: isAbove ? 0.6 : 0.4))
-            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.15)
+            let viewport = unobscuredViewport(in: scrollView)
+            let movesTowardEarlierContent = target.exists && target.frame.midY < viewport.minY
+            drag(in: scrollView, viewport: viewport, towardEarlierContent: movesTowardEarlierContent)
         }
         XCTAssertTrue(target.isHittable, "Expected UI element to be visible: \(target.identifier)")
     }
 
     private func bringChartPlotCenterIntoView(_ chart: XCUIElement, maximumSwipes: Int = 20) -> Bool {
         let scrollView = verticalScrollView()
-        let weekButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "history-week-day-"))
-        let registration = app.buttons["registration-action-button"]
-        let tabBar = app.tabBars.firstMatch
-
         for attempt in 0...maximumSwipes {
             let chartFrame = chart.frame
-            let weekFrame = weekButtons.allElementsBoundByIndex.reduce(CGRect.null) { $0.union($1.frame) }
-            let bottomChrome = tabBar.frame.union(registration.frame)
-            let visibleTop = max(scrollView.frame.minY, weekFrame.maxY + 8)
-            let visibleBottom = min(scrollView.frame.maxY, bottomChrome.minY - 12)
-            let visibleRect = CGRect(
-                x: scrollView.frame.minX + 12,
-                y: visibleTop,
-                width: max(0, scrollView.frame.width - 24),
-                height: max(0, visibleBottom - visibleTop)
-            )
+            let visibleRect = unobscuredViewport(in: scrollView)
             let plotCenter = CGPoint(
                 x: chartFrame.minX + chartFrame.width * 0.55,
                 y: chartFrame.minY + chartFrame.height * 0.45
@@ -585,11 +571,45 @@ final class HistoryFitnessUITests: XCTestCase {
                 return true
             }
             guard attempt < maximumSwipes else { break }
-            let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.68))
-            let end = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.36))
-            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+            let movesTowardEarlierContent = plotCenter.y < visibleRect.minY
+            drag(in: scrollView, viewport: visibleRect, towardEarlierContent: movesTowardEarlierContent)
         }
         return false
+    }
+
+    private func unobscuredViewport(in scrollView: XCUIElement) -> CGRect {
+        let windowFrame = app.windows.firstMatch.frame
+        let scrollFrame = scrollView.frame.intersection(windowFrame)
+        let weekButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "history-week-day-"))
+        let weekFrame = weekButtons.allElementsBoundByIndex.reduce(CGRect.null) { $0.union($1.frame) }
+        let registration = app.buttons["registration-action-button"]
+        let tabBar = app.floatingNavigationTabBars.firstMatch
+
+        let visibleTop = weekFrame.isNull ? scrollFrame.minY : max(scrollFrame.minY, weekFrame.maxY + 8)
+        let visibleBottom = min(scrollFrame.maxY, min(tabBar.frame.minY, registration.frame.minY) - 12)
+        return CGRect(
+            x: scrollFrame.minX + 12,
+            y: visibleTop,
+            width: max(0, scrollFrame.width - 24),
+            height: max(0, visibleBottom - visibleTop)
+        )
+    }
+
+    private func drag(in scrollView: XCUIElement, viewport: CGRect, towardEarlierContent: Bool) {
+        guard !viewport.isNull, viewport.width > 0, viewport.height > 0 else { return }
+        let startFraction: CGFloat = towardEarlierContent ? 0.25 : 0.75
+        let endFraction: CGFloat = towardEarlierContent ? 0.75 : 0.25
+        let startPoint = CGPoint(x: viewport.midX, y: viewport.minY + viewport.height * startFraction)
+        let endPoint = CGPoint(x: viewport.midX, y: viewport.minY + viewport.height * endFraction)
+        let start = scrollView.coordinate(withNormalizedOffset: CGVector(
+            dx: (startPoint.x - scrollView.frame.minX) / scrollView.frame.width,
+            dy: (startPoint.y - scrollView.frame.minY) / scrollView.frame.height
+        ))
+        let end = scrollView.coordinate(withNormalizedOffset: CGVector(
+            dx: (endPoint.x - scrollView.frame.minX) / scrollView.frame.width,
+            dy: (endPoint.y - scrollView.frame.minY) / scrollView.frame.height
+        ))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.15)
     }
 
     private func returnToTop(day: String) {

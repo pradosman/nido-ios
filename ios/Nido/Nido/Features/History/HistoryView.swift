@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.floatingNavigationClearance) private var floatingNavigationClearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
@@ -78,6 +79,7 @@ struct HistoryView: View {
                         snapshot: snapshot,
                         isCommitted: isCommitted,
                         availableRingWidth: min(availableRingWidth, dynamicTypeSize.isAccessibilitySize ? 250 : 294),
+                        bottomClearance: floatingNavigationClearance,
                         readingAnchor: { readingContext.anchorForIncomingDay },
                         onReadingAnchorChange: { anchor in
                             guard calendar.isDate(date, inSameDayAs: selection) else { return }

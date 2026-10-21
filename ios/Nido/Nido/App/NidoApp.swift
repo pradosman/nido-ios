@@ -10,10 +10,12 @@ struct NidoApp: App {
     private let uiTestScenario: String?
 
 #if DEBUG
-    static func makeLocalUITestStore(runID: String, referenceNow: Date, isSimulator: Bool) -> NidoStore {
+    static func makeLocalUITestStore(runID: String, referenceNow: Date, isSimulator: Bool, preservesDefaults: Bool = false) -> NidoStore {
         let defaultsSuite = "com.momentumia.nido.uitests.\(runID)"
         let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
-        defaults.removePersistentDomain(forName: defaultsSuite)
+        if !preservesDefaults {
+            defaults.removePersistentDomain(forName: defaultsSuite)
+        }
         let cacheURL = FileManager.default.temporaryDirectory
             .appending(path: "NidoUITests", directoryHint: .isDirectory)
             .appending(path: runID, directoryHint: .isDirectory)
@@ -26,6 +28,15 @@ struct NidoApp: App {
             expiresAt: referenceNow.addingTimeInterval(86_400),
             appleUserID: nil
         )
+        let nowProvider: @Sendable () -> Date
+        if ProcessInfo.processInfo.environment["NIDO_UI_TEST_TICKING_CLOCK"] == "1" {
+            let referenceUptime = ProcessInfo.processInfo.systemUptime
+            nowProvider = {
+                referenceNow.addingTimeInterval(ProcessInfo.processInfo.systemUptime - referenceUptime)
+            }
+        } else {
+            nowProvider = { referenceNow }
+        }
         let eventHub = RegistrationMutationEventHub()
         let registrationService = NidoRegistrationServices.make(
             cache: cache,
@@ -37,7 +48,7 @@ struct NidoApp: App {
             ),
             eventHub: eventHub,
             credentialOverride: localCredential,
-            now: { referenceNow },
+            now: nowProvider,
             createEntry: { _, _ in throw URLError(.notConnectedToInternet) },
             syncSleep: { _, _, _ in throw URLError(.notConnectedToInternet) },
             loadSleep: { _ in throw URLError(.notConnectedToInternet) },
@@ -51,7 +62,7 @@ struct NidoApp: App {
             babyCareCache: babyCareCache,
             credentialStore: credentialStore,
             defaults: defaults,
-            now: { referenceNow },
+            now: nowProvider,
             shouldLoadCredential: false,
             initialAccessToken: localCredential.accessToken,
             registrationService: registrationService,
@@ -139,7 +150,7 @@ struct NidoApp: App {
                 return
             }
             let referenceNow: Date
-            if scenario == "feed-create" || scenario == "diaper-edit" || scenario == "circular-timeline" || scenario == "circular-timeline-dense" || scenario == "history-calendar" || scenario == "baby-care" || scenario == "baby-care-empty" {
+            if scenario == "feed-create" || scenario == "diaper-edit" || scenario == "quick-diaper-registration" || scenario == "circular-timeline" || scenario == "circular-timeline-dense" || scenario == "history-calendar" || scenario == "baby-care" || scenario == "baby-care-empty" {
                 var calendar = Calendar(identifier: .gregorian)
                 calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
                 referenceNow = calendar.date(from: DateComponents(
@@ -149,13 +160,18 @@ struct NidoApp: App {
                     hour: scenario == "baby-care" || scenario == "baby-care-empty" ? 14 : scenario == "feed-create" ? 17 : scenario == "diaper-edit" ? 18 : scenario == "history-calendar" ? 12 : 22,
                     minute: scenario == "baby-care" || scenario == "baby-care-empty" ? 24 : scenario == "feed-create" ? 50 : scenario == "diaper-edit" ? 0 : scenario == "history-calendar" ? 0 : 40
                 ))!
+            } else if scenario == "evolution-live" {
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+                referenceNow = calendar.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 14, minute: 24))!
             } else {
                 referenceNow = .now
             }
             let store = Self.makeLocalUITestStore(
                 runID: runID,
                 referenceNow: referenceNow,
-                isSimulator: isSimulator
+                isSimulator: isSimulator,
+                preservesDefaults: scenario == "evolution-live"
             )
             _store = State(initialValue: store)
             shouldLoadOnLaunch = false
@@ -199,6 +215,10 @@ struct NidoApp: App {
                             return
                         }
                         await store.prepareForUITesting(scenario: uiTestScenario)
+                        if uiTestScenario == "evolution-live",
+                           ProcessInfo.processInfo.environment["NIDO_UI_TEST_TICKING_CLOCK"] == "1" {
+                            store.activeSleepStartedAt = store.now.addingTimeInterval(-300)
+                        }
                         if uiTestScenario == "live-activity-ten-hour-sleep" {
                             if store.allowsExternalEffects {
                                 await NidoLiveActivity.endAll()

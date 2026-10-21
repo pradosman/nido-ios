@@ -12,7 +12,7 @@ final class BabyCareUITests: XCTestCase {
         app.launchArguments = ["-NIDO_UI_TEST_MARKER", "1", "-NIDO_UI_TEST_SCENARIO", scenario,
                                "-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         return app
     }
 
@@ -30,7 +30,7 @@ final class BabyCareUITests: XCTestCase {
 
     func testBabyGrowthOpensFromSettingsAndSupportsDatedMeasurements() {
         let app = launch()
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let growth = app.buttons["open-baby-growth"]
         for _ in 0..<5 where !growth.isHittable { app.swipeUp() }
         XCTAssertTrue(growth.waitForExistence(timeout: 3))
@@ -47,7 +47,7 @@ final class BabyCareUITests: XCTestCase {
 
     func testHistoryUsesTheSameGoalPanelAndCalendar() {
         let app = launch()
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let feeds = app.buttons.matching(NSPredicate(format: "label == %@", "Tomas")).firstMatch
         XCTAssertTrue(feeds.waitForExistence(timeout: 5))
         XCTAssertTrue((feeds.value as? String)?.contains("objetivo 8") == true)
@@ -56,7 +56,7 @@ final class BabyCareUITests: XCTestCase {
 
     func testGrowthSavesARealMeasurementAndShowsItsDate() {
         let app = launch("baby-care-empty")
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         app.buttons["open-baby-growth"].tap()
         app.buttons["growth.add"].tap()
         let weight = app.textFields["growth.measurement.weight"]
@@ -108,7 +108,7 @@ final class BabyCareUITests: XCTestCase {
     func testNativeVisualCheckpointsInLightAppearance() {
         captureNativeVisualCheckpoints(dark: false)
         let app = launch(accessibility: true)
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let growth = app.buttons["open-baby-growth"]
         for _ in 0..<8 where !growth.isHittable { app.swipeUp() }
         growth.tap()
@@ -124,9 +124,9 @@ final class BabyCareUITests: XCTestCase {
         let app = launch()
         assertRenderedAppearance(app, dark: dark)
         attach(app, "\(dark ? "dark" : "light")-today")
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         attach(app, "\(dark ? "dark" : "light")-history")
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         app.buttons["open-baby-growth"].tap()
         attach(app, "\(dark ? "dark" : "light")-growth")
         app.buttons["growth.series.weight"].tap()

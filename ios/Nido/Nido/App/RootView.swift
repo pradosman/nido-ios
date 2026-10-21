@@ -137,10 +137,14 @@ private struct MainTabView: View {
     @Environment(NidoStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var quickRegistrationKind: EntryKind?
+    @State private var floatingNavigationClearance: CGFloat = 12
+
+    private let trendsTitle = "Evolución"
 
     var body: some View {
         @Bindable var store = store
-        VStack(spacing: 0) {
+
+        ZStack {
             TabView(selection: $store.selectedTab) {
                 tabScreen { TodayView() }
                     .tabItem { Label("Hoy", systemImage: "house.fill") }
@@ -151,7 +155,7 @@ private struct MainTabView: View {
                     .tag(AppTab.history)
 
                 tabScreen { TrendsView() }
-                    .tabItem { Label("Ritmos", systemImage: "chart.bar.xaxis") }
+                    .tabItem { Label(trendsTitle, systemImage: "chart.bar.xaxis") }
                     .tag(AppTab.trends)
 
                 tabScreen { SettingsView() }
@@ -160,8 +164,27 @@ private struct MainTabView: View {
             }
             .toolbar(.hidden, for: .tabBar)
             .tint(NidoTheme.tabSelection)
-
-            bottomActionArea
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .overlay {
+            FloatingNavigationDock(
+                selection: $store.selectedTab,
+                clearanceChanged: { floatingNavigationClearance = $0 },
+                trendsTitle: trendsTitle,
+                action: { registrationMenu(store: store) },
+                notice: {
+                    if let notice = store.notice {
+                        noticeView(notice: notice, store: store)
+                    } else {
+                        EmptyView()
+                    }
+                }
+            )
+            .ignoresSafeArea(edges: .bottom)
+        }
+        .environment(\.floatingNavigationClearance, floatingNavigationClearance)
+        .onChange(of: store.evolutionPreferenceScope) { _, _ in
+            store.isEditingEvolutionPins = false
         }
         .background { PaperBackground() }
         .task {
@@ -225,6 +248,11 @@ private struct MainTabView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $store.isEditingEvolutionPins) {
+            EvolutionPinnedEditorView(preferences: store.evolutionPinnedPreferences) { preferences in
+                store.saveEvolutionPinnedPreferences(preferences)
+            }
+        }
     }
 
     private func tabScreen<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -235,190 +263,78 @@ private struct MainTabView: View {
         }
     }
 
-    private var bottomActionArea: some View {
-        @Bindable var store = store
-        return VStack(spacing: 8) {
-            if let notice = store.notice {
-                NoticeView(
-                    message: notice,
-                    isOffline: store.isOffline,
-                    canEdit: store.recentlyCreatedEntry != nil,
-                    canUndo: store.recentlyDeletedEntry != nil || store.recentlyCreatedEntry != nil,
-                    edit: store.editRecentlyCreatedEntry,
-                    undo: {
-                        Task {
-                            if store.recentlyCreatedEntry != nil {
-                                await store.undoCreatedEntry()
-                            } else {
-                                await store.undoDelete()
-                            }
-                        }
-                    },
-                    dismiss: {
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
-                            store.dismissNotice()
-                        }
-                    }
-                )
-                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                .onTapGesture {
-                    if store.recentlyDeletedEntry == nil, store.recentlyCreatedEntry == nil {
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) { store.dismissNotice() }
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                NativeTabBar(selection: $store.selectedTab)
-                .frame(maxWidth: .infinity)
-                .frame(height: 64)
-                .background {
-                    if #unavailable(iOS 26) {
-                        Capsule().fill(.thinMaterial)
-                    }
-                }
-                .offset(y: nativeTabBarOffset)
-
-                Menu {
-                    ForEach(EntryKind.allCases) { kind in
-                        Button {
-                            let presentsQuickRegistration = kind == .diaper
-                                || (kind == .feed && RegistrationQuickAction.feed(entries: store.entries, at: store.now) != nil)
-                            #if DEBUG
-                            RegistrationRoutingDiagnostics.logger.debug(
-                                "menu_action kind=\(kind.rawValue, privacy: .public) destination=\(presentsQuickRegistration ? "quick" : "detailed", privacy: .public)"
-                            )
-                            #endif
-                            if presentsQuickRegistration {
-                                quickRegistrationKind = kind
-                            } else {
-                                store.presentedEntryKind = kind
-                            }
-                        } label: {
-                            Label {
-                                Text(kind.title)
-                            } icon: {
-                                CareCategoryIcon.menuImage(for: kind.careCategory, size: 17)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(NidoTheme.color(for: kind))
-                            }
-                        }
-                        .accessibilityLabel("Registrar \(kind.title.lowercased())")
+    private func registrationMenu(store: NidoStore) -> some View {
+        Menu {
+            ForEach(EntryKind.allCases) { kind in
+                Button {
+                    let presentsQuickRegistration = kind == .diaper
+                        || (kind == .feed
+                            && RegistrationQuickAction.feed(entries: store.entries, at: store.now) != nil)
+                    #if DEBUG
+                    RegistrationRoutingDiagnostics.logger.debug(
+                        "menu_action kind=\(kind.rawValue, privacy: .public) destination=\(presentsQuickRegistration ? "quick" : "detailed", privacy: .public)"
+                    )
+                    #endif
+                    if presentsQuickRegistration {
+                        quickRegistrationKind = kind
+                    } else {
+                        store.presentedEntryKind = kind
                     }
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 21, weight: .semibold))
-                        .frame(width: 54, height: 54)
-                        .foregroundStyle(.white)
-                        .background(NidoTheme.prominentActionFill, in: Circle())
-                        .contentShape(Circle())
+                    Label {
+                        Text(kind.title)
+                    } icon: {
+                        CareCategoryIcon.menuImage(for: kind.careCategory, size: 17)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(NidoTheme.color(for: kind))
+                    }
+                    .accessibilityLabel("Registrar \(kind.title.lowercased())")
                 }
-                .menuOrder(.fixed)
-                .buttonStyle(PressScaleButtonStyle())
-                .accessibilityLabel("Registrar una actividad")
-                .accessibilityHint("Abre las opciones de registro")
-                .accessibilityIdentifier("registration-action-button")
             }
-            .padding(.horizontal, 20)
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 21, weight: .semibold))
+                .frame(width: 54, height: 54)
+                .foregroundStyle(.white)
+                .background(NidoTheme.prominentActionFill, in: Circle())
+                .contentShape(Circle())
         }
-        .padding(.bottom, 8)
+        .menuOrder(.fixed)
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityLabel("Registrar una actividad")
+        .accessibilityHint("Abre las opciones de registro")
+        .accessibilityIdentifier("registration-action-button")
     }
 
-    private var nativeTabBarOffset: CGFloat {
-        if #available(iOS 26, *) { 10 } else { 0 }
-    }
-}
-
-private struct NativeTabBar: UIViewRepresentable {
-    @Binding var selection: AppTab
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    func makeUIView(context: Context) -> UITabBar {
-        let tabBar = UITabBar()
-        tabBar.items = Self.makeItems()
-        tabBar.delegate = context.coordinator
-        tabBar.tintColor = UIColor(NidoTheme.tabSelection)
-        tabBar.unselectedItemTintColor = UIColor(NidoTheme.readableSupportingInk)
-
-        let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = .clear
-        appearance.shadowColor = .clear
-        Self.configureItemAppearance(appearance.stackedLayoutAppearance)
-        Self.configureItemAppearance(appearance.inlineLayoutAppearance)
-        Self.configureItemAppearance(appearance.compactInlineLayoutAppearance)
-        tabBar.standardAppearance = appearance
-        tabBar.scrollEdgeAppearance = appearance
-        tabBar.selectedItem = item(for: selection, in: tabBar)
-        return tabBar
-    }
-
-    func updateUIView(_ tabBar: UITabBar, context: Context) {
-        context.coordinator.parent = self
-        if tabBar.items?.count != 4 {
-            tabBar.items = Self.makeItems()
-        }
-        tabBar.selectedItem = item(for: selection, in: tabBar)
-    }
-
-    private func item(for selection: AppTab, in tabBar: UITabBar) -> UITabBarItem? {
-        tabBar.items?.first { Self.tab(for: $0.title) == selection }
-    }
-
-    private static func makeItems() -> [UITabBarItem] {
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular, scale: .small)
-
-        func image(_ name: String) -> UIImage? {
-            UIImage(systemName: name, withConfiguration: symbolConfiguration)?.withRenderingMode(.alwaysTemplate)
-        }
-
-        func item(title: String, image: UIImage?, selectedImage: UIImage?, tag: Int) -> UITabBarItem {
-            let item = UITabBarItem(title: title, image: image, selectedImage: selectedImage)
-            item.tag = tag
-            return item
-        }
-
-        return [
-            item(title: "Hoy", image: image("house"), selectedImage: image("house.fill"), tag: 0),
-            item(title: "Historia", image: image("clock.arrow.circlepath"), selectedImage: image("clock.arrow.circlepath"), tag: 1),
-            item(title: "Ritmos", image: image("waveform.path"), selectedImage: image("waveform.path"), tag: 2),
-            item(title: "Ajustes", image: image("gearshape"), selectedImage: image("gearshape.fill"), tag: 3)
-        ]
-    }
-
-    private static func configureItemAppearance(_ itemAppearance: UITabBarItemAppearance) {
-        let normalColor = UIColor(NidoTheme.readableSupportingInk)
-        let selectedColor = UIColor(NidoTheme.tabSelection)
-        itemAppearance.normal.iconColor = normalColor
-        itemAppearance.normal.titleTextAttributes = [.foregroundColor: normalColor]
-        itemAppearance.selected.iconColor = selectedColor
-        itemAppearance.selected.titleTextAttributes = [.foregroundColor: selectedColor]
-    }
-
-    private static func tab(for title: String?) -> AppTab? {
-        switch title {
-        case "Hoy": .today
-        case "Historia": .history
-        case "Ritmos": .trends
-        case "Ajustes": .settings
-        default: nil
-        }
-    }
-
-    @MainActor
-    final class Coordinator: NSObject, UITabBarDelegate {
-        var parent: NativeTabBar
-
-        init(parent: NativeTabBar) {
-            self.parent = parent
-        }
-
-        func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-            guard let tab = NativeTabBar.tab(for: item.title) else { return }
-            parent.selection = tab
+    private func noticeView(notice: String, store: NidoStore) -> some View {
+        NoticeView(
+            message: notice,
+            isOffline: store.isOffline,
+            canEdit: store.recentlyCreatedEntry != nil,
+            canUndo: store.recentlyDeletedEntry != nil || store.recentlyCreatedEntry != nil,
+            edit: store.editRecentlyCreatedEntry,
+            undo: {
+                Task {
+                    if store.recentlyCreatedEntry != nil {
+                        await store.undoCreatedEntry()
+                    } else {
+                        await store.undoDelete()
+                    }
+                }
+            },
+            dismiss: {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
+                    store.dismissNotice()
+                }
+            }
+        )
+        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+        .onTapGesture {
+            if store.recentlyDeletedEntry == nil, store.recentlyCreatedEntry == nil {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.2, extraBounce: 0)) {
+                    store.dismissNotice()
+                }
+            }
         }
     }
 }

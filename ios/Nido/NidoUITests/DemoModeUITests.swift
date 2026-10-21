@@ -31,8 +31,8 @@ final class DemoModeUITests: XCTestCase {
             "-AppleLocale", "es_ES",
         ]
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Ajustes"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Ajustes"].tap()
+        XCTAssertTrue(app.floatingNavigationTabButtons["Ajustes"].waitForExistence(timeout: 10))
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let signOut = app.buttons["Cerrar sesión"]
         for _ in 0..<7 where !signOut.isHittable { app.swipeUp() }
         XCTAssertTrue(signOut.isHittable)
@@ -42,7 +42,7 @@ final class DemoModeUITests: XCTestCase {
         let explore = app.buttons["demo-start"]
         XCTAssertTrue(explore.waitForExistence(timeout: 5), "The shipped sign-in screen must offer demonstration without Apple credentials")
         explore.tap()
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["demo-status"].exists)
         let exit = app.buttons["demo-exit"]
         XCTAssertTrue(exit.isHittable)
@@ -54,8 +54,8 @@ final class DemoModeUITests: XCTestCase {
     func testDemoStatusAndExitRemainAvailableAcrossMainTabs() {
         let app = enterDemo()
 
-        for tab in ["Historia", "Ritmos", "Ajustes", "Hoy"] {
-            app.tabBars.buttons[tab].tap()
+        for tab in ["Historia", "Evolución", "Ajustes", "Hoy"] {
+            app.floatingNavigationTabButtons[tab].tap()
             XCTAssertTrue(app.staticTexts["demo-status"].waitForExistence(timeout: 5), "Demo status should remain visible on the \(tab) tab")
             XCTAssertTrue(app.buttons["demo-exit"].exists, "Demo exit should remain available on the \(tab) tab")
         }
@@ -79,7 +79,7 @@ final class DemoModeUITests: XCTestCase {
         note.typeText("Nota demo inicial")
         app.buttons["Guardar"].tap()
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let createdEntry = app.buttons.matching(NSPredicate(
             format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
             "history-entry-",
@@ -119,7 +119,7 @@ final class DemoModeUITests: XCTestCase {
         let reset = app.buttons["demo-reset"]
         XCTAssertTrue(reset.waitForExistence(timeout: 5))
         reset.tap()
-        let history = app.tabBars.buttons["Historia"]
+        let history = app.floatingNavigationTabButtons["Historia"]
         XCTAssertTrue(history.waitForExistence(timeout: 10))
         history.tap()
         XCTAssertTrue(app.buttons["history-entry-demo-feed-today"].waitForExistence(timeout: 10))
@@ -129,7 +129,7 @@ final class DemoModeUITests: XCTestCase {
 
     func testDemoCanGenerateLocalPediatricReport() {
         let app = enterDemo()
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let prepare = app.buttons["Preparar informe de 30 días"]
         for _ in 0..<7 where !prepare.isHittable { app.swipeUp() }
         XCTAssertTrue(prepare.waitForExistence(timeout: 5))
@@ -139,7 +139,7 @@ final class DemoModeUITests: XCTestCase {
 
     func testDemoInvitationIsClearlyMarkedAsSyntheticBeforeSharing() {
         let app = enterDemo()
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let invite = app.buttons["settings-invite-caregiver"]
         for _ in 0..<6 where !invite.isHittable { app.swipeUp() }
         XCTAssertTrue(invite.waitForExistence(timeout: 5))
@@ -168,7 +168,7 @@ final class DemoModeUITests: XCTestCase {
 
     func testPendingDemoInvitationSharePreviewSaysCodeIsFictitious() {
         let app = enterDemo()
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let share = app.buttons["Volver a compartir la invitación de Alex"]
         for _ in 0..<7 where !share.isHittable { app.swipeUp() }
         XCTAssertTrue(share.waitForExistence(timeout: 5))
@@ -205,13 +205,13 @@ final class DemoModeUITests: XCTestCase {
             "-AppleLocale", "es_ES",
         ]
         app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Ajustes"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Ajustes"].waitForExistence(timeout: 10))
         return app
     }
 
     private func enterDemo() -> XCUIApplication {
         let app = launchSignedInUITestFixture()
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let signOut = app.buttons["Cerrar sesión"]
         for _ in 0..<7 where !signOut.isHittable { app.swipeUp() }
         XCTAssertTrue(signOut.isHittable)
@@ -219,7 +219,7 @@ final class DemoModeUITests: XCTestCase {
         let demoStart = app.buttons["demo-start"]
         XCTAssertTrue(demoStart.waitForExistence(timeout: 10))
         demoStart.tap()
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         return app
     }
 

@@ -28,7 +28,7 @@ final class NidoUITests: XCTestCase {
     func testSettingsUsesFamilyTerminologyAndAdministratorPolicy() {
         launch(scenario: "caregiver-removal")
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         XCTAssertTrue(app.staticTexts["Familiares"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Invitar familiar"].exists)
         XCTAssertTrue(app.staticTexts["Administrador del hogar"].exists)
@@ -37,6 +37,41 @@ final class NidoUITests: XCTestCase {
     }
 
     func testRegistrationMenuShowsTheDiaperActionForVisualGlyphReview() throws {
+        let fixtureURL = try XCTUnwrap(
+            Bundle(for: type(of: self)).url(forResource: "registration-menu-ocr-fixture", withExtension: "png")
+        )
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let fixtureImage = try XCTUnwrap(UIImage(data: fixtureData, scale: 3))
+        let fixtureAppFrame = CGRect(origin: .zero, size: fixtureImage.size)
+        let fixtureDiaperRow = CGRect(x: 132, y: 746, width: 250, height: 42)
+        let fixtureIconColumnMaxX: CGFloat = 182
+        let fixtureRegion = menuTextRegion(
+            rowFrame: fixtureDiaperRow,
+            iconColumnMaxX: fixtureIconColumnMaxX,
+            appFrame: fixtureAppFrame
+        )
+        let fixtureLines = try recognizedMenuLines(in: fixtureImage, regionOfInterest: fixtureRegion)
+        let fixtureDiaper = fixtureLines.first { normalizedMenuText($0.text) == "panal" }
+        XCTAssertNotNil(
+            fixtureDiaper,
+            "The captured Pañal text region, to the right of its glyph column, should be recognized."
+        )
+        let fixtureLabelBox = try XCTUnwrap(fixtureDiaper).box
+        let fixtureLabelFrame = CGRect(
+            x: fixtureAppFrame.minX + fixtureLabelBox.minX * fixtureAppFrame.width,
+            y: fixtureAppFrame.minY + (1 - fixtureLabelBox.maxY) * fixtureAppFrame.height,
+            width: fixtureLabelBox.width * fixtureAppFrame.width,
+            height: fixtureLabelBox.height * fixtureAppFrame.height
+        )
+        XCTAssertGreaterThanOrEqual(
+            fixtureLabelFrame.minX,
+            fixtureIconColumnMaxX + 2,
+            "The fixture OCR box should begin beyond the glyph column, allowing two points of tolerance."
+        )
+        XCTAssertGreaterThanOrEqual(fixtureLabelFrame.minY, fixtureDiaperRow.minY - 2)
+        XCTAssertLessThanOrEqual(fixtureLabelFrame.maxY, fixtureDiaperRow.maxY + 2)
+        XCTAssertLessThanOrEqual(fixtureLabelFrame.maxX, fixtureDiaperRow.maxX + 2)
+
         launch(scenario: "today", appearance: "light")
         assertRenderedAppearance(.light)
 
@@ -55,13 +90,34 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(sleepIcon.waitForExistence(timeout: 3), "The Sueño row should expose its image glyph.")
         XCTAssertTrue(feedIcon.waitForExistence(timeout: 3), "The Toma row should expose its image glyph.")
 
+        let commonIconColumn = sleepIcon.frame.union(feedIcon.frame)
+        let appFrame = app.frame
+        let sleepRegion = menuTextRegion(
+            rowFrame: sleepRow.frame,
+            iconColumnMaxX: commonIconColumn.maxX,
+            appFrame: appFrame
+        )
+        let feedRegion = menuTextRegion(
+            rowFrame: feedRow.frame,
+            iconColumnMaxX: commonIconColumn.maxX,
+            appFrame: appFrame
+        )
+        let diaperRegion = menuTextRegion(
+            rowFrame: diaperRow.frame,
+            iconColumnMaxX: commonIconColumn.maxX,
+            appFrame: appFrame
+        )
         let deadline = Date().addingTimeInterval(5)
         var screenshotImage = app.screenshot().image
-        var menuLines: [(text: String, box: CGRect)] = []
+        var sleepLines: [(text: String, box: CGRect)] = []
+        var feedLines: [(text: String, box: CGRect)] = []
+        var diaperLines: [(text: String, box: CGRect)] = []
         while Date() < deadline {
             screenshotImage = app.screenshot().image
-            menuLines = try recognizedMenuLines(in: screenshotImage)
-            if menuLines.contains(where: { normalizedMenuText($0.text) == "panal" }) { break }
+            sleepLines = try recognizedMenuLines(in: screenshotImage, regionOfInterest: sleepRegion)
+            feedLines = try recognizedMenuLines(in: screenshotImage, regionOfInterest: feedRegion)
+            diaperLines = try recognizedMenuLines(in: screenshotImage, regionOfInterest: diaperRegion)
+            if diaperLines.contains(where: { normalizedMenuText($0.text) == "panal" }) { break }
             RunLoop.current.run(until: Date().addingTimeInterval(0.15))
         }
 
@@ -74,10 +130,10 @@ final class NidoUITests: XCTestCase {
         hierarchy.lifetime = .keepAlways
         add(hierarchy)
 
-        let diaper = menuLines.first { normalizedMenuText($0.text) == "panal" }
+        let diaper = diaperLines.first { normalizedMenuText($0.text) == "panal" }
         XCTAssertNotNil(diaper, "The open registration menu should visibly render the Pañal action.")
-        let sleep = menuLines.first { normalizedMenuText($0.text) == "sueno" }
-        let feed = menuLines.first { normalizedMenuText($0.text) == "toma" }
+        let sleep = sleepLines.first { normalizedMenuText($0.text) == "sueno" }
+        let feed = feedLines.first { normalizedMenuText($0.text) == "toma" }
         XCTAssertNotNil(sleep, "The menu screenshot should contain the Sueño reference row.")
         XCTAssertNotNil(feed, "The menu screenshot should contain the Toma reference row.")
         let diaperLabel = try XCTUnwrap(diaper)
@@ -86,12 +142,10 @@ final class NidoUITests: XCTestCase {
             XCTAssertLessThanOrEqual(pair.0.maxY, pair.1.minY, "Menu actions should occupy distinct, non-overlapping rows.")
         }
 
-        let commonIconColumn = sleepIcon.frame.union(feedIcon.frame)
         let glyphHeight = max(sleepIcon.frame.height, feedIcon.frame.height)
         XCTAssertGreaterThan(glyphHeight, 0)
         XCTAssertGreaterThan(commonIconColumn.width, 0)
 
-        let appFrame = app.frame
         let diaperOCRLabelLeft = appFrame.minX + diaperLabel.box.minX * appFrame.width
         XCTAssertLessThanOrEqual(
             commonIconColumn.maxX,
@@ -156,15 +210,49 @@ final class NidoUITests: XCTestCase {
         )
     }
 
-    private func recognizedMenuLines(in image: UIImage) throws -> [(text: String, box: CGRect)] {
+    private func recognizedMenuLines(
+        in image: UIImage,
+        regionOfInterest: CGRect? = nil
+    ) throws -> [(text: String, box: CGRect)] {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["es-ES"]
+        if let regionOfInterest {
+            request.regionOfInterest = regionOfInterest
+        }
         try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
         return (request.results ?? []).compactMap { observation in
             guard let candidate = observation.topCandidates(1).first else { return nil }
-            return (candidate.string, observation.boundingBox)
+            let imageBox: CGRect
+            if let regionOfInterest {
+                imageBox = CGRect(
+                    x: regionOfInterest.minX + observation.boundingBox.minX * regionOfInterest.width,
+                    y: regionOfInterest.minY + observation.boundingBox.minY * regionOfInterest.height,
+                    width: observation.boundingBox.width * regionOfInterest.width,
+                    height: observation.boundingBox.height * regionOfInterest.height
+                )
+            } else {
+                imageBox = observation.boundingBox
+            }
+            return (candidate.string, imageBox)
         }
+    }
+
+    private func menuTextRegion(
+        rowFrame: CGRect,
+        iconColumnMaxX: CGFloat,
+        appFrame: CGRect
+    ) -> CGRect {
+        let right = min(rowFrame.maxX, appFrame.maxX)
+        let left = min(max(iconColumnMaxX + 6, appFrame.minX), right)
+        let top = max(rowFrame.minY, appFrame.minY)
+        let bottom = min(rowFrame.maxY, appFrame.maxY)
+        return CGRect(
+            x: (left - appFrame.minX) / appFrame.width,
+            y: (appFrame.maxY - bottom) / appFrame.height,
+            width: (right - left) / appFrame.width,
+            height: (bottom - top) / appFrame.height
+        )
     }
 
     private func normalizedMenuText(_ text: String) -> String {
@@ -250,7 +338,7 @@ final class NidoUITests: XCTestCase {
     func testOwnerAccountActionsRequireDestructiveConfirmationAndSignOutReturnsToAppleIdentity() {
         launch(scenario: "caregiver-removal")
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let deleteAccount = app.buttons["Eliminar mi cuenta"]
         for _ in 0..<6 where !deleteAccount.exists { app.swipeUp() }
         XCTAssertTrue(deleteAccount.waitForExistence(timeout: 3))
@@ -273,7 +361,7 @@ final class NidoUITests: XCTestCase {
     func testRestoreConfirmationOffersCancel() {
         launch(scenario: "quick-diaper-registration")
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let prepareBackup = app.buttons["Preparar copia de seguridad"]
         for _ in 0..<6 where !prepareBackup.exists { app.swipeUp() }
         XCTAssertTrue(prepareBackup.waitForExistence(timeout: 5))
@@ -320,7 +408,7 @@ final class NidoUITests: XCTestCase {
             )
             XCTAssertEqual(XCTWaiter.wait(for: [pickerDismissed], timeout: 5), .completed)
         }
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 5))
         let latestDiaper = app.buttons["history-entry-ui-test-latest-diaper"]
         bringHistoryElementIntoView(latestDiaper)
@@ -410,7 +498,7 @@ final class NidoUITests: XCTestCase {
             object: quickDiaper
         )
         await fulfillment(of: [quickRegistrationDismissed], timeout: 5)
-        let history = app.tabBars.buttons["Historia"]
+        let history = app.floatingNavigationTabButtons["Historia"]
         let historyHittable = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == true AND hittable == true"),
             object: history
@@ -496,7 +584,7 @@ final class NidoUITests: XCTestCase {
         let heading = app.staticTexts["timeline-day-heading"]
         XCTAssertTrue(heading.waitForExistence(timeout: 12))
         XCTAssertTrue(heading.label.contains("History Baby"))
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 5))
         app.buttons["history-day-picker"].tap()
         XCTAssertTrue(app.navigationBars["Elegir día"].waitForExistence(timeout: 3))
@@ -712,7 +800,7 @@ final class NidoUITests: XCTestCase {
 
         launch(scenario: "caregiver-permissions", accessToken: caregiverToken)
         XCTAssertTrue(app.staticTexts["Hoy con UI Baby"].waitForExistence(timeout: 8))
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let profileButton = app.buttons["settings-profile-button"]
         XCTAssertTrue(profileButton.waitForExistence(timeout: 5))
         XCTAssertFalse(profileButton.isEnabled)
@@ -732,7 +820,7 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(restoreBackup.exists)
         XCTAssertTrue(app.buttons["Preparar copia de seguridad"].exists)
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 5))
         let ownerEntry = app.buttons["history-entry-\(entryID)"]
         bringHistoryElementIntoView(ownerEntry)
@@ -780,7 +868,7 @@ final class NidoUITests: XCTestCase {
         try await Task.sleep(for: .seconds(4))
         XCTAssertTrue(sessionRevocationNotice.exists, "The reauthentication explanation must remain visible long enough to read.")
         XCTAssertFalse(app.textFields["XXXX-XXXX-XXXX"].exists)
-        XCTAssertFalse(app.tabBars.buttons["Historia"].exists)
+        XCTAssertFalse(app.floatingNavigationTabButtons["Historia"].exists)
         XCTAssertEqual(owner["role"] as? String, "owner")
     }
 
@@ -797,7 +885,7 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         app.terminate()
 
         fixture.setAvailable(false)
@@ -807,18 +895,18 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10), "Cached household should remain available offline.")
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10), "Cached household should remain available offline.")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let historyOfflineStatus = app.staticTexts["history-offline-status"]
         XCTAssertTrue(historyOfflineStatus.waitForExistence(timeout: 3), "History should disclose that its cached entries may be incomplete while offline.")
         XCTAssertTrue(historyOfflineStatus.isHittable)
         let offlineEmptyMessage = app.staticTexts["Sin registros guardados este día"]
         bringHistoryElementIntoView(offlineEmptyMessage)
         XCTAssertTrue(offlineEmptyMessage.isHittable, "History should distinguish an empty local cache from a confirmed empty day.")
-        app.tabBars.buttons["Hoy"].tap()
+        app.floatingNavigationTabButtons["Hoy"].tap()
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         XCTAssertTrue(app.staticTexts["Sin conexión"].waitForExistence(timeout: 3))
 
         app.buttons["registration-action-button"].tap()
@@ -827,7 +915,7 @@ final class NidoUITests: XCTestCase {
         XCTAssertTrue(diaperChoice.waitForExistence(timeout: 3))
         diaperChoice.tap()
         XCTAssertTrue(app.staticTexts["Pañal registrado · Pis"].waitForExistence(timeout: 3))
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         XCTAssertTrue(app.staticTexts["Sin conexión"].waitForExistence(timeout: 3))
         app.terminate()
 
@@ -838,7 +926,7 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         let uploaded = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in fixture.acceptedEntryIDs.count == 1 },
             object: fixture
@@ -848,12 +936,12 @@ final class NidoUITests: XCTestCase {
         XCTAssertEqual(fixture.attemptedEntryIDs, [stableEntryID, stableEntryID])
         XCTAssertEqual(fixture.remoteEntryIDs, [stableEntryID])
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 5))
         let stableEntry = app.buttons["history-entry-\(stableEntryID)"]
         bringHistoryElementIntoView(stableEntry)
         XCTAssertTrue(stableEntry.waitForExistence(timeout: 5))
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         XCTAssertTrue(app.staticTexts["Actualizado"].waitForExistence(timeout: 3))
         app.terminate()
 
@@ -863,7 +951,7 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         XCTAssertEqual(fixture.acceptedEntryIDs, [stableEntryID], "The persisted queue must not POST the same entry twice.")
         XCTAssertEqual(fixture.attemptedEntryIDs, [stableEntryID, stableEntryID])
     }
@@ -881,7 +969,7 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         app.terminate()
 
         fixture.setAvailable(false)
@@ -891,7 +979,7 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         app.buttons["registration-action-button"].tap()
         app.buttons["Registrar pañal"].tap()
         let diaperChoice = app.buttons["Registrar pañal · Pis"]
@@ -908,13 +996,13 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         let stableEntryID = try XCTUnwrap(fixture.acceptedEntryIDs.first)
         XCTAssertEqual(fixture.acceptedEntryIDs, [stableEntryID])
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         XCTAssertTrue(app.staticTexts["Sin conexión"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 5))
         let stableEntry = app.buttons["history-entry-\(stableEntryID)"]
         bringHistoryElementIntoView(stableEntry)
@@ -930,7 +1018,7 @@ final class NidoUITests: XCTestCase {
             runID: runID,
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         XCTAssertEqual(fixture.acceptedEntryIDs, [stableEntryID], "A durable acknowledgement must prevent a duplicate POST after relaunch.")
         XCTAssertEqual(fixture.attemptedEntryIDs, [stableEntryID, stableEntryID])
     }
@@ -945,7 +1033,7 @@ final class NidoUITests: XCTestCase {
             accessToken: "offline-sync-test-token",
             apiBaseURL: fixture.baseURL
         )
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
         let sleepCard = app.descendants(matching: .any)["sleep-status-card"]
         XCTAssertTrue(sleepCard.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["sleep-status-card"].exists, "The other caregiver has not started sleep yet.")
@@ -974,11 +1062,11 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "ready")
 
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.tabBars.buttons["Historia"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Ritmos"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Ajustes"].exists)
+        XCTAssertTrue(app.floatingNavigationTabButtons["Historia"].exists)
+        XCTAssertTrue(app.floatingNavigationTabButtons["Evolución"].exists)
+        XCTAssertTrue(app.floatingNavigationTabButtons["Ajustes"].exists)
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 2))
     }
 
@@ -986,12 +1074,12 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "ready")
 
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].exists)
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].exists)
 
         try await Task.sleep(for: .seconds(48))
 
         XCTAssertTrue(app.staticTexts["Hoy con Marco"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].exists)
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].exists)
         XCTAssertFalse(app.staticTexts["El cuidado familiar, en privado."].exists)
     }
 
@@ -1023,6 +1111,14 @@ final class NidoUITests: XCTestCase {
             try scrollEmptyActivityMessageIntoViewportForAudit()
         }
         try auditTodayWithoutSuppressingFindings()
+    }
+
+    func testFloatingNavigationTabLabelsMeetRenderedContrastInLightAppearance() throws {
+        try assertFloatingNavigationTabLabelContrast(appearance: "light", dark: false)
+    }
+
+    func testFloatingNavigationTabLabelsMeetRenderedContrastInDarkAppearance() throws {
+        try assertFloatingNavigationTabLabelContrast(appearance: "dark", dark: true)
     }
 
     func testTodayDateLeavesAccessibilityTreeWhenScrolledOutOfView() throws {
@@ -1214,11 +1310,11 @@ final class NidoUITests: XCTestCase {
         let largeScrollView = app.scrollViews.firstMatch
         XCTAssertTrue(largeCaption.waitForExistence(timeout: 3))
         XCTAssertTrue(largeScrollView.waitForExistence(timeout: 3))
-        for _ in 0..<8 where !largeCaption.isHittable { largeScrollView.swipeUp() }
+        scrollElementIntoViewport(largeCaption, in: largeScrollView, maximumSwipes: 8)
         XCTAssertTrue(largeCaption.isHittable, "The Large-size activity caption must be reachable by scrolling.")
         let largeCaptionFrame = largeCaption.frame
         XCTAssertTrue(
-            largeScrollView.frame.contains(largeCaptionFrame),
+            visibleScrollViewport(in: largeScrollView).contains(largeCaptionFrame),
             "The Large-size activity caption must fit inside the scroll viewport."
         )
         print("NIDO_ACTIVITY_CAPTION_DYNAMIC_TYPE: category=Large frame=\(largeCaptionFrame)")
@@ -1236,7 +1332,10 @@ final class NidoUITests: XCTestCase {
         let accessibilityScrollView = app.scrollViews.firstMatch
         XCTAssertTrue(accessibilityScrollView.waitForExistence(timeout: 3))
         for _ in 0..<8 where !app.staticTexts["Actividad del día"].exists {
-            accessibilityScrollView.swipeUp()
+            dragScrollViewUpWithinVisibleViewport(
+                accessibilityScrollView,
+                viewport: visibleScrollViewport(in: accessibilityScrollView)
+            )
         }
         let accessibilityCaption = app.staticTexts["Actividad del día"]
         XCTAssertTrue(accessibilityCaption.waitForExistence(timeout: 3))
@@ -1265,7 +1364,7 @@ final class NidoUITests: XCTestCase {
 
     func testSettingsInviteActionScalesAndRemainsReachableAtAccessibilityXXXL() {
         launch(scenario: "caregiver-removal", contentSizeCategory: "UICTContentSizeCategoryLarge")
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
 
         let largeAction = app.buttons["settings-invite-caregiver"]
         let largeScrollView = app.collectionViews["settings-list"]
@@ -1294,7 +1393,7 @@ final class NidoUITests: XCTestCase {
             scenario: "caregiver-removal",
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
         )
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
 
         let accessibilityAction = app.buttons["settings-invite-caregiver"]
         let accessibilityScrollView = app.collectionViews["settings-list"]
@@ -1345,12 +1444,12 @@ final class NidoUITests: XCTestCase {
         add(accessibilityAttachment)
     }
 
-    private func scrollElementIntoViewport(_ element: XCUIElement, in scrollView: XCUIElement) {
-        for _ in 0..<12 {
+    private func scrollElementIntoViewport(_ element: XCUIElement, in scrollView: XCUIElement, maximumSwipes: Int = 12) {
+        for _ in 0..<maximumSwipes {
             let viewport = visibleScrollViewport(in: scrollView)
             if element.exists && viewport.contains(element.frame) { return }
             guard element.exists else {
-                scrollView.swipeUp()
+                dragScrollViewUpWithinVisibleViewport(scrollView, viewport: viewport)
                 continue
             }
 
@@ -1359,11 +1458,16 @@ final class NidoUITests: XCTestCase {
                 ? frame.minY - viewport.minY
                 : frame.maxY - viewport.maxY
             let fraction = min(0.35, max(0.05, abs(overshoot) / scrollView.frame.height))
-            let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let endY = min(0.95, max(0.05, 0.5 + (overshoot > 0 ? -fraction : fraction)))
+            let startY = (viewport.midY - scrollView.frame.minY) / scrollView.frame.height
+            let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+            let minimumVisibleY = (viewport.minY + 16 - scrollView.frame.minY) / scrollView.frame.height
+            let maximumVisibleY = (viewport.maxY - 16 - scrollView.frame.minY) / scrollView.frame.height
+            let endY = min(maximumVisibleY, max(minimumVisibleY, startY + (overshoot > 0 ? -fraction : fraction)))
             start.press(
                 forDuration: 0.05,
-                thenDragTo: scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+                thenDragTo: scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY)),
+                withVelocity: .slow,
+                thenHoldForDuration: 0.2
             )
         }
 
@@ -1385,16 +1489,32 @@ final class NidoUITests: XCTestCase {
     private func visibleScrollViewport(in scrollView: XCUIElement) -> CGRect {
         let navigationBar = app.navigationBars.firstMatch
         let registrationAction = app.buttons["registration-action-button"]
+        let floatingTabBar = app.floatingNavigationTabBars.firstMatch
         let scrollFrame = scrollView.frame
         let top = navigationBar.exists ? max(scrollFrame.minY, navigationBar.frame.maxY) : scrollFrame.minY
-        let bottom = registrationAction.exists
-            ? min(scrollFrame.maxY, registrationAction.frame.minY)
-            : scrollFrame.maxY
+        let controlBottoms = [
+            registrationAction.exists ? registrationAction.frame.minY : scrollFrame.maxY,
+            floatingTabBar.exists ? floatingTabBar.frame.minY : scrollFrame.maxY,
+        ]
+        let bottom = max(top, min(scrollFrame.maxY, controlBottoms.min() ?? scrollFrame.maxY) - (registrationAction.exists || floatingTabBar.exists ? 12 : 0))
         return CGRect(
             x: scrollFrame.minX,
             y: top,
             width: scrollFrame.width,
             height: max(0, bottom - top)
+        )
+    }
+
+    private func dragScrollViewUpWithinVisibleViewport(_ scrollView: XCUIElement, viewport: CGRect) {
+        let scrollFrame = scrollView.frame
+        let startY = (viewport.maxY - 16 - scrollFrame.minY) / scrollFrame.height
+        let endY = (viewport.minY + 16 - scrollFrame.minY) / scrollFrame.height
+        let start = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.2
         )
     }
 
@@ -1455,7 +1575,7 @@ final class NidoUITests: XCTestCase {
             ("window", app.windows.firstMatch),
             ("scrollView", app.scrollViews.firstMatch),
             ("navigationBar", app.navigationBars.firstMatch),
-            ("tabBar", app.tabBars.firstMatch),
+            ("tabBar", app.floatingNavigationTabBars.firstMatch),
             ("registrationAction", app.buttons["registration-action-button"]),
             ("pageHeading", app.staticTexts["timeline-day-heading"]),
             ("dateHeading", app.staticTexts["timeline-date-heading"]),
@@ -1571,7 +1691,7 @@ final class NidoUITests: XCTestCase {
     func testSettingsShowsBundleVersionBuildAndOptionalGitRevision() {
         launch(scenario: "ready")
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let versionValue = app.staticTexts["app-version-value"]
         for _ in 0..<4 where !versionValue.exists {
             app.swipeUp()
@@ -1587,23 +1707,108 @@ final class NidoUITests: XCTestCase {
     }
 
     func testPrimaryNavigationUsesLabeledTabsAndSeparateRegistrationAction() {
-        launch(scenario: "ready")
+        launch(scenario: "baby-care")
 
-        let tabBar = app.tabBars.firstMatch
+        let tabBar = app.floatingNavigationTabBars.firstMatch
         XCTAssertTrue(tabBar.waitForExistence(timeout: 3))
-        XCTAssertEqual(Set(tabBar.buttons.allElementsBoundByIndex.map(\.label)), ["Hoy", "Historia", "Ritmos", "Ajustes"])
+        XCTAssertEqual(Set(app.floatingNavigationTabButtons.allElementsBoundByIndex.map(\.label)), ["Hoy", "Historia", "Evolución", "Ajustes"])
         let registrationButton = app.buttons["registration-action-button"]
         XCTAssertTrue(registrationButton.exists)
         XCTAssertEqual(registrationButton.label, "Registrar una actividad")
         XCTAssertFalse(tabBar.buttons["registration-action-button"].exists)
         XCTAssertFalse(tabBar.buttons["Registrar una actividad"].exists)
 
-        tabBar.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 2))
         registrationButton.tap()
         XCTAssertTrue(app.buttons["Registrar sueño"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["history-detail-date"].exists)
-        XCTAssertTrue(tabBar.buttons["Historia"].isSelected)
+        XCTAssertTrue(app.floatingNavigationTabButtons["Historia"].isSelected)
+
+        app.staticTexts["history-detail-date"].tap()
+        XCTAssertFalse(app.buttons["Registrar sueño"].exists)
+
+        let navigationBar = app.floatingNavigationTabBars.firstMatch
+        let registrationTop = registrationButton.frame.minY
+        let navigationTop = navigationBar.frame.minY
+        let controlTop = min(registrationTop, navigationTop)
+
+        func scrollToEndAndCapture(
+            tabTitle: String,
+            scrollView: XCUIElement,
+            finalElement: XCUIElement,
+            screenshotName: String
+        ) {
+            let tab = app.floatingNavigationTabButtons[tabTitle]
+            XCTAssertTrue(tab.waitForExistence(timeout: 3))
+            tab.tap()
+            XCTAssertTrue(tab.isSelected)
+            XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+
+            for _ in 0..<12 {
+                if finalElement.exists,
+                   finalElement.isHittable,
+                   finalElement.frame.maxY <= controlTop - 12 {
+                    break
+                }
+let scrollFrame = scrollView.frame
+let visibleBottom = min(scrollFrame.maxY, navigationBar.frame.minY - 16)
+let visibleHeight = visibleBottom - scrollFrame.minY
+XCTAssertGreaterThan(visibleHeight, 100, "The (tabTitle) scroll view must have a usable viewport above the dock.")
+let scrollOrigin = scrollView.coordinate(withNormalizedOffset: .zero)
+let dragStart = scrollOrigin.withOffset(
+CGVector(dx: scrollFrame.width / 2, dy: visibleHeight * 0.75)
+)
+let dragEnd = scrollOrigin.withOffset(
+CGVector(dx: scrollFrame.width / 2, dy: visibleHeight * 0.25)
+)
+                dragStart.press(
+                    forDuration: 0.05,
+thenDragTo: dragEnd,
+                    withVelocity: .slow,
+                    thenHoldForDuration: 0.2
+                )
+            }
+
+            XCTAssertTrue(finalElement.waitForExistence(timeout: 3), "The final (tabTitle) content must exist.")
+            XCTAssertTrue(finalElement.isHittable, "The final (tabTitle) content must remain reachable above the dock.")
+            XCTAssertLessThanOrEqual(
+                finalElement.frame.maxY,
+                controlTop - 12,
+                "The final (tabTitle) content must clear the floating controls by at least 12 points."
+            )
+            print("PRIMARY_NAV_END tab=\(tabTitle) frame=\(finalElement.frame) controlsTop=\(controlTop)")
+
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = screenshotName
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+
+        scrollToEndAndCapture(
+            tabTitle: "Hoy",
+            scrollView: app.scrollViews.containing(.any, identifier: "timeline-day-activity-list").firstMatch,
+            finalElement: app.buttons["timeline-activity-fixture-baby-sleep"],
+            screenshotName: "Hoy end-scroll after dock-origin gesture"
+        )
+        scrollToEndAndCapture(
+            tabTitle: "Historia",
+            scrollView: app.scrollViews["history-detail-scroll"],
+            finalElement: app.buttons["history-entry-fixture-baby-sleep"],
+            screenshotName: "Historia end-scroll after dock-origin gesture"
+        )
+        scrollToEndAndCapture(
+            tabTitle: "Evolución",
+            scrollView: app.scrollViews.firstMatch,
+            finalElement: app.buttons["evolution-all-data"],
+            screenshotName: "Evolución end-scroll after dock-origin gesture"
+        )
+        scrollToEndAndCapture(
+            tabTitle: "Ajustes",
+            scrollView: app.collectionViews["settings-list"],
+            finalElement: app.staticTexts["Nido acompaña el cuidado diario, pero no sustituye el consejo de un profesional sanitario."],
+            screenshotName: "Ajustes end-scroll after dock-origin gesture"
+        )
     }
 
     func testTodayHeaderAndSingleNavigationBarRemainVisible() {
@@ -1611,7 +1816,7 @@ final class NidoUITests: XCTestCase {
         let heading = app.staticTexts["timeline-day-heading"]
         XCTAssertTrue(heading.waitForExistence(timeout: 3))
         XCTAssertTrue(heading.isHittable)
-        XCTAssertEqual(app.tabBars.count, 1, "Only the floating navigation bar should be exposed.")
+        XCTAssertEqual(app.floatingNavigationTabBars.count, 1, "Only the floating navigation bar should be exposed.")
     }
 
     func testDailyGoalRingKeepsASquareCoordinateSpaceAtLargestText() {
@@ -1732,18 +1937,18 @@ final class NidoUITests: XCTestCase {
     func testSeparateRegistrationActionPreservesSelectedTab() {
         launch(scenario: "ready")
 
-        let tabBar = app.tabBars.firstMatch
-        let history = app.tabBars.buttons["Historia"]
+        let tabBar = app.floatingNavigationTabBars.firstMatch
+        let history = app.floatingNavigationTabButtons["Historia"]
         let registrationButton = app.buttons["registration-action-button"]
         XCTAssertTrue(tabBar.waitForExistence(timeout: 3))
         XCTAssertTrue(history.waitForExistence(timeout: 3))
         XCTAssertTrue(registrationButton.waitForExistence(timeout: 3))
         XCTAssertTrue(registrationButton.isHittable)
         XCTAssertEqual(registrationButton.label, "Registrar una actividad")
-        let tabBarButtonLabels = Set(tabBar.buttons.allElementsBoundByIndex.map(\.label))
+        let tabBarButtonLabels = Set(app.floatingNavigationTabButtons.allElementsBoundByIndex.map(\.label))
         XCTAssertEqual(
             tabBarButtonLabels,
-            ["Hoy", "Historia", "Ritmos", "Ajustes"]
+            ["Hoy", "Historia", "Evolución", "Ajustes"]
         )
         XCTAssertFalse(tabBar.buttons["Registrar una actividad"].exists)
 
@@ -1789,7 +1994,7 @@ final class NidoUITests: XCTestCase {
         launch(scenario: "quick-diaper-registration")
 
         let registrationButton = app.buttons["registration-action-button"]
-        let history = app.tabBars.buttons["Historia"]
+        let history = app.floatingNavigationTabButtons["Historia"]
         XCTAssertTrue(registrationButton.waitForExistence(timeout: 3))
         history.tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 3))
@@ -1873,7 +2078,7 @@ final class NidoUITests: XCTestCase {
     func testSemanticEditorsExposeTheStoredActivityFields() {
         launch(scenario: "semantic-edit")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 3))
 
         let feedEntry = app.descendants(matching: .any)["history-entry-ui-test-semantic-feed"]
@@ -1926,12 +2131,19 @@ final class NidoUITests: XCTestCase {
     }
 
     func testActionableUndoRemainsAvailableUntilDismissedOrUsed() {
-        launch(scenario: "undo-notice")
+        launch(
+            scenario: "undo-notice",
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+        )
 
         let undo = app.buttons["Deshacer"]
         XCTAssertTrue(undo.waitForExistence(timeout: 3))
         let registrationButton = app.buttons["registration-action-button"]
         XCTAssertTrue(registrationButton.exists)
+        let noticeScreenshot = XCTAttachment(screenshot: app.screenshot())
+        noticeScreenshot.name = "Undo notice above floating navigation at Accessibility XXXL"
+        noticeScreenshot.lifetime = .keepAlways
+        add(noticeScreenshot)
         XCTAssertLessThan(undo.frame.maxY, registrationButton.frame.minY)
         sleep(6)
         XCTAssertTrue(undo.exists)
@@ -1960,7 +2172,7 @@ final class NidoUITests: XCTestCase {
     func testCaregiverRemovalRequiresExplicitConfirmation() {
         launch(scenario: "caregiver-removal")
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let caregiver = app.collectionViews["settings-list"].cells.containing(
             .staticText,
             identifier: "caregiver-row-ui-test-caregiver-ana"
@@ -2301,7 +2513,7 @@ final class NidoUITests: XCTestCase {
 
         let dial = app.descendants(matching: .any)["today-goal-rings"]
         let registration = app.buttons["registration-action-button"]
-        let tabBar = app.tabBars.firstMatch
+        let tabBar = app.floatingNavigationTabBars.firstMatch
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
         XCTAssertTrue(registration.exists)
         XCTAssertTrue(tabBar.exists)
@@ -2324,7 +2536,7 @@ final class NidoUITests: XCTestCase {
         )
 
         let dial = app.descendants(matching: .any)["today-goal-rings"]
-        let tabBar = app.tabBars.firstMatch
+        let tabBar = app.floatingNavigationTabBars.firstMatch
         XCTAssertTrue(dial.waitForExistence(timeout: 3))
         XCTAssertTrue(tabBar.exists)
         XCTAssertLessThan(dial.frame.minY, tabBar.frame.minY)
@@ -2427,7 +2639,7 @@ final class NidoUITests: XCTestCase {
     func testHistoryFormatsDurationAsHoursAndMinutes() {
         launch(scenario: "timeline-duration")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 2))
         let duration = app.staticTexts.matching(identifier: "1 h 15 min").firstMatch
         bringHistoryElementIntoView(duration)
@@ -2438,7 +2650,7 @@ final class NidoUITests: XCTestCase {
     func testHistoryDayPickerAndDailySummaryControlTheSelectedDay() {
         launch(scenario: "history-calendar")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let dayPicker = app.buttons["history-day-picker"]
         XCTAssertTrue(dayPicker.waitForExistence(timeout: 3))
         XCTAssertTrue(dayPicker.label.contains("viernes, 28 de agosto"))
@@ -2475,7 +2687,7 @@ final class NidoUITests: XCTestCase {
     func testHistoryWeekDaysHaveComfortableTargetsOnCompactIPhone() {
         launch(scenario: "history-calendar")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let strip = app.scrollViews["history-week-strip"]
         XCTAssertTrue(strip.waitForExistence(timeout: 3))
         let dates = app.buttons.matching(NSPredicate(
@@ -2507,7 +2719,7 @@ final class NidoUITests: XCTestCase {
     func testPediatricReportCanBePreparedFromDurationEntry() {
         launch(scenario: "timeline-duration")
 
-        app.tabBars.buttons["Ajustes"].tap()
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let prepareReport = app.buttons["Preparar informe de 30 días"]
         for _ in 0..<3 where !prepareReport.exists {
             app.swipeUp()
@@ -2521,7 +2733,7 @@ final class NidoUITests: XCTestCase {
     func testEditingADiaperUpdatesItsTimelineTime() {
         launch(scenario: "diaper-edit")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let diaperEntry = app.buttons["history-entry-ui-test-diaper"]
         bringHistoryElementIntoView(diaperEntry)
         XCTAssertTrue(app.staticTexts["15:24"].waitForExistence(timeout: 3))
@@ -2589,7 +2801,7 @@ final class NidoUITests: XCTestCase {
         let undo = app.buttons["Deshacer"]
         XCTAssertTrue(undo.exists)
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 2))
         let savedDiaperDetail = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pis y caca'")).firstMatch
         bringHistoryElementIntoView(savedDiaperDetail)
@@ -2625,7 +2837,7 @@ final class NidoUITests: XCTestCase {
 
         XCTAssertTrue(undo.waitForExistence(timeout: 2))
         undo.tap()
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.staticTexts["history-detail-date"].waitForExistence(timeout: 2))
         let originalFeed = app.buttons["history-entry-ui-test-latest-feed"]
         if !scrollHistoryElementIntoView(originalFeed) {
@@ -2721,6 +2933,213 @@ final class NidoUITests: XCTestCase {
         navigationBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(app.pickerWheels.firstMatch.waitForNonExistence(timeout: 2))
         XCTAssertTrue(app.buttons["Guardar"].isHittable)
+    }
+
+    private func assertFloatingNavigationTabLabelContrast(
+        appearance: String,
+        dark: Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        launch(scenario: "ready", appearance: appearance, useSystemDynamicType: true)
+        XCTAssertTrue(app.staticTexts["Hoy con Marco"].waitForExistence(timeout: 5))
+        assertRenderedAppearance(dark ? .dark : .light)
+
+        let tabBar = app.floatingNavigationTabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 5))
+        let expectedTabs: [(id: String, title: String)] = [
+            ("tab-today", "Hoy"),
+            ("tab-history", "Historia"),
+            ("tab-trends", "Evolución"),
+            ("tab-settings", "Ajustes"),
+        ]
+        XCTAssertEqual(
+            Set(app.floatingNavigationTabButtons.allElementsBoundByIndex.map(\.label)),
+            Set(expectedTabs.map(\.title))
+        )
+
+        var failures: [(title: String, ratio: CGFloat, foreground: CGFloat, background: CGFloat, image: UIImage, crop: CGRect)] = []
+        for selected in expectedTabs {
+            let selectedTab = app.buttons[selected.id]
+            XCTAssertTrue(selectedTab.waitForExistence(timeout: 5), "Missing tab button \(selected.id).")
+            XCTAssertTrue(selectedTab.isHittable, "Tab button \(selected.id) must be hittable.")
+            selectedTab.tap()
+            XCTAssertTrue(selectedTab.isSelected, "Tapping \(selected.title) must select it before pixel sampling.")
+            let screenshot = app.screenshot()
+            let image = screenshot.image
+            let windowFrame = app.windows.firstMatch.frame
+            for expected in expectedTabs {
+                let tab = app.buttons[expected.id]
+                XCTAssertTrue(tab.waitForExistence(timeout: 5), "Missing tab button \(expected.id).")
+                XCTAssertTrue(tab.isHittable, "Tab button \(expected.id) must be hittable.")
+                let titleElement = tab.buttons.matching(NSPredicate(format: "label == %@", expected.title)).firstMatch
+                XCTAssertTrue(
+                    titleElement.waitForExistence(timeout: 3),
+                    "Tab \(expected.id) must expose its visible title as a nested accessibility element."
+                )
+                let titleFrame = titleElement.frame
+                let buttonFrame = tab.frame
+                XCTAssertGreaterThan(titleFrame.width, 0, "Tab title \(expected.title) must have a visible frame.")
+                XCTAssertGreaterThan(titleFrame.height, 0, "Tab title \(expected.title) must have a visible frame.")
+                XCTAssertLessThan(
+                    titleFrame.height, buttonFrame.height,
+                    "The nested accessibility element should describe the title only, not the icon and title as one frame."
+                )
+                XCTAssertGreaterThanOrEqual(
+                    titleFrame.minY, buttonFrame.minY + buttonFrame.height * 0.5,
+                    "The nested title frame should lie below the tab icon, in the lower caption region."
+                )
+                XCTAssertTrue(
+                    buttonFrame.insetBy(dx: -1, dy: -1).contains(titleFrame),
+                    "Title \(expected.title) must be inside its tab button: title=\(titleFrame), button=\(buttonFrame)."
+                )
+
+                let measurement = try renderedTabLabelContrast(
+                    image: image,
+                    appFrame: windowFrame,
+                    buttonFrame: buttonFrame,
+                    titleFrame: titleFrame,
+                    dark: dark
+                )
+                print(
+                    "NIDO_FLOATING_TAB_CONTRAST: appearance=\(appearance) selected=\(selected.title) " +
+                    "title=\(expected.title) ratio=\(measurement.ratio) " +
+                    "foregroundL=\(measurement.foreground) backgroundMedianL=\(measurement.background) " +
+                    "titleFrame=\(titleFrame)"
+                )
+                if measurement.ratio < 4.5 {
+                    failures.append((expected.title, measurement.ratio, measurement.foreground, measurement.background, image, measurement.crop))
+                }
+            }
+        }
+
+        guard failures.isEmpty else {
+            let fullScreenshot = XCTAttachment(screenshot: app.screenshot())
+            fullScreenshot.name = "Floating navigation contrast failure (\(appearance)) full screenshot"
+            fullScreenshot.lifetime = .keepAlways
+            add(fullScreenshot)
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "Floating navigation contrast failure (\(appearance)) accessibility hierarchy"
+            tree.lifetime = .keepAlways
+            add(tree)
+            for failure in failures {
+                let full = XCTAttachment(image: failure.image)
+                full.name = "Floating navigation \(failure.title) contrast failure (\(appearance)) source screenshot"
+                full.lifetime = .keepAlways
+                add(full)
+                if let crop = croppedAttachmentImage(failure.image, points: failure.crop, appFrame: app.windows.firstMatch.frame) {
+                    let attachment = XCTAttachment(image: crop)
+                    attachment.name = "Floating navigation \(failure.title) measured label crop (\(appearance))"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
+            }
+            XCTFail(
+                "Rendered tab-title contrast must be at least 4.5:1 in \(appearance): " +
+                failures.map { "\($0.title)=\($0.ratio) (fg \($0.foreground), bg \($0.background))" }.joined(separator: ", "),
+                file: file,
+                line: line
+            )
+            return
+        }
+    }
+
+    private func renderedTabLabelContrast(
+        image: UIImage,
+        appFrame: CGRect,
+        buttonFrame: CGRect,
+        titleFrame: CGRect,
+        dark: Bool
+    ) throws -> (ratio: CGFloat, foreground: CGFloat, background: CGFloat, crop: CGRect) {
+        XCTAssertEqual(image.imageOrientation, .up, "Screenshot pixel coordinates require an upright image.")
+        let source = try XCTUnwrap(image.cgImage)
+        let width = source.width
+        let height = source.height
+        let scaleX = CGFloat(width) / appFrame.width
+        let scaleY = CGFloat(height) / appFrame.height
+
+        func pixelRect(for points: CGRect) -> CGRect {
+            let localX = points.minX - appFrame.minX
+            let localY = points.minY - appFrame.minY
+            let minX = floor(localX * scaleX)
+            let minY = floor(localY * scaleY)
+            let maxX = ceil((localX + points.width) * scaleX)
+            let maxY = ceil((localY + points.height) * scaleY)
+            return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        }
+
+        func luminances(in points: CGRect, pixels: [UInt8]) -> [CGFloat] {
+            let rect = pixelRect(for: points).integral
+            guard rect.width > 0, rect.height > 0,
+                  rect.minX >= 0, rect.minY >= 0,
+                  rect.maxX <= CGFloat(width), rect.maxY <= CGFloat(height) else { return [] }
+            var values: [CGFloat] = []
+            values.reserveCapacity(Int(rect.width * rect.height))
+            for y in Int(rect.minY)..<Int(rect.maxY) {
+                for x in Int(rect.minX)..<Int(rect.maxX) {
+                    let offset = (y * width + x) * 4
+                    func linear(_ byte: UInt8) -> CGFloat {
+                        let channel = CGFloat(byte) / 255
+                        return channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+                    }
+                    let luminance = 0.2126 * linear(pixels[offset]) +
+                        0.7152 * linear(pixels[offset + 1]) +
+                        0.0722 * linear(pixels[offset + 2])
+                    values.append(luminance)
+                }
+            }
+            return values
+        }
+
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let sRGB = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let context = try XCTUnwrap(CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: sRGB,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        // A median from the exact title-only crop is conservative when antialiasing
+        // or glyph coverage contributes foreground pixels. It measures this local
+        // rendered surface, not a worst-case bound for spatially varying glass.
+        var titleSamples = luminances(in: titleFrame, pixels: pixels)
+        guard titleSamples.count > 100 else {
+            XCTFail("Tab title pixel crop must contain enough in-bounds sRGB samples: \(titleSamples.count).")
+            return (0, 0, 0, titleFrame.intersection(appFrame))
+        }
+        titleSamples.sort()
+        let background = titleSamples[titleSamples.count / 2]
+        let foregroundIndex = Int(CGFloat(titleSamples.count - 1) * (dark ? 0.9 : 0.1))
+        let foreground = titleSamples[foregroundIndex]
+        let lighter = max(background, foreground)
+        let darker = min(background, foreground)
+        let ratio = (lighter + 0.05) / (darker + 0.05)
+        let crop = CGRect(
+            x: buttonFrame.minX,
+            y: titleFrame.minY - 4,
+            width: buttonFrame.width,
+            height: titleFrame.height + 8
+        ).intersection(appFrame)
+        return (ratio, foreground, background, crop)
+    }
+
+    private func croppedAttachmentImage(_ image: UIImage, points: CGRect, appFrame: CGRect) -> UIImage? {
+        guard let source = image.cgImage, appFrame.width > 0, appFrame.height > 0 else { return nil }
+        let scaleX = CGFloat(source.width) / appFrame.width
+        let scaleY = CGFloat(source.height) / appFrame.height
+        let pixelRect = CGRect(
+            x: floor((points.minX - appFrame.minX) * scaleX),
+            y: floor((points.minY - appFrame.minY) * scaleY),
+            width: ceil(points.width * scaleX),
+            height: ceil(points.height * scaleY)
+        ).intersection(CGRect(x: 0, y: 0, width: source.width, height: source.height)).integral
+        guard let crop = source.cropping(to: pixelRect), pixelRect.width > 0, pixelRect.height > 0 else { return nil }
+        return UIImage(cgImage: crop, scale: image.scale, orientation: .up)
     }
 
     private func launch(

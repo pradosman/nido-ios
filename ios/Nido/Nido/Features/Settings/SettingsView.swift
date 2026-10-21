@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.floatingNavigationClearance) private var floatingNavigationClearance
     @Environment(NidoDemoSessionCoordinator.self) private var demoCoordinator
     @State private var isInvitingCaregiver = false
     @State private var reportPreparation = ReportPreparation()
@@ -226,6 +227,7 @@ struct SettingsView: View {
                     Text("Nido acompaña el cuidado diario, pero no sustituye el consejo de un profesional sanitario.")
                 }
             }
+            .contentMargins(.bottom, floatingNavigationClearance, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .accessibilityIdentifier("settings-list")
         }

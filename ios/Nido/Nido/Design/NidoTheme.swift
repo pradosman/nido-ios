@@ -114,6 +114,14 @@ enum NidoTheme {
     }
 }
 
+struct MaximumContrastForeground: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+    }
+}
+
 struct PaperBackground: View {
     var body: some View {
         LinearGradient(

@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-19",
+  "method": "WCAG relative luminance from modal core text and local background pixels; antialiasing excluded; screenshots without embedded ICC treated as sRGB",
+  "coordinateUnits": "logical points at 3x screenshot scale",
+  "normal": {
+    "screenshot": "screenshots/today-dark-v7b.png",
+    "sha256": "57b979317837762043e7f9e8fcdc9cfe309bff6a309156ea7eee62031821ed80",
+    "measurements": [
+      {"label": "Hoy", "roi": [24,827,94,845], "ink": [184,222,194], "background": [51,57,52], "ratio": 8.034},
+      {"label": "Historia", "roi": [98,827,167,845], "ink": [184,189,181], "background": [29,30,29], "ratio": 8.748},
+      {"label": "Ritmos", "roi": [171,827,241,845], "ink": [184,189,181], "background": [29,30,29], "ratio": 8.748},
+      {"label": "Ajustes", "roi": [245,827,314,845], "ink": [184,189,181], "background": [29,30,29], "ratio": 8.748}
+    ]
+  },
+  "accessibilityXXXL": {
+    "screenshot": "screenshots/navigation-accessibility-xxxl-dark-v8.png",
+    "sha256": "72d2f378f742b48c405412148ff738af453d36446614492a71e9d776b6262416",
+    "measurements": [
+      {"label": "Hoy", "roi": [50,683,140,726], "ink": [184,222,194], "background": [50,56,52], "ratio": 8.148},
+      {"label": "Historia", "roi": [169,683,313,726], "ink": [184,189,181], "background": [26,27,27], "ratio": 9.029},
+      {"label": "Ritmos", "roi": [29,805,160,846], "ink": [184,189,181], "background": [28,29,29], "ratio": 8.838},
+      {"label": "Ajustes", "roi": [173,805,314,846], "ink": [184,189,181], "background": [28,29,29], "ratio": 8.838}
+    ]
+  },
+  "limits": "These modal ratios describe the listed captures only. They do not establish the worst pixel, every glass background, every selected state, or a passing raw accessibility diagnostic. No app palette change was made."
+}

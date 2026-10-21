@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.floatingNavigationClearance) private var floatingNavigationClearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
@@ -70,6 +71,7 @@ struct TodayView: View {
                     }
                     .padding(.horizontal, 24)
                 }
+                .contentMargins(.bottom, floatingNavigationClearance, for: .scrollContent)
                 .padding(.top, compactHeight ? -12 : 0)
                 .refreshable { await store.refresh() }
             }
@@ -139,7 +141,6 @@ struct TodayView: View {
             onShowAll: { store.showHistory(on: selectedDay) }
         )
         .padding(.top, 20)
-        Color.clear.frame(height: 28)
     }
 
     private func selectedRecord(_ item: CircularTimeline.Item) -> some View {
@@ -250,7 +251,7 @@ struct TodayView: View {
                     } else {
                         Text(isTodaySelected ? selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide)) : "El día de \(profile.babyName)")
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(NidoTheme.ink.opacity(0.9))
+                            .modifier(MaximumContrastForeground())
                             .textCase(.lowercase)
                             .accessibilityIdentifier("timeline-date-heading")
                             .onGeometryChange(for: CGSize.self) { $0.size } action: { dateHeadingSize = $0 }
@@ -468,7 +469,7 @@ struct DayTimelineActivity: View {
                 if items.isEmpty {
                     Label("Sin registros este día", systemImage: "clock")
                         .font(.subheadline)
-                        .foregroundStyle(NidoTheme.ink)
+                        .modifier(MaximumContrastForeground())
                         .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                         .padding(.horizontal, 14)
                 } else {

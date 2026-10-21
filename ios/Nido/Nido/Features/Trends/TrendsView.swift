@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TrendsView: View {
     @Environment(NidoStore.self) private var store
+    @Environment(\.floatingNavigationClearance) private var floatingNavigationClearance
     private var calendar: Calendar { BabyCareMetrics.calendar(for: store.babyCareState) }
 
     private var week: [(date: Date, minutes: Int)] {
@@ -26,7 +27,20 @@ struct TrendsView: View {
         BabyCareReconciliation.mergedMeasurements(state: store.babyCareState, entries: store.entries)
     }
 
+    @ViewBuilder
     var body: some View {
+        #if DEBUG
+        if let scenario = store.evolutionDesignPreviewScenario, scenario.hasPrefix("evolution-design-") {
+            EvolutionDesignPreviewView(scenario: scenario)
+        } else {
+            EvolutionLiveSummaryView()
+        }
+        #else
+        EvolutionLiveSummaryView()
+        #endif
+    }
+
+    private var trendsBody: some View {
         ZStack {
             PaperBackground()
             ScrollView {
@@ -98,8 +112,8 @@ struct TrendsView: View {
                         .frame(minHeight: 44)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 30)
             }
+            .contentMargins(.bottom, floatingNavigationClearance, for: .scrollContent)
         }
         .navigationTitle("Ritmos")
         .navigationBarTitleDisplayMode(.large)

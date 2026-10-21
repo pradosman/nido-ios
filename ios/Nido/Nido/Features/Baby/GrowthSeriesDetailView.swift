@@ -8,19 +8,36 @@ struct GrowthSeriesDetailView: View {
     @Environment(\.calendar) private var environmentCalendar
     @Environment(\.timeZone) private var environmentTimeZone
     @Environment(\.locale) private var locale
+    @Environment(\.floatingNavigationClearance) private var floatingNavigationClearance
 
     let metric: GrowthMetric
+    let source: Source?
+
+    struct Source {
+        let measurements: [GrowthMeasurement]
+        let now: Date
+        let calendar: Calendar
+    }
+
+    init(metric: GrowthMetric, source: Source? = nil) {
+        self.metric = metric
+        self.source = source
+    }
 
     @State private var range: GrowthRange = .sixMonths
     @State private var editingMeasurement: GrowthMeasurement?
     @State private var measurementToDelete: GrowthMeasurement?
 
+    private var isReadOnly: Bool { source != nil }
+    private var now: Date { source?.now ?? store.now }
+
     private var allMeasurements: [GrowthMeasurement] {
-        BabyCareReconciliation.mergedMeasurements(state: store.babyCareState, entries: store.entries)
+        (source?.measurements ?? BabyCareReconciliation.mergedMeasurements(state: store.babyCareState, entries: store.entries))
             .filter { metric.value(in: $0) != nil }
     }
 
     private var familyCalendar: Calendar {
+        if let source { return source.calendar }
         var calendar = BabyCareMetrics.calendar(for: store.babyCareState)
         calendar.locale = locale
         calendar.firstWeekday = environmentCalendar.firstWeekday
@@ -32,25 +49,25 @@ struct GrowthSeriesDetailView: View {
     }
 
     private var chartDateDomain: ClosedRange<Date> {
-        let end = store.now
+        let end = now
         let start = range.startDate(endingAt: end, calendar: familyCalendar) ?? end.addingTimeInterval(-86_400)
         return start...end
     }
 
     private var visibleMeasurements: [GrowthMeasurement] {
-        guard let start = range.startDate(endingAt: store.now, calendar: familyCalendar) else { return allMeasurements }
+        guard let start = range.startDate(endingAt: now, calendar: familyCalendar) else { return allMeasurements }
         return allMeasurements.filter {
             let date = Date(timeIntervalSince1970: Double($0.measuredAt) / 1_000)
-            return date >= start && date <= store.now
+            return date >= start && date <= now
         }
     }
 
     private var latestMeasurement: GrowthMeasurement? { allMeasurements.last }
 
     private var periodDateRangeDescription: String {
-        guard let start = range.startDate(endingAt: store.now, calendar: familyCalendar) else { return "" }
+        guard let start = range.startDate(endingAt: now, calendar: familyCalendar) else { return "" }
         let startLabel = GrowthOverviewView.dateLabel(start, calendar: familyCalendar, locale: locale)
-        let endLabel = GrowthOverviewView.dateLabel(store.now, calendar: familyCalendar, locale: locale)
+        let endLabel = GrowthOverviewView.dateLabel(now, calendar: familyCalendar, locale: locale)
         return "\(startLabel) – \(endLabel)"
     }
 
@@ -62,14 +79,15 @@ struct GrowthSeriesDetailView: View {
                     latest
                     chartCard
                     history
-                    GrowthSyncStatus(store: store)
+                    if !isReadOnly { GrowthSyncStatus(store: store) }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
-                .padding(.bottom, 32)
+                .padding(.bottom, 20)
                 .frame(maxWidth: 620)
                 .frame(maxWidth: .infinity)
             }
+            .contentMargins(.bottom, floatingNavigationClearance, for: .scrollContent)
         }
         .environment(\.calendar, familyCalendar)
         .environment(\.timeZone, familyCalendar.timeZone)
@@ -78,14 +96,16 @@ struct GrowthSeriesDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    editingMeasurement = nil
-                    isAddingMeasurement = true
-                } label: {
-                    Label("Añadir", systemImage: "plus")
+            if !isReadOnly {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        editingMeasurement = nil
+                        isAddingMeasurement = true
+                    } label: {
+                        Label("Añadir", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("growth.add")
                 }
-                .accessibilityIdentifier("growth.add")
             }
         }
         .sheet(isPresented: $isAddingMeasurement) {
@@ -275,10 +295,14 @@ struct GrowthSeriesDetailView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(allMeasurements.reversed()) { measurement in
-                        GrowthRecordRow(measurement: measurement, calendar: familyCalendar) {
-                            editingMeasurement = measurement
-                        } onDelete: {
-                            measurementToDelete = measurement
+                        if isReadOnly {
+                            GrowthReadOnlyRecordRow(measurement: measurement, calendar: familyCalendar)
+                        } else {
+                            GrowthRecordRow(measurement: measurement, calendar: familyCalendar) {
+                                editingMeasurement = measurement
+                            } onDelete: {
+                                measurementToDelete = measurement
+                            }
                         }
                         if measurement.id != allMeasurements.first?.id {
                             Divider().overlay(NidoTheme.separator.opacity(0.55)).padding(.leading, 16)
@@ -303,5 +327,34 @@ struct GrowthSeriesDetailView: View {
 
     private func sampleDate(_ measurement: GrowthMeasurement) -> Date {
         Date(timeIntervalSince1970: Double(measurement.measuredAt) / 1_000)
+    }
+}
+
+private struct GrowthReadOnlyRecordRow: View {
+    let measurement: GrowthMeasurement
+    let calendar: Calendar
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(GrowthOverviewView.dateLabel(for: measurement, calendar: calendar, locale: locale))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(NidoTheme.ink)
+            let values = GrowthMetric.allCases.compactMap { metric in
+                metric.formattedValue(in: measurement).map { "\(metric.title) \($0)" }
+            }
+            Text(values.joined(separator: " · "))
+                .font(.footnote)
+                .foregroundStyle(NidoTheme.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if !measurement.note.isEmpty {
+                Text(measurement.note)
+                    .font(.footnote)
+                    .foregroundStyle(NidoTheme.secondaryInk)
+                    .lineLimit(3)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .padding(.vertical, 14)
     }
 }

@@ -22,7 +22,7 @@ final class SwiftUIImprovementUITests: XCTestCase {
         app.buttons["Cancelar"].tap()
         XCTAssertTrue(app.navigationBars["Pañal"].waitForNonExistence(timeout: 3))
         XCTAssertTrue(app.buttons["registration-action-button"].waitForExistence(timeout: 3))
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.buttons["history-entry-ui-test-latest-diaper"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["history-entry-ui-test-older-diaper"].exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'history-entry-'" )).count, 2)
@@ -98,39 +98,45 @@ final class SwiftUIImprovementUITests: XCTestCase {
         XCTAssertTrue(save.isEnabled)
         save.tap()
         let activitySummary = app.descendants(matching: .any)["timeline-day-activity-list"]
+        XCTAssertTrue(scrollUntilExists(activitySummary), "The saved activity should materialize while scrolling the lazy Today timeline.")
         XCTAssertTrue(activitySummary.waitForExistence(timeout: 5))
+        scrollElementIntoViewport(activitySummary)
         XCTAssertTrue(
             activitySummary.label.contains("3 registros"),
             "Saving both selected choices should increase today's fixture from two to three records."
         )
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "timeline-activity-", "Pis y caca")).firstMatch.exists)
+        let savedActivity = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "timeline-activity-", "Pis y caca")
+        ).firstMatch
+        XCTAssertTrue(savedActivity.exists)
+        scrollElementIntoViewport(savedActivity)
+        XCTAssertTrue(savedActivity.isHittable, "The saved combined diaper record should be reachable in the timeline.")
     }
 
-    func testRhythmMetricValuesRespectLargestAccessibilityTextSize() {
-        launch(scenario: "quick-diaper-registration")
-        app.tabBars.buttons["Ritmos"].tap()
-        let regularNote = app.staticTexts["cambios hoy"]
-        XCTAssertTrue(regularNote.waitForExistence(timeout: 5))
-        scrollElementIntoViewport(regularNote)
-        let regularValue = metricValue(above: regularNote)
+    func testEvolutionMetricValuesRespectLargestAccessibilityTextSize() {
+        launch(scenario: "evolution-design-summary")
+        app.floatingNavigationTabButtons["Evolución"].tap()
+        let regularValue = app.descendants(matching: .any)
+            .matching(identifier: "evolution-value-diapers").firstMatch
         XCTAssertTrue(regularValue.waitForExistence(timeout: 5))
+        scrollElementIntoViewport(regularValue)
         let regularHeight = regularValue.frame.height
 
         app.terminate()
         launch(
-            scenario: "quick-diaper-registration",
+            scenario: "evolution-design-summary",
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
         )
-        app.tabBars.buttons["Ritmos"].tap()
-        let largeNote = app.staticTexts["cambios hoy"]
-        XCTAssertTrue(largeNote.waitForExistence(timeout: 5))
-        scrollElementIntoViewport(largeNote)
-        let largeValue = metricValue(above: largeNote)
-        XCTAssertTrue(largeValue.exists)
+        app.floatingNavigationTabButtons["Evolución"].tap()
+        let largeValue = app.descendants(matching: .any)
+            .matching(identifier: "evolution-value-diapers").firstMatch
+        XCTAssertTrue(largeValue.waitForExistence(timeout: 5))
+        scrollElementIntoViewport(largeValue)
         XCTAssertGreaterThan(
             largeValue.frame.height, regularHeight * 1.2,
-            "The primary count in Ritmos should scale with the accessibility text setting."
+            "The shared Evolution card value should scale with the accessibility text setting."
         )
+        scrollElementIntoViewport(largeValue)
         XCTAssertTrue(largeValue.isHittable, "The full metric value should remain visible and reachable.")
     }
 
@@ -153,28 +159,93 @@ final class SwiftUIImprovementUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
     }
 
-    private func metricValue(above note: XCUIElement) -> XCUIElement {
+    private func metricValue(above note: XCUIElement) -> XCUIElement? {
         let noteFrame = note.frame
         let numbers = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "[0-9]+"))
         let candidates = numbers.allElementsBoundByIndex.filter { value in
             let frame = value.frame
-            return frame.maxY <= noteFrame.minY && frame.intersects(noteFrame.insetBy(dx: -24, dy: -160))
+            let gap = noteFrame.minY - frame.maxY
+            return gap >= 0 && gap <= 40 && abs(frame.minX - noteFrame.minX) <= 18
         }
-        return candidates.min {
-            noteFrame.minY - $0.frame.maxY < noteFrame.minY - $1.frame.maxY
-        } ?? numbers.firstMatch
+        guard candidates.count == 1 else { return nil }
+        return candidates.first
     }
 
-    private func scrollElementIntoViewport(_ element: XCUIElement) {
-        for _ in 0..<6 where !element.isHittable {
-            if app.collectionViews.firstMatch.exists {
-                app.collectionViews.firstMatch.swipeUp()
-            } else if app.scrollViews.firstMatch.exists {
-                app.scrollViews.firstMatch.swipeUp()
+    private func scrollUntilExists(_ element: XCUIElement, attempts: Int = 8) -> Bool {
+        guard let scrollView = primaryScrollView() else { return element.exists }
+        for _ in 0..<attempts {
+            if element.exists { return true }
+            performScroll(in: scrollView, direction: .towardLaterContent)
+        }
+        return element.exists
+    }
+
+    private func scrollElementIntoViewport(_ element: XCUIElement, attempts: Int = 8) {
+        guard let scrollView = primaryScrollView() else { return }
+        for _ in 0..<attempts where !element.isHittable {
+            let visibleFrame = unobscuredViewport(in: scrollView)
+            let elementFrame = element.frame
+            if elementFrame.maxY > visibleFrame.maxY {
+                performScroll(in: scrollView, direction: .towardLaterContent)
+            } else if elementFrame.minY < visibleFrame.minY {
+                performScroll(in: scrollView, direction: .towardEarlierContent)
             } else {
                 return
             }
         }
+    }
+
+    private func primaryScrollView() -> XCUIElement? {
+        let collectionViews = app.collectionViews.allElementsBoundByIndex
+        if let foreground = collectionViews.first(where: { $0.isHittable }) { return foreground }
+        let scrollViews = app.scrollViews.allElementsBoundByIndex
+        if let foreground = scrollViews.first(where: { $0.isHittable }) { return foreground }
+        return collectionViews.first ?? scrollViews.first
+    }
+
+    private enum ScrollDirection {
+        case towardEarlierContent
+        case towardLaterContent
+    }
+
+    private func unobscuredViewport(in scrollView: XCUIElement) -> CGRect {
+        var visibleFrame = scrollView.frame.insetBy(dx: 8, dy: 12)
+        let tabBar = app.otherElements["floating-navigation-tabbar"]
+        let registration = app.buttons["registration-action-button"]
+        let blockers = [tabBar, registration].filter { $0.exists && $0.isHittable }
+        if let top = blockers.map(\.frame.minY).min() {
+            visibleFrame.size.height = max(0, min(visibleFrame.maxY, top - 12) - visibleFrame.minY)
+        }
+        return visibleFrame
+    }
+
+    private func performScroll(in scrollView: XCUIElement, direction: ScrollDirection) {
+        let visibleFrame = unobscuredViewport(in: scrollView)
+        guard visibleFrame.height > 80, scrollView.frame.height > 0 else { return }
+        let startFraction: CGFloat = direction == .towardLaterContent ? 0.76 : 0.24
+        let endFraction: CGFloat = direction == .towardLaterContent ? 0.24 : 0.76
+        func coordinate(at fraction: CGFloat) -> XCUICoordinate {
+            let y = visibleFrame.minY + visibleFrame.height * fraction
+            let normalizedY = (y - scrollView.frame.minY) / scrollView.frame.height
+            return scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: normalizedY))
+        }
+        coordinate(at: startFraction).press(
+            forDuration: 0.15,
+            thenDragTo: coordinate(at: endFraction),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.2
+        )
+    }
+
+    private func attachAccessibilityDiagnostics(named name: String) {
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = name
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "\(name) screenshot"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     private func launch(scenario: String, contentSizeCategory: String = "UICTContentSizeCategoryLarge") {

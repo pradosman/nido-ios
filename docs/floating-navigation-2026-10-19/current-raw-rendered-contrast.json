@@ -1,0 +1,342 @@
+{
+  "date": "2026-10-19",
+  "scope": "Exact final raw Light and Dark diagnostic screenshots; no inference about every scroll background or selected state.",
+  "diagnosticStatus": "Both raw XCTest diagnostics remain Failed; all 10 attributed findings are contrast findings, with no Dynamic Type findings in these runs.",
+  "method": {
+    "colorSpace": "Embedded ICC is converted to sRGB when present; these two PNGs have no embedded ICC and are treated as sRGB.",
+    "coordinateSystem": "ROI [left,top,right,bottom] in UI points from the physical screenshot top-left; multiply by scale=3 and round each edge to obtain PIL crop pixels.",
+    "coreInk": "Most frequent eligible RGB in each label ROI. Light eligibility: max(R,G,B)<155. Dark eligibility: min(R,G,B)>160.",
+    "localBackground": "Most frequent eligible RGB in the same label ROI. Light eligibility: min(R,G,B)>180. Dark eligibility: max(R,G,B)<100.",
+    "contrast": "WCAG relative luminance: sRGB channel c/255; linear=c/12.92 when c<=0.04045, otherwise ((c+0.055)/1.055)^2.4; Y=0.2126R+0.7152G+0.0722B; ratio=(max(Yink,Ybg)+0.05)/(min(Yink,Ybg)+0.05).",
+    "threshold": 4.5,
+    "interpretation": "The minimum across the 10 modal ink/background ratios is 7.060159: no rendered small-text contrast failure is observed for the attributed labels in these exact images. This does not change the XCTest diagnostic outcomes or establish the private cause of their disagreement.",
+    "limitations": [
+      "This uses modal interior ink and modal local background, excluding intermediate antialiasing pixels; it is not a minimum-over-every-pixel proof.",
+      "Material backgrounds can vary with content and scroll position. Other screenshots, states, environments, and all accessibility behaviors are outside this measurement.",
+      "The date-heading finding is outside the glass bar; the disagreement is not established as specific to Liquid Glass.",
+      "PNG files have no embedded ICC; their RGB values are interpreted as sRGB."
+    ]
+  },
+  "captures": [
+    {
+      "appearance": "light",
+      "xcresult": "/tmp/nido-floating-navigation-2026-10-19/full-196-plus2-history-helper-v1/continuation-after-light-v1/light-accessibility-diagnostic.xcresult",
+      "attachmentName": "Today immediately before unfiltered accessibility audit",
+      "image": "/tmp/nido-floating-navigation-2026-10-19/reviewer-final-raw-light/EC87BCD7-B205-4E85-9CA6-C303CDBDFD96.png",
+      "sha256": "367fcc12755a69ec82787a1dd6ea6f4aea18f00c1fb883094e2d00887a7cf5fd",
+      "imagePixels": [
+        1206,
+        2622
+      ],
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "scale": 3,
+      "embeddedICC": false,
+      "reportedContrastFindingCount": 6,
+      "samples": [
+        {
+          "label": "Hoy",
+          "roiPoints": [
+            24,
+            827,
+            94,
+            845
+          ],
+          "roiPixels": [
+            72,
+            2481,
+            282,
+            2535
+          ],
+          "coreInkRGB": [
+            31,
+            56,
+            41
+          ],
+          "coreInkPixelCount": 412,
+          "localBackgroundRGB": [
+            220,
+            225,
+            221
+          ],
+          "localBackgroundPixelCount": 4206,
+          "ratio": 9.575959
+        },
+        {
+          "label": "Historia",
+          "roiPoints": [
+            98,
+            827,
+            167,
+            845
+          ],
+          "roiPixels": [
+            294,
+            2481,
+            501,
+            2535
+          ],
+          "coreInkRGB": [
+            87,
+            87,
+            82
+          ],
+          "coreInkPixelCount": 799,
+          "localBackgroundRGB": [
+            252,
+            252,
+            250
+          ],
+          "localBackgroundPixelCount": 3974,
+          "ratio": 7.073044
+        },
+        {
+          "label": "Ritmos",
+          "roiPoints": [
+            171,
+            827,
+            241,
+            845
+          ],
+          "roiPixels": [
+            513,
+            2481,
+            723,
+            2535
+          ],
+          "coreInkRGB": [
+            87,
+            87,
+            82
+          ],
+          "coreInkPixelCount": 742,
+          "localBackgroundRGB": [
+            252,
+            252,
+            250
+          ],
+          "localBackgroundPixelCount": 3775,
+          "ratio": 7.073044
+        },
+        {
+          "label": "Ajustes",
+          "roiPoints": [
+            245,
+            827,
+            314,
+            845
+          ],
+          "roiPixels": [
+            735,
+            2481,
+            942,
+            2535
+          ],
+          "coreInkRGB": [
+            87,
+            87,
+            82
+          ],
+          "coreInkPixelCount": 731,
+          "localBackgroundRGB": [
+            251,
+            252,
+            250
+          ],
+          "localBackgroundPixelCount": 3262,
+          "ratio": 7.060159
+        },
+        {
+          "label": "fecha",
+          "roiPoints": [
+            24,
+            72,
+            167,
+            90
+          ],
+          "roiPixels": [
+            72,
+            216,
+            501,
+            270
+          ],
+          "coreInkRGB": [
+            52,
+            73,
+            61
+          ],
+          "coreInkPixelCount": 1108,
+          "localBackgroundRGB": [
+            222,
+            221,
+            210
+          ],
+          "localBackgroundPixelCount": 156,
+          "ratio": 7.098885
+        },
+        {
+          "label": "vacio",
+          "roiPoints": [
+            39.33,
+            771.67,
+            207,
+            789.67
+          ],
+          "roiPixels": [
+            118,
+            2315,
+            621,
+            2369
+          ],
+          "coreInkRGB": [
+            33,
+            57,
+            45
+          ],
+          "coreInkPixelCount": 1218,
+          "localBackgroundRGB": [
+            249,
+            249,
+            248
+          ],
+          "localBackgroundPixelCount": 4605,
+          "ratio": 11.810384
+        }
+      ]
+    },
+    {
+      "appearance": "dark",
+      "xcresult": "/tmp/nido-floating-navigation-2026-10-19/full-196-plus2-history-helper-v1/continuation-after-light-v1/dark-accessibility-diagnostic.xcresult",
+      "attachmentName": "Today immediately before unfiltered accessibility audit",
+      "image": "/tmp/nido-floating-navigation-2026-10-19/reviewer-final-raw-dark/53D3C104-C894-446C-BD3B-4C4647AD16CA.png",
+      "sha256": "3dee5532556fcf9eb5d8f7c40aaf34b3d4034ba85e6f363534e2af56e77af9f5",
+      "imagePixels": [
+        1206,
+        2622
+      ],
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "scale": 3,
+      "embeddedICC": false,
+      "reportedContrastFindingCount": 4,
+      "samples": [
+        {
+          "label": "Historia",
+          "roiPoints": [
+            98,
+            827,
+            167,
+            845
+          ],
+          "roiPixels": [
+            294,
+            2481,
+            501,
+            2535
+          ],
+          "coreInkRGB": [
+            184,
+            189,
+            181
+          ],
+          "coreInkPixelCount": 791,
+          "localBackgroundRGB": [
+            23,
+            24,
+            24
+          ],
+          "localBackgroundPixelCount": 9717,
+          "ratio": 9.306601
+        },
+        {
+          "label": "Ritmos",
+          "roiPoints": [
+            171,
+            827,
+            241,
+            845
+          ],
+          "roiPixels": [
+            513,
+            2481,
+            723,
+            2535
+          ],
+          "coreInkRGB": [
+            184,
+            189,
+            181
+          ],
+          "coreInkPixelCount": 738,
+          "localBackgroundRGB": [
+            23,
+            24,
+            24
+          ],
+          "localBackgroundPixelCount": 10015,
+          "ratio": 9.306601
+        },
+        {
+          "label": "Ajustes",
+          "roiPoints": [
+            245,
+            827,
+            314,
+            845
+          ],
+          "roiPixels": [
+            735,
+            2481,
+            942,
+            2535
+          ],
+          "coreInkRGB": [
+            184,
+            189,
+            181
+          ],
+          "coreInkPixelCount": 727,
+          "localBackgroundRGB": [
+            23,
+            24,
+            24
+          ],
+          "localBackgroundPixelCount": 9554,
+          "ratio": 9.306601
+        },
+        {
+          "label": "fecha",
+          "roiPoints": [
+            24,
+            72,
+            167,
+            90
+          ],
+          "roiPixels": [
+            72,
+            216,
+            501,
+            270
+          ],
+          "coreInkRGB": [
+            235,
+            235,
+            235
+          ],
+          "coreInkPixelCount": 1496,
+          "localBackgroundRGB": [
+            58,
+            47,
+            44
+          ],
+          "localBackgroundPixelCount": 438,
+          "ratio": 10.854379
+        }
+      ]
+    }
+  ]
+}

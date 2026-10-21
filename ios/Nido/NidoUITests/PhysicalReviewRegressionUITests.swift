@@ -16,10 +16,10 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
         let headingFrame = heading.frame
         attachScreenshot(named: "Today before tab and registration geometry assertions")
 
-        let tabBar = app.tabBars.firstMatch
+        let tabBar = app.floatingNavigationTabBars.firstMatch
         XCTAssertTrue(tabBar.waitForExistence(timeout: 5))
-        let tabButtons = tabBar.buttons.allElementsBoundByIndex
-        XCTAssertEqual(Set(tabButtons.map(\.label)), ["Hoy", "Historia", "Ritmos", "Ajustes"])
+        let tabButtons = app.floatingNavigationTabButtons.allElementsBoundByIndex
+        XCTAssertEqual(Set(tabButtons.map(\.label)), ["Hoy", "Historia", "Evolución", "Ajustes"])
 
         let registration = app.buttons["registration-action-button"]
         XCTAssertTrue(registration.waitForExistence(timeout: 5))
@@ -68,7 +68,7 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
         let dismissalPoint = CGVector(dx: headingFrame.midX / app.frame.width, dy: headingFrame.midY / app.frame.height)
         print("PHYSICAL_REVIEW_MENU_DISMISS heading=\(headingFrame) point=\(dismissalPoint)")
         app.coordinate(withNormalizedOffset: dismissalPoint).tap()
-        let historyTab = app.tabBars.buttons["Historia"]
+        let historyTab = app.floatingNavigationTabButtons["Historia"]
         XCTAssertTrue(historyTab.waitForExistence(timeout: 5))
         XCTAssertTrue(historyTab.isHittable, "The History tab should be exposed after the menu dismisses.")
         historyTab.tap()
@@ -101,10 +101,25 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
         let sleep = app.textFields["goals-value-sleep"]
         let feeds = app.textFields["goals-value-feed"]
         let diapers = app.textFields["goals-value-diaper"]
-        XCTAssertTrue(sleep.waitForExistence(timeout: 3))
-        XCTAssertEqual(sleep.value as? String, "Sin objetivo")
-        XCTAssertEqual(feeds.value as? String, "Sin objetivo")
-        XCTAssertEqual(diapers.value as? String, "Sin objetivo")
+        let goalFields = [sleep, feeds, diapers]
+        let fieldsReady = goalFields.map { $0.waitForExistence(timeout: 3) }
+        let fieldDiagnostics = goalFields.map { field -> String in
+            let rawValue = field.value
+            let valueType = rawValue.map { String(reflecting: type(of: $0)) } ?? "nil"
+            return "id=\(field.identifier) exists=\(field.exists) placeholder=\(String(reflecting: field.placeholderValue)) rawValue=\(String(reflecting: rawValue)) rawType=\(valueType) frame=\(field.frame)"
+        }.joined(separator: "\n")
+        let goalFieldAttachment = XCTAttachment(string: fieldDiagnostics)
+        goalFieldAttachment.name = "Empty goal text field accessibility contract"
+        goalFieldAttachment.lifetime = .keepAlways
+        add(goalFieldAttachment)
+        print("PHYSICAL_REVIEW_EMPTY_GOAL_FIELDS\n\(fieldDiagnostics)")
+
+        XCTAssertTrue(fieldsReady.allSatisfy { $0 }, "All three empty goal fields should be present before checking their accessibility values.\n\(fieldDiagnostics)")
+        guard fieldsReady.allSatisfy({ $0 }) else { return }
+        for field in goalFields {
+            XCTAssertEqual(field.placeholderValue, "Sin objetivo", "Each empty goal field should expose its localized placeholder.\n\(fieldDiagnostics)")
+            XCTAssertTrue(hasEmptyOrLegacyPlaceholderValue(field.value), "An empty goal field must not contain a nonempty or non-string value.\n\(fieldDiagnostics)")
+        }
 
         sleep.tap()
         sleep.typeText("12")
@@ -120,7 +135,7 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
         XCTAssertEqual(app.buttons["day-goal-summary-diaper"].value as? String, "1, objetivo 6", "The real diaper count must remain visible against its saved goal.")
         attachScreenshot(named: "Today after saving first daily goals")
 
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.buttons["daily-goal-ring-graphic"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["history-detail-date"].value as? String, "2026-10-17")
         XCTAssertEqual(app.buttons["history-summary-diaper"].value as? String, "1, objetivo 6")
@@ -129,7 +144,7 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
 
     func testTodayMarkerStaysOnTodayWhilePreviousDayRemainsSelected() {
         launch(scenario: "history-calendar")
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
 
         let todayButton = app.buttons["history-week-day-2026-08-28"]
         XCTAssertTrue(todayButton.waitForExistence(timeout: 5))
@@ -154,7 +169,7 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
 
     func testRapidConsecutiveWeekSelectionsCommitTheLatestDate() {
         launch(scenario: "history-calendar")
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
 
         let firstDate = app.buttons["history-week-day-2026-08-27"]
         let latestDate = app.buttons["history-week-day-2026-08-26"]
@@ -173,7 +188,7 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
 
     func testShortSlowHorizontalRingDragDoesNotChangeTheSelectedDay() {
         launch(scenario: "history-calendar")
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
 
         let selectedDate = app.staticTexts["history-detail-date"]
         XCTAssertTrue(selectedDate.waitForExistence(timeout: 5))
@@ -216,5 +231,11 @@ final class PhysicalReviewRegressionUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func hasEmptyOrLegacyPlaceholderValue(_ value: Any?) -> Bool {
+        guard let value else { return true }
+        guard let stringValue = value as? String else { return false }
+        return stringValue.isEmpty || stringValue == "Sin objetivo"
     }
 }

@@ -41,6 +41,8 @@ final class NidoStore: RegistrationMutationEventReceiver {
     var notice: String?
     var isOffline = false
     var selectedTab = AppTab.today
+    var isEditingEvolutionPins = false
+    private(set) var evolutionPreferencesRevision = 0
     var historySelectedDay: Date?
     var presentedEntryKind: EntryKind?
     var editingEntry: Entry?
@@ -58,12 +60,15 @@ final class NidoStore: RegistrationMutationEventReceiver {
     private var pendingUpdatedEntryIDs: Set<String> = []
     private var pendingDeletionIDs: Set<String> = []
     private var isSynchronizingSharedSleep = false
+    private(set) var evolutionSleepRevision = 0
+    private(set) var evolutionSessionRevision = 0
     private var sessionGeneration = UUID()
     private var preservesReauthenticationReason = false
     private var sessionCredential: SessionCredential? {
         didSet {
             sessionGeneration = UUID()
             accountDeletionChallenge = nil
+            evolutionSessionRevision &+= 1
         }
     }
     #if DEBUG
@@ -130,6 +135,43 @@ final class NidoStore: RegistrationMutationEventReceiver {
     }
 
     var now: Date { nowProvider() }
+
+    var evolutionPreferenceScope: EvolutionPreferenceScope? {
+        guard accessToken != nil,
+              let caregiver = currentCaregiver,
+              caregiver.status == .active
+        else { return nil }
+        return EvolutionPreferenceScope(caregiverID: caregiver.id, babyID: "primary")
+    }
+
+    var evolutionPinnedPreferences: EvolutionPinnedPreferences {
+        guard let scope = evolutionPreferenceScope else { return EvolutionPinnedPreferences() }
+        return EvolutionPinnedPreferencesStore(defaults: defaults, scope: scope).load()
+    }
+
+    private var hasPendingEvolutionChanges: Bool {
+        !pendingEntryIDs.isEmpty || !pendingUpdatedEntryIDs.isEmpty || !pendingDeletionIDs.isEmpty || babyCareNeedsSync
+    }
+
+    var evolutionSyncRefreshKey: String {
+        "\(phase == .loading)|\(isOffline)|\(hasPendingEvolutionChanges)|\(evolutionSleepRevision)|\(evolutionSessionRevision)|\(currentCaregiver?.id ?? "")"
+    }
+
+    func evolutionSyncStatus(hasRecords: Bool) async -> EvolutionSyncStatus {
+        let hasPendingSleepMutation = (try? await registrationService.hasPendingSleepMutation()) ?? false
+        return EvolutionSyncStatus(
+            isLoading: phase == .loading,
+            hasRecords: hasRecords,
+            isOffline: isOffline,
+            hasPendingChanges: hasPendingEvolutionChanges || hasPendingSleepMutation
+        )
+    }
+
+    func saveEvolutionPinnedPreferences(_ preferences: EvolutionPinnedPreferences) {
+        guard let scope = evolutionPreferenceScope else { return }
+        EvolutionPinnedPreferencesStore(defaults: defaults, scope: scope).save(preferences)
+        evolutionPreferencesRevision &+= 1
+    }
 
     #if DEBUG
     private func logAuthenticationNoticeState(_ event: String) {
@@ -276,9 +318,11 @@ final class NidoStore: RegistrationMutationEventReceiver {
 
     #if DEBUG
     var goalDesignPreviewScenario: String?
+    var evolutionDesignPreviewScenario: String?
 
     func prepareForUITesting(scenario: String) async {
         goalDesignPreviewScenario = scenario.hasPrefix("goal-design-") ? scenario : nil
+        evolutionDesignPreviewScenario = scenario.hasPrefix("evolution-design-") ? scenario : nil
         isIsolatedUITestFixture = true
         phase = .loading
         profile = nil
@@ -294,6 +338,7 @@ final class NidoStore: RegistrationMutationEventReceiver {
         historySelectedDay = nil
         presentedEntryKind = nil
         editingEntry = nil
+        isEditingEvolutionPins = false
         recentlyDeletedEntry = nil
         recentlyCreatedEntry = nil
         isEditingProfile = false
@@ -348,8 +393,16 @@ final class NidoStore: RegistrationMutationEventReceiver {
             return
         }
 
+        if scenario == "evolution-live",
+           ProcessInfo.processInfo.environment["NIDO_UI_TEST_PENDING_PINS_CLEANUP"] == "1" {
+            isEditingEvolutionPins = true
+            clearInMemoryHouseholdData()
+        }
+        let fixtureCaregiverID = scenario == "evolution-live"
+            ? ProcessInfo.processInfo.environment["NIDO_UI_TEST_CAREGIVER_ID"] ?? "ui-test-caregiver"
+            : "ui-test-caregiver"
         let caregiver = Caregiver(
-            id: "ui-test-caregiver",
+            id: fixtureCaregiverID,
             name: "David",
             role: .owner,
             status: .active,
@@ -360,6 +413,43 @@ final class NidoStore: RegistrationMutationEventReceiver {
         profile = Profile(caregiverName: caregiver.name, babyName: "Marco", birthDate: "2026-08-01")
         caregivers = [caregiver]
         currentCaregiver = caregiver
+        if scenario == "evolution-live" {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))!
+            func entry(_ suffix: String, kind: EntryKind, hour: Int, duration: Int? = nil, amount: Int? = nil) -> Entry {
+                Entry(id: "evolution-live-\(suffix)", kind: kind, title: kind.title,
+                      detail: kind == .diaper ? "Pis" : kind == .feed ? "Leche de fórmula" : "",
+                      occurredAt: Int64(yesterday.addingTimeInterval(Double(hour * 3_600)).timeIntervalSince1970 * 1_000),
+                      durationMinutes: duration, amountMl: amount,
+                      caregiverID: caregiver.id, caregiverName: caregiver.name)
+            }
+            entries = [entry("sleep-a", kind: .sleep, hour: 9, duration: 60),
+                       entry("sleep-b", kind: .sleep, hour: 12, duration: 120),
+                       entry("feed-a", kind: .feed, hour: 9, amount: 60),
+                       entry("feed-b", kind: .feed, hour: 12, amount: 90),
+                       entry("diaper-a", kind: .diaper, hour: 10),
+                       entry("diaper-b", kind: .diaper, hour: 13)]
+            if ProcessInfo.processInfo.environment["NIDO_UI_TEST_EVOLUTION_TODAY_FEED"] == "1" {
+                entries.append(Entry(id: "evolution-live-feed-today", kind: .feed, title: EntryKind.feed.title,
+                                     detail: "Leche de fórmula",
+                                     occurredAt: Int64(calendar.startOfDay(for: now).addingTimeInterval(9 * 3_600).timeIntervalSince1970 * 1_000),
+                                     durationMinutes: nil, amountMl: 120,
+                                     caregiverID: caregiver.id, caregiverName: caregiver.name))
+            }
+            babyCareState = BabyCareState(timeZoneID: "Europe/Madrid", measurements: [
+                GrowthMeasurement(id: "evolution-live-growth", measuredAt: Int64(yesterday.timeIntervalSince1970 * 1_000), weightGrams: 5_200, heightMillimeters: 590)
+            ])
+        if ProcessInfo.processInfo.environment["NIDO_UI_TEST_SYNC_STATUS"] == "pending-offline" {
+            isOffline = true
+            babyCareNeedsSync = true
+        }
+        sessionCredential = SessionCredential(accessToken: "local-ui-test-session", expiresAt: .distantFuture, appleUserID: nil)
+            phase = .ready
+            _ = await persist()
+            _ = persistBabyCareCache()
+            return
+        }
         if scenario == "baby-care" || scenario == "baby-care-empty" {
             var familyCalendar = Calendar(identifier: .gregorian)
             familyCalendar.timeZone = TimeZone(identifier: "Europe/Madrid")!
@@ -1426,6 +1516,7 @@ final class NidoStore: RegistrationMutationEventReceiver {
         entries = commit.snapshot.entries.sorted { $0.occurredAt > $1.occurredAt }
         pendingEntryIDs = commit.snapshot.pendingEntryIDs
         activeSleepStartedAt = commit.activeSleepStartedAt
+        evolutionSleepRevision &+= 1
         updateWidgets()
     }
 
@@ -1888,6 +1979,7 @@ final class NidoStore: RegistrationMutationEventReceiver {
         recentlyDeletedEntry = nil
         recentlyCreatedEntry = nil
         editingEntry = nil
+        isEditingEvolutionPins = false
         latestRegistrationOperationID = nil
         inFlightRegistrationEntryIDs.removeAll()
         defaults.removeObject(forKey: caregiverIDKey)

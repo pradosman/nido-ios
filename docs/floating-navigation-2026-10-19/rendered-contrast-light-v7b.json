@@ -1,0 +1,139 @@
+{
+  "date": "2026-10-19",
+  "image": "screenshots/today-before-accessibility-audit-light-v7b.png",
+  "sha256": "dd56b27d46a237e619c2e60b55fe904a424ee1d416db2b44893ef94e704b3ad8",
+  "viewportPoints": [
+    402,
+    874
+  ],
+  "imagePixels": [
+    1206,
+    2622
+  ],
+  "scale": 3,
+  "method": "Convert embedded ICC to sRGB when present. Crop each text region in point coordinates multiplied by scale. Choose most frequent interior ink RGB with every channel <155 and most frequent local background RGB with every channel >180. Compute WCAG relative luminance and (Lbackground+0.05)/(Link+0.05). Antialiased edge colors are not the source ink.",
+  "threshold": 4.5,
+  "limitation": "Representative text/background colors in this single pre-audit Light screenshot; not a minimum across every scrolling glass background or appearance. Native raw contrast findings remain recorded.",
+  "samples": [
+    {
+      "label": "Hoy",
+      "rect": [
+        24,
+        827,
+        94,
+        845
+      ],
+      "ink": [
+        31,
+        56,
+        41
+      ],
+      "background": [
+        220,
+        225,
+        221
+      ],
+      "ratio": 9.58
+    },
+    {
+      "label": "Historia",
+      "rect": [
+        98,
+        827,
+        167,
+        845
+      ],
+      "ink": [
+        87,
+        87,
+        82
+      ],
+      "background": [
+        252,
+        252,
+        250
+      ],
+      "ratio": 7.07
+    },
+    {
+      "label": "Ritmos",
+      "rect": [
+        171,
+        827,
+        241,
+        845
+      ],
+      "ink": [
+        87,
+        87,
+        82
+      ],
+      "background": [
+        252,
+        252,
+        250
+      ],
+      "ratio": 7.07
+    },
+    {
+      "label": "Ajustes",
+      "rect": [
+        245,
+        827,
+        314,
+        845
+      ],
+      "ink": [
+        87,
+        87,
+        82
+      ],
+      "background": [
+        251,
+        252,
+        250
+      ],
+      "ratio": 7.06
+    },
+    {
+      "label": "timeline-date-heading",
+      "rect": [
+        24,
+        72,
+        167,
+        90
+      ],
+      "ink": [
+        52,
+        73,
+        61
+      ],
+      "background": [
+        222,
+        221,
+        210
+      ],
+      "ratio": 7.1
+    },
+    {
+      "label": "Sin registros este día",
+      "rect": [
+        39.33,
+        771.67,
+        207,
+        789.67
+      ],
+      "ink": [
+        33,
+        57,
+        45
+      ],
+      "background": [
+        249,
+        249,
+        248
+      ],
+      "ratio": 11.81
+    }
+  ]
+}

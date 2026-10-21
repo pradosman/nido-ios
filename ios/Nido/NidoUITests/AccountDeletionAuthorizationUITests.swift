@@ -93,8 +93,8 @@ final class AccountDeletionAuthorizationUITests: XCTestCase {
         ]
         app.launch()
 
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Ajustes"].tap()
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let deleteAccount = app.buttons["Eliminar mi cuenta"]
         for _ in 0..<16 where !deleteAccount.isHittable { app.swipeUp() }
         XCTAssertTrue(deleteAccount.waitForExistence(timeout: 5))
@@ -128,8 +128,8 @@ final class AccountDeletionAuthorizationUITests: XCTestCase {
         ]
         app.launch()
 
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Ajustes"].tap()
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let deleteAccount = app.buttons["Eliminar mi cuenta"]
         for _ in 0..<16 where !deleteAccount.isHittable { app.swipeUp() }
         XCTAssertTrue(deleteAccount.waitForExistence(timeout: 5))
@@ -179,8 +179,8 @@ final class AccountDeletionAuthorizationUITests: XCTestCase {
         ]
         app.launch()
 
-        XCTAssertTrue(app.tabBars.buttons["Hoy"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Ajustes"].tap()
+        XCTAssertTrue(app.floatingNavigationTabButtons["Hoy"].waitForExistence(timeout: 10))
+        app.floatingNavigationTabButtons["Ajustes"].tap()
         let deleteAccount = app.buttons["Eliminar mi cuenta"]
         for _ in 0..<16 where !deleteAccount.isHittable { app.swipeUp() }
         XCTAssertTrue(deleteAccount.waitForExistence(timeout: 5))

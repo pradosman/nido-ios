@@ -16,8 +16,8 @@ final class PrivacyLinksUITests: XCTestCase {
         ]
         app.launch()
 
-        XCTAssertTrue(app.tabBars.buttons["Ajustes"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Ajustes"].tap()
+        XCTAssertTrue(app.floatingNavigationTabButtons["Ajustes"].waitForExistence(timeout: 10))
+        app.floatingNavigationTabButtons["Ajustes"].tap()
 
         for (identifier, label) in [
             ("privacy-policy-link", "Política de privacidad"),

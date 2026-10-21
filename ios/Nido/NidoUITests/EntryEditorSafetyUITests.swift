@@ -14,7 +14,7 @@ final class EntryEditorSafetyUITests: XCTestCase {
             "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
         ]
         app.launch()
-        app.tabBars.buttons["Historia"].tap()
+        app.floatingNavigationTabButtons["Historia"].tap()
         let entry = app.descendants(matching: .any)["history-entry-ui-test-semantic-diaper"]
         for _ in 0..<3 where !entry.isHittable { app.swipeUp() }
         XCTAssertTrue(entry.waitForExistence(timeout: 5))

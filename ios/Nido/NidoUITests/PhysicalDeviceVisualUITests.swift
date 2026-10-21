@@ -39,8 +39,8 @@ final class PhysicalDeviceVisualUITests: XCTestCase {
 
         app.terminate()
         launch(scenario: "history-calendar")
-        XCTAssertTrue(app.tabBars.buttons["Historia"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Historia"].tap()
+        XCTAssertTrue(app.floatingNavigationTabButtons["Historia"].waitForExistence(timeout: 10))
+        app.floatingNavigationTabButtons["Historia"].tap()
         XCTAssertTrue(app.buttons["history-day-picker"].waitForExistence(timeout: 5))
         capture("iphone-historia-\(label)")
         app.buttons["history-day-picker"].tap()

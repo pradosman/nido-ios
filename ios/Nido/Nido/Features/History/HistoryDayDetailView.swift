@@ -9,6 +9,7 @@ struct HistoryDayDetailView: View {
     let snapshot: HistoryAnalytics.Snapshot
     let isCommitted: Bool
     let availableRingWidth: CGFloat
+    let bottomClearance: CGFloat
     let readingAnchor: () -> String
     let onReadingAnchorChange: (String) -> Void
 
@@ -31,8 +32,8 @@ struct HistoryDayDetailView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
-                .padding(.bottom, 32)
             }
+            .contentMargins(.bottom, bottomClearance, for: .scrollContent)
             .coordinateSpace(name: "history-detail-scroll")
             .accessibilityIdentifier("history-detail-scroll")
             .onPreferenceChange(HistoryVisibleSectionPreferenceKey.self) { positions in
