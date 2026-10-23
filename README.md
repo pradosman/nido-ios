@@ -2,19 +2,42 @@
 
 Nido es una aplicación nativa para registrar y compartir el cuidado diario del bebé. Permite consultar la actividad, registrar alimentación y sueño, revisar el historial y la evolución, preparar informes y coordinar el cuidado familiar.
 
+## Entrega del Trabajo Fin de Máster
+
+| Recurso | Acceso |
+|---|---|
+| Código fuente (repositorio público) | <https://github.com/pradosman/nido-ios> |
+| Despliegue de la API | <https://nido.momentumia.com/api/nido/status> |
+| Aplicación | Nido 0.1.0 (50) enviada a App Review con publicación automática; mientras tanto se ejecuta desde Xcode (ver [Instalación y ejecución](#instalación-y-ejecución)) |
+| Presentación | [`docs/tfm/presentacion-nido.pdf`](docs/tfm/presentacion-nido.pdf) · [versión editable PowerPoint](docs/tfm/presentacion-nido.pptx) |
+| Vídeo | Pendiente de publicar; guion en [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md) |
+| Usuario y contraseña de prueba | No necesarios: modo **Explorar demostración** (ver [Usuario y contraseña de prueba](#usuario-y-contraseña-de-prueba)) |
+
+## Descripción general
+
+En los primeros meses de vida de un bebé, varias personas (madre, padre, abuelos o cuidadores) necesitan saber cuándo comió por última vez, cuánto ha dormido o cuántos pañales lleva, y el pediatra pregunta por rutinas, peso y talla. Esa información suele repartirse entre notas, mensajes y memoria.
+
+Nido centraliza ese registro en una app nativa para iPhone pensada para usarse con una mano y en pocos segundos. Cada hogar comparte un único perfil del bebé con sus cuidadores autorizados; los registros se guardan primero en el dispositivo y se sincronizan con una API propia cuando hay conexión. Los anillos de objetivos de **Hoy**, la **Historia**, la **Evolución** y el **Crecimiento** convierten los registros en información útil, y los widgets y la Live Activity permiten seguir un sueño en curso sin abrir la app.
+
+El proyecto cubre el ciclo completo de un producto real: app SwiftUI, API TypeScript con PostgreSQL, autenticación con Apple, despliegue en un VPS, cumplimiento de privacidad y envío a la App Store, todo desarrollado con TDD y con evidencias versionadas en [`docs/`](docs/).
+
 ## Funcionalidades principales
 
 | Funcionalidad | Uso |
 |---|---|
-| Hoy | Consulta de actividad del día y acceso al registro de cuidados |
+| Hoy | Anillos de objetivos de sueño, tomas y pañales, actividad del día y acceso al registro de cuidados |
 | Alimentación, sueño, pañales y cuidados | Alta y edición de registros, con seguimiento del sueño en curso |
 | Historia | Consulta por fecha, filtros y detalle de los registros |
-| Evolución | Resúmenes y gráficas a partir de los registros disponibles |
-| Cuidado familiar | Perfil compartido y cuidadores autorizados en el uso con cuentas reales |
-| Informes | Preparación de información para compartir desde la aplicación |
+| Evolución (Ritmos) | Resúmenes, gráficas y métricas fijadas a partir de los registros disponibles |
+| Crecimiento | Historial editable de peso y talla |
+| Widgets y Live Activity | Resumen del día en pantalla de inicio y bloqueo; sueño o toma en curso en la Dynamic Island |
+| Cuidado familiar | Perfil compartido y cuidadores autorizados mediante código de invitación |
+| Sin conexión | Caché local y sincronización automática de los cambios pendientes |
+| Cuenta y privacidad | Iniciar sesión con Apple, borrado de cuenta con revocación en Apple, sin publicidad ni rastreo |
+| Informes | Informe para el pediatra preparado desde la aplicación |
 | Demostración | Recorrido local con datos sintéticos, sin cuenta ni contraseña |
 
-## Probar la aplicación
+## Instalación y ejecución
 
 Necesitas un Mac con Xcode completo compatible con Swift 6 y un simulador de iPhone con iOS 17 o posterior. Clona el repositorio cuando dispongas de acceso, abre [`ios/Nido/Nido.xcodeproj`](ios/Nido/Nido.xcodeproj) en Xcode, selecciona el esquema **Nido** y el simulador, y pulsa **Run**. Las instrucciones de ejecución, firma e instalación están en la [guía de iOS](ios/Nido/README.md).
 
@@ -26,6 +49,17 @@ open ios/Nido/Nido.xcodeproj
 
 En la pantalla de acceso, pulsa **Explorar demostración** para utilizar datos ficticios sin una cuenta ni contraseña. Puedes editar registros, probar los formularios, consultar el historial y preparar informes. **Reiniciar** restaura los datos de ejemplo y **Salir** vuelve al acceso. Las invitaciones de demostración son ficticias y no contactan con personas reales.
 
+### Usuario y contraseña de prueba
+
+Nido no tiene usuario y contraseña propios: el acceso real se hace exclusivamente con **Iniciar sesión con Apple**, que no permite compartir una cuenta de prueba sin exponer un Apple ID personal. Para la corrección no hacen falta credenciales:
+
+| Campo | Valor |
+|---|---|
+| Usuario | No aplica: pulsar **Explorar demostración** |
+| Contraseña | No aplica |
+
+La demostración contiene el hogar ficticio de Lucía y Leo y permite recorrer todas las pantallas. Es el mismo acceso indicado a Apple para App Review.
+
 El uso con una cuenta real utiliza **Iniciar sesión con Apple**. La demostración permite probar la app sin compartir credenciales personales. Los flujos de sincronización entre cuentas reales y los servicios del sistema se comprueban por separado.
 
 La demo no necesita levantar la API ni configurar una base de datos. En Debug sobre simulador, la configuración normal usa una dirección local de protección y no conecta a producción. La conexión real del simulador requiere activar expresamente `NIDO_SIMULATOR_PRODUCTION_OPT_IN=1` en el esquema de ejecución. Ese ajuste no es necesario para usar la demo.
@@ -34,7 +68,7 @@ La demo no necesita levantar la API ni configurar una base de datos. En Debug so
 
 | Componente | Tecnología |
 |---|---|
-| Aplicación para iPhone | Swift y SwiftUI, proyecto Xcode |
+| Aplicación para iPhone | Swift 6 y SwiftUI, WidgetKit y ActivityKit, proyecto Xcode |
 | API | TypeScript y Vinext, ejecutada en Node.js |
 | Persistencia del servidor | PostgreSQL y Drizzle ORM |
 | Autenticación real | Iniciar sesión con Apple y sesiones bearer |
@@ -51,6 +85,15 @@ La demo no necesita levantar la API ni configurar una base de datos. En Debug so
 | [`tests/`](tests/) | Contratos y pruebas automatizadas del servidor |
 | [`deploy/`](deploy/) | Herramientas de operación, copia y restauración |
 | [`docs/`](docs/) | Documentación técnica y evidencias de validación |
+
+## Presentación
+
+- PDF: [`docs/tfm/presentacion-nido.pdf`](docs/tfm/presentacion-nido.pdf)
+- PowerPoint editable, con notas del orador: [`docs/tfm/presentacion-nido.pptx`](docs/tfm/presentacion-nido.pptx)
+
+## Vídeo
+
+Explicación del proyecto con captura de pantalla: **pendiente de publicar**. El guion y el recorrido de la demo están en [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md).
 
 ## Arquitectura del servicio
 
