@@ -1,6 +1,6 @@
 # Backend de objetivos y crecimiento: despliegue del 17 de octubre de 2026
 
-El backend de Nido y las migraciones de sueño activo y cuidado están desplegados y saludables. Se sustituyó únicamente la API de Nido en el VPS verificado 943574. Los otros 17 contenedores, incluido PostgreSQL, conservan sus identidades. No se modificó el envío de App Store.
+El backend de Nido y las migraciones de sueño activo y cuidado están desplegados y saludables. Se sustituyó únicamente la API de Nido en el VPS de producción verificado. Los otros 17 contenedores, incluido PostgreSQL, conservan sus identidades. No se modificó el envío de App Store.
 
 ## Candidato y validación
 
