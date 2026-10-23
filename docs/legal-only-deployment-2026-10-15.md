@@ -70,7 +70,7 @@ Esta documentación no cambia comportamiento ejecutable: no aplica TDD unitario.
 
 ## Preflight para una futura autorización de publicación
 
-VPS verificado por SSH existente: `root@148.230.108.174`. Checkout: `/etc/dokploy/compose/nido-nido-wuwhrr/code`. Proyecto Compose confirmado por las etiquetas del contenedor: `nido-nido-wuwhrr`; servicio: `nido`.
+VPS verificado por SSH existente: `root@<IP-DEL-VPS>` (dirección omitida en la versión pública). Checkout: `/etc/dokploy/compose/nido-nido-wuwhrr/code`. Proyecto Compose confirmado por las etiquetas del contenedor: `nido-nido-wuwhrr`; servicio: `nido`.
 
 Comprobar inmediatamente antes de cualquier escritura:
 
