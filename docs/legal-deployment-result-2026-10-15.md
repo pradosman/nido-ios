@@ -8,7 +8,7 @@ Estado: **publicado y verificado por HTTPS**, tras la autorización «Hazlo» pa
 
 ## Alcance y comprobaciones
 
-Se volvió a comprobar el VPS Hostinger `943574`, `srv943574.hstgr.cloud`, IP `148.230.108.174`. El checkout seguía en `b6a8f58bfcf99c0029e5698652e2dc25f29cf1c7`; su único cambio tracked era `compose.vps.yml`, con SHA-256 `f1eb005f1ced4916425053bde12a3ff8475f1aaa4ad78a1bfb36042fb72cd8b3`.
+Se volvió a comprobar el VPS de producción, `<HOST-DEL-VPS>`, IP `<IP-DEL-VPS>`. El checkout seguía en `b6a8f58bfcf99c0029e5698652e2dc25f29cf1c7`; su único cambio tracked era `compose.vps.yml`, con SHA-256 `f1eb005f1ced4916425053bde12a3ff8475f1aaa4ad78a1bfb36042fb72cd8b3`.
 
 Se aplicó exactamente el [paquete legal validado](legal-only-deployment-2026-10-15.md), parche SHA-256 `35a8b6aa1edfe23803c2f3822b9c8af700e68742ca5ea0c56432257beecb7323`. Los cuatro archivos añadidos coinciden en tamaño y hash con el manifiesto. `git apply --check` y la comprobación de reversión pasaron.
 

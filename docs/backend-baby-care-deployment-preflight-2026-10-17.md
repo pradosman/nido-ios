@@ -4,7 +4,7 @@ Informe de preparación; no acredita por sí solo un despliegue. Root conserva l
 
 ## Producción y fuente de comparación
 
-El informe de borrado del 16 de octubre documenta `root@148.230.108.174`, checkout `/etc/dokploy/compose/nido-nido-wuwhrr/code`, proyecto Compose `nido-nido-wuwhrr`, servicio `nido`. Root revalidó VPS 943574, HEAD remoto `a0433fe90e742dfa81c535eb00fee6137cfd1270`, imagen API `sha256:0c015c53ae385d14f1408017f8c561416d2c67c201c21ab02fa6dc734ace7a87`, Compose personalizado y los otros 17 contenedores. Este agente no ejecutó SSH.
+El informe de borrado del 16 de octubre documenta `root@<IP-DEL-VPS>`, checkout `/etc/dokploy/compose/nido-nido-wuwhrr/code`, proyecto Compose `nido-nido-wuwhrr`, servicio `nido`. Root revalidó el VPS de producción, HEAD remoto `a0433fe90e742dfa81c535eb00fee6137cfd1270`, imagen API `sha256:0c015c53ae385d14f1408017f8c561416d2c67c201c21ab02fa6dc734ace7a87`, Compose personalizado y los otros 17 contenedores. Este agente no ejecutó SSH.
 
 La copia durable `~/.codex/recoveries/nido-20261015/account-git-release-20261016/` tiene el mismo HEAD `a0433fe`. Se comparó por SHA-256 su fuente con el árbol actual. Las rutas de account/entries, auth, Dockerfile, entrypoint, configuración de compilación y locks coinciden. No se debe desplegar el árbol dirty completo ni copiar su Compose encima del remoto.
 

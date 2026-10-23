@@ -33,3 +33,15 @@ test("TFM slides and video script are stored with the code and linked from the R
     assert.ok(readme.includes(`(${path})`), `README does not link ${path}`);
   }
 });
+
+test("public documentation does not disclose the VPS address or provider host", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const pattern = "148\\.230\\.108\\.174|srv943574|hstgr\\.cloud|VPS (Hostinger )?`?943574";
+  let matches = "";
+  try {
+    matches = execFileSync("git", ["grep", "-nIE", pattern, "--", "docs", "README.md"], { encoding: "utf8" });
+  } catch (error) {
+    if (error.status !== 1) throw error;
+  }
+  assert.equal(matches, "", `server identifiers found:\n${matches}`);
+});
