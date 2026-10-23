@@ -1,7 +1,7 @@
 {
   "date": "2026-10-17",
   "status": "deployed-and-healthy",
-  "hostingerVpsId": 943574,
+  "hostingerVpsId": "<ID-DEL-VPS>",
   "service": "nido-nido-wuwhrr/nido",
   "sourceBaseline": "a0433fe90e742dfa81c535eb00fee6137cfd1270",
   "payloadFiles": 10,
