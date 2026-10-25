@@ -65,3 +65,11 @@ test("public repository files do not disclose the VPS address or provider host",
   const root = new URL(process.env.NIDO_TFM_SCAN_ROOT ? `file://${process.env.NIDO_TFM_SCAN_ROOT}/` : "../", import.meta.url);
   assert.deepEqual(serverIdentifiersIn(root, ["docs", "README.md", "tests"]), []);
 });
+
+test("README links the published TFM video", () => {
+  const videoURL = "https://youtu.be/oEe47ZCtwVQ";
+  assert.match(readme, /^\| Vídeo \| .*https:\/\/youtu\.be\/oEe47ZCtwVQ/m, "delivery table does not link the video");
+  const videoSection = readme.split(/^## Vídeo$/m)[1]?.split(/^## /m)[0] ?? "";
+  assert.ok(videoSection.includes(videoURL), "video section does not link the video");
+  assert.doesNotMatch(videoSection, /pendiente de publicar/i);
+});
