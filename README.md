@@ -10,7 +10,7 @@ Nido es una aplicación nativa para registrar y compartir el cuidado diario del 
 | Despliegue de la API | <https://nido.momentumia.com/api/nido/status> |
 | Aplicación | Nido 0.1.0 (50) enviada a App Review con publicación automática; mientras tanto se ejecuta desde Xcode (ver [Instalación y ejecución](#instalación-y-ejecución)) |
 | Presentación | [`docs/tfm/presentacion-nido.pdf`](docs/tfm/presentacion-nido.pdf) · [versión editable PowerPoint](docs/tfm/presentacion-nido.pptx) |
-| Vídeo | Pendiente de publicar; guion en [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md) |
+| Vídeo | <https://youtu.be/oEe47ZCtwVQ> · guion en [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md) |
 | Usuario y contraseña de prueba | No necesarios: modo **Explorar demostración** (ver [Usuario y contraseña de prueba](#usuario-y-contraseña-de-prueba)) |
 
 ## Descripción general
@@ -93,7 +93,9 @@ La demo no necesita levantar la API ni configurar una base de datos. En Debug so
 
 ## Vídeo
 
-Explicación del proyecto con captura de pantalla: **pendiente de publicar**. El guion y el recorrido de la demo están en [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md).
+Explicación del proyecto con captura de pantalla: <https://youtu.be/oEe47ZCtwVQ>
+
+El guion y el recorrido de la demo están en [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md).
 
 ## Arquitectura del servicio
 
